@@ -1,0 +1,37 @@
+name: .NET Core
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build:
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v2
+    - name: Setup .NET Core
+      uses: actions/setup-dotnet@v1
+      with:
+        dotnet-version: 3.1.101
+    - name: Install dependencies
+      run: dotnet restore
+    - name: Build
+      run: dotnet build --configuration Release --no-restore
+    - name: Upload Build Fail Artifacts
+      uses: actions/upload-artifact@v2
+      if: failure()
+      with:
+        name: build-fail-artifact
+        path: ${{ github.workspace }}
+    - name: Test
+      run: dotnet test --no-restore --verbosity normal
+    - name: Upload Test Fail Artifacts
+      uses: actions/upload-artifact@v2
+      if: failure()
+      with:
+        name: test-fail-artifact
+        path: ${{ github.workspace }}
