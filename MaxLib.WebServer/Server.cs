@@ -153,7 +153,7 @@ namespace MaxLib.WebServer
                 : client.Client.RemoteEndPoint.ToString();
             AllSessions.Add(session);
             //listen to connection
-            _ = Task.Run(() => SafeClientStartListen(session));
+            _ = Task.Run(async () => await SafeClientStartListen(session));
         }
 
         protected virtual async Task SafeClientStartListen(HttpSession session)

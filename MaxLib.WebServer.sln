@@ -1,11 +1,15 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio 15
-VisualStudioVersion = 15.0.26124.0
+# Visual Studio Version 16
+VisualStudioVersion = 16.0.30717.126
 MinimumVisualStudioVersion = 15.0.26124.0
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MaxLib.WebServer", "MaxLib.WebServer\MaxLib.WebServer.csproj", "{595DB1BF-246A-4A42-99EB-5DAB7709E21E}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "MaxLib.WebServer", "MaxLib.WebServer\MaxLib.WebServer.csproj", "{595DB1BF-246A-4A42-99EB-5DAB7709E21E}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MaxLib.WebServer.Test", "MaxLib.WebServer.Test\MaxLib.WebServer.Test.csproj", "{60225D92-5742-4BC0-A3A5-206123F2129D}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "MaxLib.WebServer.Test", "MaxLib.WebServer.Test\MaxLib.WebServer.Test.csproj", "{60225D92-5742-4BC0-A3A5-206123F2129D}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MaxLib.WebServer.Example", "example\MaxLib.WebServer.Example\MaxLib.WebServer.Example.csproj", "{6616448A-1AD7-4897-9124-F1560FB12461}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Example", "Example", "{39740782-6F07-470C-92B8-C0A07A5C0DFB}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -15,9 +19,6 @@ Global
 		Release|Any CPU = Release|Any CPU
 		Release|x64 = Release|x64
 		Release|x86 = Release|x86
-	EndGlobalSection
-	GlobalSection(SolutionProperties) = preSolution
-		HideSolutionNode = FALSE
 	EndGlobalSection
 	GlobalSection(ProjectConfigurationPlatforms) = postSolution
 		{595DB1BF-246A-4A42-99EB-5DAB7709E21E}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
@@ -44,5 +45,26 @@ Global
 		{60225D92-5742-4BC0-A3A5-206123F2129D}.Release|x64.Build.0 = Release|Any CPU
 		{60225D92-5742-4BC0-A3A5-206123F2129D}.Release|x86.ActiveCfg = Release|Any CPU
 		{60225D92-5742-4BC0-A3A5-206123F2129D}.Release|x86.Build.0 = Release|Any CPU
+		{6616448A-1AD7-4897-9124-F1560FB12461}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{6616448A-1AD7-4897-9124-F1560FB12461}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{6616448A-1AD7-4897-9124-F1560FB12461}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{6616448A-1AD7-4897-9124-F1560FB12461}.Debug|x64.Build.0 = Debug|Any CPU
+		{6616448A-1AD7-4897-9124-F1560FB12461}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{6616448A-1AD7-4897-9124-F1560FB12461}.Debug|x86.Build.0 = Debug|Any CPU
+		{6616448A-1AD7-4897-9124-F1560FB12461}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{6616448A-1AD7-4897-9124-F1560FB12461}.Release|Any CPU.Build.0 = Release|Any CPU
+		{6616448A-1AD7-4897-9124-F1560FB12461}.Release|x64.ActiveCfg = Release|Any CPU
+		{6616448A-1AD7-4897-9124-F1560FB12461}.Release|x64.Build.0 = Release|Any CPU
+		{6616448A-1AD7-4897-9124-F1560FB12461}.Release|x86.ActiveCfg = Release|Any CPU
+		{6616448A-1AD7-4897-9124-F1560FB12461}.Release|x86.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{6616448A-1AD7-4897-9124-F1560FB12461} = {39740782-6F07-470C-92B8-C0A07A5C0DFB}
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {E8A0EB3B-E5B8-4120-92DD-1C11CEE7017F}
 	EndGlobalSection
 EndGlobal

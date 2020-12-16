@@ -111,7 +111,7 @@ namespace MaxLib.WebServer
                     else
                     {
                         var key = WebServerUtils.DecodeUri(tile.Remove(ind).Trim());
-                        var value = ind + 1 == tile.Length ? "" : tile.Substring(ind + 1);
+                        var value = ind + 1 == tile.Length ? "" : WebServerUtils.DecodeUri(tile[(ind + 1)..]);
                         if (!reqCookie.ContainsKey(key))
                             reqCookie.Add(key, new Cookie(key, value));
                     }
