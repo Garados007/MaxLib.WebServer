@@ -14,7 +14,7 @@ namespace MaxLib.WebServer.Services
         /// Die Headerklasse wird für die weitere Verwendung vorbereitet.
         /// </summary>
         public HttpHeaderPostParser()
-            : base(WebServiceType.PostParseRequest)
+            : base(ServerStage.ParseRequest)
         {
             Importance = WebProgressImportance.VeryHigh;
         }

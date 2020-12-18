@@ -47,7 +47,7 @@ namespace MaxLib.WebServer.Testing
         protected override Task ClientStartListen(HttpConnection connection)
             => Task.CompletedTask;
 
-        public Task Execute(WebProgressTask task, WebServiceType terminationState = WebServiceType.SendResponse)
+        public Task Execute(WebProgressTask task, ServerStage terminationState = ServerStage.FINAL_STAGE)
         {
             _ = task ?? throw new ArgumentNullException(nameof(task));
             return ExecuteTaskChain(task, terminationState);

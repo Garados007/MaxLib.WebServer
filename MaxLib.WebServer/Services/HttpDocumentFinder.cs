@@ -15,7 +15,7 @@ namespace MaxLib.WebServer.Services
         /// WebServiceType.PostParseRequest: Analysiert die Dokumentabfrage und versucht mit den definierten Regeln 
         /// dieses Dokument auf der Festplatte zu finden.
         /// </summary>
-        public HttpDocumentFinder() : base(WebServiceType.PostParseRequest) { }
+        public HttpDocumentFinder() : base(ServerStage.ParseRequest) { }
 
         public class Rule
         {

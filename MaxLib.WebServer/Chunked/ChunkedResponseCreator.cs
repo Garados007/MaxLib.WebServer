@@ -8,7 +8,8 @@ namespace MaxLib.WebServer.Chunked
     {
         public bool OnlyWithLazy { get; private set; }
 
-        public ChunkedResponseCreator(bool onlyWithLazy = false) : base(WebServiceType.PreCreateResponse)
+        public ChunkedResponseCreator(bool onlyWithLazy = false)
+            : base(ServerStage.CreateResponse)
         {
             OnlyWithLazy = onlyWithLazy;
             if (onlyWithLazy) 

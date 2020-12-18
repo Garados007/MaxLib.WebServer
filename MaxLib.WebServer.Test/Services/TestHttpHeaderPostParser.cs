@@ -18,8 +18,8 @@ namespace MaxLib.WebServer.Test.Services
             server.AddWebService(new HttpHeaderPostParser());
             test = new TestTask(server)
             {
-                CurrentState = WebServiceType.PostParseRequest,
-                TerminationState = WebServiceType.PostParseRequest,
+                CurrentStage = ServerStage.ParseRequest,
+                TerminationStage = ServerStage.ParseRequest,
             };
         }
 

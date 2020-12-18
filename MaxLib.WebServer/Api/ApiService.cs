@@ -6,7 +6,7 @@ namespace MaxLib.WebServer.Api
     public abstract class ApiService : WebService
     {
         public ApiService(params string[] endpoint) 
-            : base(WebServiceType.PreCreateDocument)
+            : base(ServerStage.CreateDocument)
         {
             Endpoint = endpoint ?? throw new ArgumentNullException(nameof(endpoint));
         }

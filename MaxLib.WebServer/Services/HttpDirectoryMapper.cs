@@ -16,7 +16,7 @@ namespace MaxLib.WebServer.Services
         /// gefunden wurde.
         /// </summary>
         public HttpDirectoryMapper(bool mapFolderToo)
-            : base(WebServiceType.PreCreateDocument)
+            : base(ServerStage.CreateDocument)
         {
             MapFolderToo = mapFolderToo;
         }

@@ -8,13 +8,13 @@ namespace MaxLib.WebServer
     {
         public WebProgressTask Task { get; private set; }
 
-        public WebServiceType TerminationState { get; set; }
+        public ServerStage TerminationStage { get; set; }
 
         public WebServerTaskCreator()
         {
             Task = new WebProgressTask()
             {
-                CurrentTask = WebServiceType.PreParseRequest,
+                CurrentStage = ServerStage.FIRST_STAGE,
                 Document = new HttpDocument()
                 {
                     RequestHeader = new HttpRequestHeader(),
@@ -28,13 +28,13 @@ namespace MaxLib.WebServer
                 },
                 NetworkStream = new MemoryStream()
             };
-            TerminationState = WebServiceType.SendResponse;
+            TerminationStage = ServerStage.FINAL_STAGE;
         }
 
         public async Task Start(Server server)
         {
             Task.Server = server;
-            await server.ExecuteTaskChain(Task, TerminationState);
+            await server.ExecuteTaskChain(Task, TerminationStage);
             Task.Server = null;
         }
 

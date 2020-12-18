@@ -6,11 +6,11 @@ namespace MaxLib.WebServer
 {
     public class WebServiceGroup
     {
-        public WebServiceType ServiceType { get; private set; }
+        public ServerStage Stage { get; private set; }
 
-        public WebServiceGroup(WebServiceType type)
+        public WebServiceGroup(ServerStage stage)
         {
-            ServiceType = type;
+            Stage = stage;
             Services = new PriorityList<WebProgressImportance, WebService>();
         }
 
@@ -18,17 +18,19 @@ namespace MaxLib.WebServer
         {
             get
             {
-                switch (ServiceType)
+                return Stage switch 
                 {
-                    case WebServiceType.PostCreateDocument: return false;
-                    case WebServiceType.PostCreateResponse: return false;
-                    case WebServiceType.PostParseRequest: return false;
-                    case WebServiceType.PreCreateDocument: return true;
-                    case WebServiceType.PreCreateResponse: return false;
-                    case WebServiceType.PreParseRequest: return true;
-                    case WebServiceType.SendResponse: return true;
-                    default: throw new NotImplementedException("ServiceType: " + ServiceType.ToString() + " is not implemented");
-                }
+                    ServerStage.ReadRequest => true,
+                    ServerStage.ParseRequest => false,
+                    ServerStage.CreateDocument => true,
+                    ServerStage.ProcessDocument => false,
+                    ServerStage.CreateResponse => false,
+                    ServerStage.SendResponse => true,
+                    ServerStage.Cleanup => false,
+                    _ => throw new NotImplementedException(
+                        $"Stage {Stage} is not implemented"
+                    ),
+                };
             }
         }
 
@@ -84,14 +86,14 @@ namespace MaxLib.WebServer
                 {
                     if (task.Connection.NetworkClient != null && !task.Connection.NetworkClient.Connected) return;
                     await service.ProgressTask(task);
-                    task.Document[ServiceType] = true;
+                    task.Document[Stage] = true;
                     if (se) 
                         return;
                     set = true;
                 }
             }
             if (!set) 
-                task.Document[ServiceType] = false;
+                task.Document[Stage] = false;
         }
     }
 }

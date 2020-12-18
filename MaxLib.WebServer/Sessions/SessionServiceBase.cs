@@ -8,7 +8,7 @@ namespace MaxLib.WebServer.Sessions
     public abstract class SessionServiceBase : WebService
     {
         public SessionServiceBase() 
-            : base(WebServiceType.PostParseRequest)
+            : base(ServerStage.ParseRequest)
         {
             Importance = WebProgressImportance.High;
         }

@@ -19,8 +19,8 @@ namespace MaxLib.WebServer.Test.Services
             server.AddWebService(new HttpSender());
             test = new TestTask(server)
             {
-                CurrentState = WebServiceType.SendResponse,
-                TerminationState = WebServiceType.SendResponse,
+                CurrentStage = ServerStage.SendResponse,
+                TerminationStage = ServerStage.SendResponse,
             };
         }
 

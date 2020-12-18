@@ -12,7 +12,7 @@ namespace MaxLib.WebServer
 {
     public class Server
     {
-        public FullDictionary<WebServiceType, WebServiceGroup> WebServiceGroups { get; }
+        public FullDictionary<ServerStage, WebServiceGroup> WebServiceGroups { get; }
 
         public WebServerSettings Settings { get; protected set; }
 
@@ -27,7 +27,7 @@ namespace MaxLib.WebServer
         public Server(WebServerSettings settings)
         {
             Settings = settings;
-            WebServiceGroups = new FullDictionary<WebServiceType, WebServiceGroup>((k) => new WebServiceGroup(k));
+            WebServiceGroups = new FullDictionary<ServerStage, WebServiceGroup>((k) => new WebServiceGroup(k));
             WebServiceGroups.FullEnumKeys();
         }
 
@@ -52,21 +52,21 @@ namespace MaxLib.WebServer
         public virtual void AddWebService(WebService webService)
         {
             _ = webService ?? throw new ArgumentNullException(nameof(webService));
-            WebServiceGroups[webService.ServiceType].Add(webService);
+            WebServiceGroups[webService.Stage].Add(webService);
         }
 
         public virtual bool ContainsWebService(WebService webService)
         {
             if (webService == null) 
                 return false;
-            return WebServiceGroups[webService.ServiceType].Contains(webService);
+            return WebServiceGroups[webService.Stage].Contains(webService);
         }
 
         public virtual void RemoveWebService(WebService webService)
         {
             if (webService == null) 
                 return;
-            WebServiceGroups[webService.ServiceType].Remove(webService);
+            WebServiceGroups[webService.Stage].Remove(webService);
         }
 
         public virtual void Start()
@@ -191,7 +191,7 @@ namespace MaxLib.WebServer
                     return;
                 }
 
-                await ExecuteTaskChain(task, WebServiceType.SendResponse);
+                await ExecuteTaskChain(task);
 
                 if (task.Document.RequestHeader.FieldConnection == HttpConnectionType.KeepAlive)
                 {
@@ -215,18 +215,18 @@ namespace MaxLib.WebServer
             connection.NetworkClient.Close();
         }
 
-        internal protected virtual async Task ExecuteTaskChain(WebProgressTask task, WebServiceType terminationState = WebServiceType.SendResponse)
+        internal protected virtual async Task ExecuteTaskChain(WebProgressTask task, ServerStage terminationState = ServerStage.FINAL_STAGE)
         {
             if (task == null) return;
             while (true)
             {
-                await WebServiceGroups[task.CurrentTask].Execute(task);
-                if (task.CurrentTask == terminationState) 
+                await WebServiceGroups[task.CurrentStage].Execute(task);
+                if (task.CurrentStage == terminationState) 
                     break;
-                task.CurrentTask = task.NextTask;
-                task.NextTask = task.NextTask == WebServiceType.SendResponse
-                    ? WebServiceType.SendResponse
-                    : (WebServiceType)((int)task.NextTask + 1);
+                task.CurrentStage = task.CurrentStage;
+                task.NextStage = task.NextStage == ServerStage.FINAL_STAGE
+                    ? ServerStage.FINAL_STAGE
+                    : (ServerStage)((int)task.NextStage + 1);
             }
         }
 
@@ -242,13 +242,13 @@ namespace MaxLib.WebServer
                 { return null; }
             return new WebProgressTask
             {
-                CurrentTask = WebServiceType.PreParseRequest,
+                CurrentStage = ServerStage.FIRST_STAGE,
+                NextStage = (ServerStage)((int)ServerStage.FIRST_STAGE + 1),
                 Document = new HttpDocument
                 {
                     RequestHeader = new HttpRequestHeader(),
                     ResponseHeader = new HttpResponseHeader(),
                 },
-                NextTask = WebServiceType.PostParseRequest,
                 Server = this,
                 Connection = connection,
                 NetworkStream = stream,

@@ -8,7 +8,7 @@ namespace MaxLib.WebServer.Services
     public class Http404Service : WebService
     {
         public Http404Service() 
-            : base(WebServiceType.PreCreateDocument)
+            : base(ServerStage.CreateDocument)
         {
             Importance = WebProgressImportance.VeryLow;
         }
