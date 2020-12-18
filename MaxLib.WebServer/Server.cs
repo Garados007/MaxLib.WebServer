@@ -42,6 +42,7 @@ namespace MaxLib.WebServer
             //pre create document
             AddWebService(new Services.StandardDocumentLoader());
             AddWebService(new Services.HttpDirectoryMapper(true));
+            AddWebService(new Services.Http404Service());
             //pre create response
             AddWebService(new Services.HttpResponseCreator());
             //send response
