@@ -5,11 +5,11 @@ namespace MaxLib.WebServer
 {
     public abstract class WebService
     {
-        public WebServiceType ServiceType { get; private set; }
+        public ServerStage Stage { get; private set; }
 
-        public WebService(WebServiceType type)
+        public WebService(ServerStage stage)
         {
-            ServiceType = type;
+            Stage = stage;
             Importance = WebProgressImportance.Normal;
         }
 

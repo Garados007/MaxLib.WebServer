@@ -6,9 +6,9 @@ using System.Net.Sockets;
 namespace MaxLib.WebServer
 {
     [Serializable]
-    public class HttpSession
+    public class HttpConnection
     {
-        public byte[] SessionKey { get; set; }
+        public byte[] ConnectionKey { get; set; }
 
         public string Ip { get; set; }
 
@@ -18,7 +18,8 @@ namespace MaxLib.WebServer
 
         public int LastWorkTime { get; set; }
 
-        public Dictionary<object, object> SessionInformation { get; private set; } = new Dictionary<object, object>();
+        public Dictionary<object, object> SessionInformation { get; private set; } 
+            = new Dictionary<object, object>();
 
         public void AlwaysSyncSessionInformation(Dictionary<object, object> information)
             => SessionInformation = information ?? throw new ArgumentNullException(nameof(information));

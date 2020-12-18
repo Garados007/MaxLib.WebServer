@@ -4,3 +4,5 @@ obj
 TestResults
 # vscode files
 .vscode
+# under development
+MaxLib.WebServer.Files

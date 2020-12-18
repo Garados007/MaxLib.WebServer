@@ -19,8 +19,8 @@ namespace MaxLib.WebServer.Test.Services
             server.AddWebService(new HttpHeaderParser());
             test = new TestTask(server)
             {
-                CurrentState = WebServiceType.PreParseRequest,
-                TerminationState = WebServiceType.PreParseRequest
+                CurrentStage = ServerStage.ReadRequest,
+                TerminationStage = ServerStage.ReadRequest,
             };
         }
 

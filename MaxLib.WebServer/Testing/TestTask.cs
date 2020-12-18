@@ -39,13 +39,12 @@ namespace MaxLib.WebServer.Testing
         /// <summary>
         /// Generate a random session and assign it to the task
         /// </summary>
-        public void SetSession()
-            => SetSession(WebServer.CreateRandomSession());
+        public void SetConnection()
+            => SetConnection(WebServer.CreateRandomConnection());
 
-        public void SetSession(HttpSession session)
+        public void SetConnection(HttpConnection connection)
         {
-            Task.Session = session ?? throw new ArgumentNullException(nameof(session));
-            Task.Document.Session = session;
+            Task.Connection = connection ?? throw new ArgumentNullException(nameof(connection));
         }
 
         /// <summary>
@@ -59,15 +58,15 @@ namespace MaxLib.WebServer.Testing
         public void SetInfoObject(object key, object value)
             => Task.Document.Information[key] = value;
 
-        public WebServiceType CurrentState
+        public ServerStage CurrentStage
         {
-            get => Task.CurrentTask;
+            get => Task.CurrentStage;
             set
             {
-                Task.CurrentTask = value;
-                if (value == WebServiceType.SendResponse)
-                    Task.NextTask = value;
-                else Task.NextTask = (WebServiceType)(1 + (int)value);
+                Task.CurrentStage = value;
+                if (value == ServerStage.FINAL_STAGE)
+                    Task.NextStage = value;
+                else Task.NextStage = (ServerStage)(1 + (int)value);
             }
         }
 

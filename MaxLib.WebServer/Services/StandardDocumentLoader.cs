@@ -14,7 +14,7 @@ namespace MaxLib.WebServer.Services
         /// angeforderten Pfad.
         /// </summary>
         public StandardDocumentLoader()
-            : base(WebServiceType.PreCreateDocument)
+            : base(ServerStage.CreateDocument)
         {
             Importance = WebProgressImportance.VeryLow;
             Document = "<html><head><meta charset=\"utf-8\" /></head><body>Kein Dokument gefunden.</body></html>";

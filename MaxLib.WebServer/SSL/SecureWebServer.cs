@@ -76,18 +76,18 @@ namespace MaxLib.WebServer.SSL
                 return;
             }
             //prepare session
-            var session = CreateRandomSession();
-            session.NetworkClient = client;
-            session.Ip = client.Client.RemoteEndPoint is IPEndPoint iPEndPoint
+            var connection = CreateRandomConnection();
+            connection.NetworkClient = client;
+            connection.Ip = client.Client.RemoteEndPoint is IPEndPoint iPEndPoint
                 ? iPEndPoint.Address.ToString()
                 : client.Client.RemoteEndPoint.ToString();
-            AllSessions.Add(session);
+            AllConnections.Add(connection);
             //listen to connection
             _ = Task.Run(async () =>
             {
                 //authentificate as server and establish ssl connection
                 var stream = new SslStream(client.GetStream(), false);
-                session.NetworkStream = stream;
+                connection.NetworkStream = stream;
                 stream.AuthenticateAsServer(
                     serverCertificate:          SecureSettings.Certificate, 
                     clientCertificateRequired:  false, 
@@ -98,11 +98,11 @@ namespace MaxLib.WebServer.SSL
                 {
                     stream.Dispose();
                     client.Close();
-                    AllSessions.Remove(session);
+                    AllConnections.Remove(connection);
                     return;
                 }
 
-                await SafeClientStartListen(session);
+                await SafeClientStartListen(connection);
             });
         }
     }

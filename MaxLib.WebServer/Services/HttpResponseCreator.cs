@@ -12,7 +12,7 @@ namespace MaxLib.WebServer.Services
         /// <summary>
         /// WebServiceType.PreCreateResponse: Erstellt den Response-Header und füllt diesen mit den wichtigsten Daten.
         /// </summary>
-        public HttpResponseCreator() : base(WebServiceType.PreCreateResponse) { }
+        public HttpResponseCreator() : base(ServerStage.CreateResponse) { }
 
         public override async Task ProgressTask(WebProgressTask task)
         {

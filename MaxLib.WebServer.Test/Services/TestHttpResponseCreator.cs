@@ -18,8 +18,8 @@ namespace MaxLib.WebServer.Test.Services
             server.AddWebService(new HttpResponseCreator());
             test = new TestTask(server)
             {
-                CurrentState = WebServiceType.PreCreateResponse,
-                TerminationState = WebServiceType.PreCreateResponse,
+                CurrentStage = ServerStage.CreateResponse,
+                TerminationStage = ServerStage.CreateResponse,
             };
         }
 

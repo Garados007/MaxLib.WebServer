@@ -12,7 +12,7 @@ namespace MaxLib.WebServer
 {
     public class Server
     {
-        public FullDictionary<WebServiceType, WebServiceGroup> WebServiceGroups { get; }
+        public FullDictionary<ServerStage, WebServiceGroup> WebServiceGroups { get; }
 
         public WebServerSettings Settings { get; protected set; }
 
@@ -21,13 +21,13 @@ namespace MaxLib.WebServer
         protected TcpListener Listener;
         protected Thread ServerThread;
         public bool ServerExecution { get; protected set; }
-        public SyncedList<HttpSession> KeepAliveSessions { get; } = new SyncedList<HttpSession>();
-        public SyncedList<HttpSession> AllSessions { get; } = new SyncedList<HttpSession>();
+        public SyncedList<HttpConnection> KeepAliveConnections { get; } = new SyncedList<HttpConnection>();
+        public SyncedList<HttpConnection> AllConnections { get; } = new SyncedList<HttpConnection>();
 
         public Server(WebServerSettings settings)
         {
             Settings = settings;
-            WebServiceGroups = new FullDictionary<WebServiceType, WebServiceGroup>((k) => new WebServiceGroup(k));
+            WebServiceGroups = new FullDictionary<ServerStage, WebServiceGroup>((k) => new WebServiceGroup(k));
             WebServiceGroups.FullEnumKeys();
         }
 
@@ -42,6 +42,7 @@ namespace MaxLib.WebServer
             //pre create document
             AddWebService(new Services.StandardDocumentLoader());
             AddWebService(new Services.HttpDirectoryMapper(true));
+            AddWebService(new Services.Http404Service());
             //pre create response
             AddWebService(new Services.HttpResponseCreator());
             //send response
@@ -51,21 +52,21 @@ namespace MaxLib.WebServer
         public virtual void AddWebService(WebService webService)
         {
             _ = webService ?? throw new ArgumentNullException(nameof(webService));
-            WebServiceGroups[webService.ServiceType].Add(webService);
+            WebServiceGroups[webService.Stage].Add(webService);
         }
 
         public virtual bool ContainsWebService(WebService webService)
         {
             if (webService == null) 
                 return false;
-            return WebServiceGroups[webService.ServiceType].Contains(webService);
+            return WebServiceGroups[webService.Stage].Contains(webService);
         }
 
         public virtual void RemoveWebService(WebService webService)
         {
             if (webService == null) 
                 return;
-            WebServiceGroups[webService.ServiceType].Remove(webService);
+            WebServiceGroups[webService.Stage].Remove(webService);
         }
 
         public virtual void Start()
@@ -104,10 +105,10 @@ namespace MaxLib.WebServer
                     ClientConnected(Listener.AcceptTcpClient());
                 }
                 //request keep alive connections
-                for (int i = 0; i < KeepAliveSessions.Count; ++i)
+                for (int i = 0; i < KeepAliveConnections.Count; ++i)
                 {
-                    HttpSession kas;
-                    try { kas = KeepAliveSessions[i]; }
+                    HttpConnection kas;
+                    try { kas = KeepAliveConnections[i]; }
                     catch { continue; }
                     if (kas == null) continue;
 
@@ -116,8 +117,8 @@ namespace MaxLib.WebServer
                     {
                         kas.NetworkClient.Close();
                         kas.NetworkStream?.Dispose();
-                        AllSessions.Remove(kas);
-                        KeepAliveSessions.Remove(kas);
+                        AllConnections.Remove(kas);
+                        KeepAliveConnections.Remove(kas);
                         --i;
                         continue;
                     }
@@ -136,33 +137,33 @@ namespace MaxLib.WebServer
             }
             watch.Stop();
             Listener.Stop();
-            for (int i = 0; i < AllSessions.Count; ++i) 
-                AllSessions[i].NetworkClient.Close();
-            AllSessions.Clear();
-            KeepAliveSessions.Clear();
+            for (int i = 0; i < AllConnections.Count; ++i) 
+                AllConnections[i].NetworkClient.Close();
+            AllConnections.Clear();
+            KeepAliveConnections.Clear();
             WebServerLog.Add(ServerLogType.Information, GetType(), "StartUp", "Server succesfuly stopped");
         }
 
         protected virtual void ClientConnected(TcpClient client)
         {
             //prepare session
-            var session = CreateRandomSession();
-            session.NetworkClient = client;
-            session.Ip = client.Client.RemoteEndPoint is IPEndPoint iPEndPoint
+            var connection = CreateRandomConnection();
+            connection.NetworkClient = client;
+            connection.Ip = client.Client.RemoteEndPoint is IPEndPoint iPEndPoint
                 ? iPEndPoint.Address.ToString()
                 : client.Client.RemoteEndPoint.ToString();
-            AllSessions.Add(session);
+            AllConnections.Add(connection);
             //listen to connection
-            _ = Task.Run(async () => await SafeClientStartListen(session));
+            _ = Task.Run(async () => await SafeClientStartListen(connection));
         }
 
-        protected virtual async Task SafeClientStartListen(HttpSession session)
+        protected virtual async Task SafeClientStartListen(HttpConnection connection)
         {
             if (Debugger.IsAttached)
-                await ClientStartListen(session);
+                await ClientStartListen(connection);
             else
             {
-                try { await ClientStartListen(session); }
+                try { await ClientStartListen(connection); }
                 catch (Exception e)
                 {
                     WebServerLog.Add(
@@ -174,97 +175,96 @@ namespace MaxLib.WebServer
             }
         }
 
-        protected virtual async Task ClientStartListen(HttpSession session)
+        protected virtual async Task ClientStartListen(HttpConnection connection)
         {
-            session.LastWorkTime = -1;
-            if (session.NetworkClient.Connected)
+            connection.LastWorkTime = -1;
+            if (connection.NetworkClient.Connected)
             {
                 WebServerLog.Add(ServerLogType.Information, GetType(), "Connection", "Listen to Connection {0}", 
-                    session.NetworkClient.Client.RemoteEndPoint);
-                var task = PrepairProgressTask(session);
+                    connection.NetworkClient.Client.RemoteEndPoint);
+                var task = PrepairProgressTask(connection);
                 if (task == null)
                 {
                     WebServerLog.Add(ServerLogType.Information, GetType(), "Connection",
-                        $"Cannot establish data stream to {session.Ip}");
-                    RemoveSession(session);
+                        $"Cannot establish data stream to {connection.Ip}");
+                    RemoveConnection(connection);
                     return;
                 }
 
-                await ExecuteTaskChain(task, WebServiceType.SendResponse);
+                await ExecuteTaskChain(task);
 
                 if (task.Document.RequestHeader.FieldConnection == HttpConnectionType.KeepAlive)
                 {
-                    if (!KeepAliveSessions.Contains(session)) 
-                        KeepAliveSessions.Add(session);
+                    if (!KeepAliveConnections.Contains(connection)) 
+                        KeepAliveConnections.Add(connection);
                 }
-                else RemoveSession(session);
+                else RemoveConnection(connection);
 
-                session.LastWorkTime = Environment.TickCount;
+                connection.LastWorkTime = Environment.TickCount;
                 task.Dispose();
             }
-            else RemoveSession(session);
+            else RemoveConnection(connection);
         }
 
-        protected void RemoveSession(HttpSession session)
+        protected void RemoveConnection(HttpConnection connection)
         {
-            _ = session ?? throw new ArgumentNullException(nameof(session));
-            if (KeepAliveSessions.Contains(session))
-                KeepAliveSessions.Remove(session);
-            AllSessions.Remove(session);
-            session.NetworkClient.Close();
+            _ = connection ?? throw new ArgumentNullException(nameof(connection));
+            if (KeepAliveConnections.Contains(connection))
+                KeepAliveConnections.Remove(connection);
+            AllConnections.Remove(connection);
+            connection.NetworkClient.Close();
         }
 
-        internal protected virtual async Task ExecuteTaskChain(WebProgressTask task, WebServiceType terminationState = WebServiceType.SendResponse)
+        internal protected virtual async Task ExecuteTaskChain(WebProgressTask task, ServerStage terminationState = ServerStage.FINAL_STAGE)
         {
             if (task == null) return;
             while (true)
             {
-                await WebServiceGroups[task.CurrentTask].Execute(task);
-                if (task.CurrentTask == terminationState) 
+                await WebServiceGroups[task.CurrentStage].Execute(task);
+                if (task.CurrentStage == terminationState) 
                     break;
-                task.CurrentTask = task.NextTask;
-                task.NextTask = task.NextTask == WebServiceType.SendResponse
-                    ? WebServiceType.SendResponse
-                    : (WebServiceType)((int)task.NextTask + 1);
+                task.CurrentStage = task.CurrentStage;
+                task.NextStage = task.NextStage == ServerStage.FINAL_STAGE
+                    ? ServerStage.FINAL_STAGE
+                    : (ServerStage)((int)task.NextStage + 1);
             }
         }
 
-        protected virtual WebProgressTask PrepairProgressTask(HttpSession session)
+        protected virtual WebProgressTask PrepairProgressTask(HttpConnection connection)
         {
-            var stream = session.NetworkStream;
+            var stream = connection.NetworkStream;
             if (stream == null)
                 try
                 {
-                    stream = session.NetworkStream = session.NetworkClient.GetStream();
+                    stream = connection.NetworkStream = connection.NetworkClient.GetStream();
                 }
                 catch (InvalidOperationException)
                 { return null; }
             return new WebProgressTask
             {
-                CurrentTask = WebServiceType.PreParseRequest,
+                CurrentStage = ServerStage.FIRST_STAGE,
+                NextStage = (ServerStage)((int)ServerStage.FIRST_STAGE + 1),
                 Document = new HttpDocument
                 {
                     RequestHeader = new HttpRequestHeader(),
                     ResponseHeader = new HttpResponseHeader(),
-                    Session = session
                 },
-                NextTask = WebServiceType.PostParseRequest,
                 Server = this,
-                Session = session,
+                Connection = connection,
                 NetworkStream = stream,
             };
         }
 
-        protected virtual HttpSession CreateRandomSession()
+        protected virtual HttpConnection CreateRandomConnection()
         {
-            var s = new HttpSession();
+            var s = new HttpConnection();
             var r = new Random();
             do
             {
-                s.SessionKey = new byte[16];
-                r.NextBytes(s.SessionKey);
+                s.ConnectionKey = new byte[16];
+                r.NextBytes(s.ConnectionKey);
             }
-            while (AllSessions.Exists((ht) => ht != null && WebServerUtils.BytesEqual(ht.SessionKey, s.SessionKey)));
+            while (AllConnections.Exists((ht) => ht != null && WebServerUtils.BytesEqual(ht.ConnectionKey, s.ConnectionKey)));
             s.LastWorkTime = -1;
             return s;
         }

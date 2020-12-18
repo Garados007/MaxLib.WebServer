@@ -14,9 +14,9 @@ namespace MaxLib.WebServer.Services
         /// Die Headerklasse wird für die weitere Verwendung vorbereitet.
         /// </summary>
         public HttpHeaderPostParser()
-            : base(WebServiceType.PostParseRequest)
+            : base(ServerStage.ParseRequest)
         {
-            Importance = WebProgressImportance.High;
+            Importance = WebProgressImportance.VeryHigh;
         }
 
         public override async Task ProgressTask(WebProgressTask task)
@@ -52,8 +52,6 @@ namespace MaxLib.WebServer.Services
             {
                 header.Cookie.SetRequestCookieString(value);
             }
-            //Session
-            Session.SessionManager.Register(task);
 
             await Task.CompletedTask;
         }

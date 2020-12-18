@@ -13,7 +13,7 @@ namespace MaxLib.WebServer.Services
         /// <summary>
         /// WebServiceType.SendResponse: Sendet Response und Dokument, wenn vorhanden, an den Clienten.
         /// </summary>
-        public HttpSender() : base(WebServiceType.SendResponse) { }
+        public HttpSender() : base(ServerStage.SendResponse) { }
 
         public virtual string StatusCodeText(HttpStateCode code)
         {

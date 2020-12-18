@@ -11,7 +11,7 @@ namespace MaxLib.WebServer.Services
         /// <summary>
         /// WebServiceType.PostParseRequest: Verarbeitet die Aktion HEAD oder OPTIONS, die vom Browser angefordert wurde
         /// </summary>
-        public HttpHeaderSpecialAction() : base(WebServiceType.PostParseRequest) { }
+        public HttpHeaderSpecialAction() : base(ServerStage.ParseRequest) { }
 
         public override async Task ProgressTask(WebProgressTask task)
         {
@@ -30,7 +30,7 @@ namespace MaxLib.WebServer.Services
                             TransferCompleteData = true
                         };
                         task.Document.DataSources.Add(source);
-                        task.NextTask = WebServiceType.PreParseRequest;
+                        task.NextStage = ServerStage.CreateResponse;
                     }
                     break;
             }
