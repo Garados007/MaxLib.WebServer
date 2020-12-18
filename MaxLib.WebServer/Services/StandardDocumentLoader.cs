@@ -30,7 +30,7 @@ namespace MaxLib.WebServer.Services
             {
                 MimeType = MimeType.TextHtml
             };
-            task.Document.ResponseHeader.StatusCode = HttpStateCode.OK;
+            task.Response.StatusCode = HttpStateCode.OK;
             task.Document.DataSources.Add(source);
             task.Document.PrimaryEncoding = "utf-8";
 

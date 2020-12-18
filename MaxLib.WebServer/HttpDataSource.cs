@@ -3,6 +3,8 @@ using System;
 using System.IO;
 using System.Threading.Tasks;
 
+#nullable enable
+
 namespace MaxLib.WebServer
 {
     [Serializable]
@@ -43,7 +45,8 @@ namespace MaxLib.WebServer
         {
             _ = stream ?? throw new ArgumentNullException(nameof(stream));
             if (start < 0) throw new ArgumentOutOfRangeException(nameof(start));
-            if (Length() != null && start >= Length().Value)
+            var length = Length();
+            if (length != null && start >= length.Value)
                 throw new ArgumentOutOfRangeException(nameof(start));
             if (stop != null && stop < start) throw new ArgumentOutOfRangeException(nameof(stop));
             return await WriteStreamInternal(stream, start, stop);

@@ -1,4 +1,5 @@
-﻿using System;
+﻿using System.Net;
+using System;
 
 #nullable enable
 
@@ -6,7 +7,7 @@ namespace MaxLib.WebServer
 {
     public class WebProgressTask : IDisposable
     {
-        public HttpDocument? Document { get; set; }
+        public HttpDocument Document { get; } = new HttpDocument();
 
         public System.IO.Stream? NetworkStream { get; set; }
 
@@ -26,6 +27,12 @@ namespace MaxLib.WebServer
         public HttpConnection? Connection { get; set; }
 
         public Sessions.Session? Session { get; set; }
+
+#pragma warning disable CS0618
+        public HttpRequestHeader Request => Document.RequestHeader;
+
+        public HttpResponseHeader Response => Document.ResponseHeader;
+#pragma warning restore CS0618
 
         public void Dispose()
         {

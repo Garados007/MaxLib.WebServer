@@ -25,19 +25,19 @@ namespace MaxLib.WebServer.Api
         public override bool CanWorkWith(WebProgressTask task)
         {
             _ = task ?? throw new ArgumentNullException(nameof(task));
-            return task.Document.RequestHeader.Location.StartsUrlWith(endpoint, IgnoreCase);
+            return task.Request.Location.StartsUrlWith(endpoint, IgnoreCase);
         }
 
         public override async Task ProgressTask(WebProgressTask task)
         {
             _ = task ?? throw new ArgumentNullException(nameof(task));
-            var tiles = task.Document.RequestHeader.Location.DocumentPathTiles;
+            var tiles = task.Request.Location.DocumentPathTiles;
             var location = new string[tiles.Length - endpoint.Length];
             Array.Copy(tiles, endpoint.Length, location, 0, location.Length);
             var data = await HandleRequest(task, location);
             if (data != null)
                 task.Document.DataSources.Add(data);
-            else task.Document.ResponseHeader.StatusCode = HttpStateCode.InternalServerError;
+            else task.Response.StatusCode = HttpStateCode.InternalServerError;
         }
     }
 }

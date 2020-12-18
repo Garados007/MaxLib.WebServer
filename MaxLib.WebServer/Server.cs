@@ -7,6 +7,7 @@ using System.Threading;
 using System.Threading.Tasks;
 
 //Source: Wikipedia, SelfHTML
+#nullable enable
 
 namespace MaxLib.WebServer
 {
@@ -18,8 +19,8 @@ namespace MaxLib.WebServer
 
         //Serveraktivitäten
 
-        protected TcpListener Listener;
-        protected Thread ServerThread;
+        protected TcpListener? Listener;
+        protected Thread? ServerThread;
         public bool ServerExecution { get; protected set; }
         public SyncedList<HttpConnection> KeepAliveConnections { get; } = new SyncedList<HttpConnection>();
         public SyncedList<HttpConnection> AllConnections { get; } = new SyncedList<HttpConnection>();
@@ -86,11 +87,13 @@ namespace MaxLib.WebServer
         {
             WebServerLog.Add(ServerLogType.Information, GetType(), "StartUp", "Stopped Server");
             ServerExecution = false;
-            ServerThread.Join();
+            ServerThread?.Join();
         }
         
         protected virtual void ServerMainTask()
         {
+            if (Listener == null)
+                return;
             WebServerLog.Add(ServerLogType.Information, GetType(), "StartUp", "Server succesfuly started");
             var watch = new Stopwatch();
             while (ServerExecution)
@@ -110,12 +113,16 @@ namespace MaxLib.WebServer
                     HttpConnection kas;
                     try { kas = KeepAliveConnections[i]; }
                     catch { continue; }
-                    if (kas == null) continue;
+                    if (kas == null) 
+                        continue;
 
-                    if (!kas.NetworkClient.Connected || (kas.LastWorkTime != -1 &&
-                        kas.LastWorkTime + Settings.ConnectionTimeout < Environment.TickCount))
+                    if ((kas.NetworkClient != null && !kas.NetworkClient.Connected) || 
+                        (kas.LastWorkTime != -1 &&
+                            kas.LastWorkTime + Settings.ConnectionTimeout < Environment.TickCount
+                        )
+                    )
                     {
-                        kas.NetworkClient.Close();
+                        kas.NetworkClient?.Close();
                         kas.NetworkStream?.Dispose();
                         AllConnections.Remove(kas);
                         KeepAliveConnections.Remove(kas);
@@ -123,7 +130,9 @@ namespace MaxLib.WebServer
                         continue;
                     }
 
-                    if (kas.NetworkClient.Available > 0 && kas.LastWorkTime != -1)
+                    if (kas.NetworkClient != null && kas.NetworkClient.Available > 0 && 
+                        kas.LastWorkTime != -1
+                    )
                     {
                         _ = Task.Run(() => SafeClientStartListen(kas));
                     }
@@ -138,7 +147,7 @@ namespace MaxLib.WebServer
             watch.Stop();
             Listener.Stop();
             for (int i = 0; i < AllConnections.Count; ++i) 
-                AllConnections[i].NetworkClient.Close();
+                AllConnections[i].NetworkClient?.Close();
             AllConnections.Clear();
             KeepAliveConnections.Clear();
             WebServerLog.Add(ServerLogType.Information, GetType(), "StartUp", "Server succesfuly stopped");
@@ -147,11 +156,13 @@ namespace MaxLib.WebServer
         protected virtual void ClientConnected(TcpClient client)
         {
             //prepare session
-            var connection = CreateRandomConnection();
-            connection.NetworkClient = client;
-            connection.Ip = client.Client.RemoteEndPoint is IPEndPoint iPEndPoint
-                ? iPEndPoint.Address.ToString()
-                : client.Client.RemoteEndPoint.ToString();
+            var connection = new HttpConnection()
+            {
+                NetworkClient = client,
+                Ip = client.Client.RemoteEndPoint is IPEndPoint iPEndPoint
+                    ? iPEndPoint.Address.ToString()
+                    : client.Client.RemoteEndPoint.ToString(),
+            };
             AllConnections.Add(connection);
             //listen to connection
             _ = Task.Run(async () => await SafeClientStartListen(connection));
@@ -178,7 +189,7 @@ namespace MaxLib.WebServer
         protected virtual async Task ClientStartListen(HttpConnection connection)
         {
             connection.LastWorkTime = -1;
-            if (connection.NetworkClient.Connected)
+            if (connection.NetworkClient != null && connection.NetworkClient.Connected)
             {
                 WebServerLog.Add(ServerLogType.Information, GetType(), "Connection", "Listen to Connection {0}", 
                     connection.NetworkClient.Client.RemoteEndPoint);
@@ -193,7 +204,7 @@ namespace MaxLib.WebServer
 
                 await ExecuteTaskChain(task);
 
-                if (task.Document.RequestHeader.FieldConnection == HttpConnectionType.KeepAlive)
+                if (task.Request.FieldConnection == HttpConnectionType.KeepAlive)
                 {
                     if (!KeepAliveConnections.Contains(connection)) 
                         KeepAliveConnections.Add(connection);
@@ -212,7 +223,7 @@ namespace MaxLib.WebServer
             if (KeepAliveConnections.Contains(connection))
                 KeepAliveConnections.Remove(connection);
             AllConnections.Remove(connection);
-            connection.NetworkClient.Close();
+            connection.NetworkClient?.Close();
         }
 
         internal protected virtual async Task ExecuteTaskChain(WebProgressTask task, ServerStage terminationState = ServerStage.FINAL_STAGE)
@@ -230,13 +241,13 @@ namespace MaxLib.WebServer
             }
         }
 
-        protected virtual WebProgressTask PrepairProgressTask(HttpConnection connection)
+        protected virtual WebProgressTask? PrepairProgressTask(HttpConnection connection)
         {
             var stream = connection.NetworkStream;
             if (stream == null)
                 try
                 {
-                    stream = connection.NetworkStream = connection.NetworkClient.GetStream();
+                    stream = connection.NetworkStream = connection.NetworkClient?.GetStream();
                 }
                 catch (InvalidOperationException)
                 { return null; }
@@ -244,29 +255,16 @@ namespace MaxLib.WebServer
             {
                 CurrentStage = ServerStage.FIRST_STAGE,
                 NextStage = (ServerStage)((int)ServerStage.FIRST_STAGE + 1),
-                Document = new HttpDocument
-                {
-                    RequestHeader = new HttpRequestHeader(),
-                    ResponseHeader = new HttpResponseHeader(),
-                },
                 Server = this,
                 Connection = connection,
                 NetworkStream = stream,
             };
         }
 
+        [Obsolete("this method is no longer used by the server")]
         protected virtual HttpConnection CreateRandomConnection()
         {
-            var s = new HttpConnection();
-            var r = new Random();
-            do
-            {
-                s.ConnectionKey = new byte[16];
-                r.NextBytes(s.ConnectionKey);
-            }
-            while (AllConnections.Exists((ht) => ht != null && WebServerUtils.BytesEqual(ht.ConnectionKey, s.ConnectionKey)));
-            s.LastWorkTime = -1;
-            return s;
+            return new HttpConnection();
         }
     }
 }

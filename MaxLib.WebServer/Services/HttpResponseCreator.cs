@@ -18,8 +18,8 @@ namespace MaxLib.WebServer.Services
         {
             _ = task ?? throw new ArgumentNullException(nameof(task));
 
-            var request = task.Document.RequestHeader;
-            var response = task.Document.ResponseHeader;
+            var request = task.Request;
+            var response = task.Response;
             response.FieldContentType = task.Document.PrimaryMime;
             response.SetActualDate();
             response.HttpProtocol = request.HttpProtocol;

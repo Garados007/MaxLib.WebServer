@@ -26,8 +26,8 @@ namespace MaxLib.WebServer.Chunked
 
         public override async Task ProgressTask(WebProgressTask task)
         {
-            var request = task.Document.RequestHeader;
-            var response = task.Document.ResponseHeader;
+            var request = task.Request;
+            var response = task.Response;
             response.FieldContentType = task.Document.PrimaryMime;
             response.SetActualDate();
             response.HttpProtocol = request.HttpProtocol;

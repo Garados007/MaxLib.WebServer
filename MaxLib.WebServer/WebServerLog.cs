@@ -1,6 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
 
+#nullable enable
+
 namespace MaxLib.WebServer
 {
     public static class WebServerLog
@@ -11,12 +13,12 @@ namespace MaxLib.WebServer
         /// <summary>
         /// This event fires if some log item should be added. The log item can now filtered and discarded.
         /// </summary>
-        public static event ServerLogAddedHandler LogPreAdded;
+        public static event ServerLogAddedHandler? LogPreAdded;
 
         /// <summary>
         /// This event fires after a log item is added.
         /// </summary>
-        public static event Action<ServerLogItem> LogAdded;
+        public static event Action<ServerLogItem>? LogAdded;
 
         static readonly object lockObjekt = new object();
         public static void Add(ServerLogItem logItem)

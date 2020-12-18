@@ -3,6 +3,8 @@ using System;
 using System.IO;
 using System.Threading.Tasks;
 
+#nullable enable
+
 namespace MaxLib.WebServer
 {
     [Serializable]

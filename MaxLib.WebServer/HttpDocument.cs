@@ -2,6 +2,8 @@
 using System.Collections.Generic;
 using System.Linq;
 
+#nullable enable
+
 namespace MaxLib.WebServer
 {
     [Serializable]
@@ -9,19 +11,22 @@ namespace MaxLib.WebServer
     {
         public List<HttpDataSource> DataSources { get; } = new List<HttpDataSource>();
 
-        public string PrimaryMime
+        public string? PrimaryMime
         {
             get { return DataSources.Count == 0 ? null : DataSources[0].MimeType; }
         }
 
-        public string PrimaryEncoding { get; set; } = null;
+        public string? PrimaryEncoding { get; set; } = null;
 
-        public HttpRequestHeader RequestHeader { get; set; }
+        [Obsolete("Use WebProgressTask.Request. this will be removed in a future release.")]
+        public HttpRequestHeader RequestHeader { get; set; } = new HttpRequestHeader();
 
-        public HttpResponseHeader ResponseHeader { get; set; }
-        public Dictionary<object, object> Information { get; } = new Dictionary<object, object>();
+        [Obsolete("Use WebProgressTask.Response. this will be removed in a future release.")]
+        public HttpResponseHeader ResponseHeader { get; set; } = new HttpResponseHeader();
 
-        public object this[object identifer]
+        public Dictionary<object?, object?> Information { get; } = new Dictionary<object?, object?>();
+
+        public object? this[object? identifer]
         {
             get => Information[identifer];
             set => Information[identifer] = value;

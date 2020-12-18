@@ -40,7 +40,7 @@ namespace MaxLib.WebServer.Testing
         /// Generate a random session and assign it to the task
         /// </summary>
         public void SetConnection()
-            => SetConnection(WebServer.CreateRandomConnection());
+            => SetConnection(new HttpConnection());
 
         public void SetConnection(HttpConnection connection)
         {
@@ -77,22 +77,22 @@ namespace MaxLib.WebServer.Testing
             => Task.Document.Information.TryGetValue(key, out object value) ? value : default;
 
         public HttpStateCode GetStatusCode()
-            => Task.Document.ResponseHeader.StatusCode;
+            => Task.Response.StatusCode;
 
         public string GetRequestHeader(string key)
-            => Task.Document.RequestHeader.HeaderParameter.TryGetValue(key, out string value) ? value : default;
+            => Task.Request.HeaderParameter.TryGetValue(key, out string value) ? value : default;
 
         public string GetResponseHeader(string key)
-            => Task.Document.ResponseHeader.HeaderParameter.TryGetValue(key, out string value) ? value : default;
+            => Task.Response.HeaderParameter.TryGetValue(key, out string value) ? value : default;
 
         public IEnumerable<(string, HttpCookie.Cookie)> GetAddedCookies()
-            => Task.Document.RequestHeader.Cookie.AddedCookies
+            => Task.Request.Cookie.AddedCookies
                 .Select(p => (p.Key, p.Value));
 
         public HttpRequestHeader Request
-            => Task.Document.RequestHeader;
+            => Task.Request;
 
         public HttpResponseHeader Response
-            => Task.Document.ResponseHeader;
+            => Task.Response;
     }
 }

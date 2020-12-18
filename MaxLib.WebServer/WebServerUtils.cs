@@ -2,6 +2,8 @@
 using System.Globalization;
 using System.Net;
 
+#nullable enable
+
 namespace MaxLib.WebServer
 {
     public static class WebServerUtils

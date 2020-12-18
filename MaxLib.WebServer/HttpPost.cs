@@ -2,6 +2,8 @@
 using System.Collections.Generic;
 using System.Text.RegularExpressions;
 
+#nullable enable
+
 namespace MaxLib.WebServer
 {
     [Serializable]
@@ -9,11 +11,11 @@ namespace MaxLib.WebServer
     {
         public string CompletePost { get; private set; }
 
-        public string MimeType { get; private set; }
+        public string? MimeType { get; private set; }
 
         public Dictionary<string, string> PostParameter { get; }
 
-        public virtual void SetPost(string post, string mime)
+        public virtual void SetPost(string post, string? mime)
         {
             CompletePost = post ?? throw new ArgumentNullException("Post");
 
@@ -73,9 +75,9 @@ namespace MaxLib.WebServer
 
         }
 
-        public HttpPost(string post, string mime)
+        public HttpPost(string post, string? mime)
         {
-            _ = post ?? throw new ArgumentNullException(nameof(post));
+            CompletePost = post ?? throw new ArgumentNullException(nameof(post));
             PostParameter = new Dictionary<string, string>();
             SetPost(post, mime);
         }

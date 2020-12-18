@@ -3,6 +3,8 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text.RegularExpressions;
 
+#nullable enable
+
 namespace MaxLib.WebServer
 {
     [Serializable]
@@ -56,8 +58,11 @@ namespace MaxLib.WebServer
 
         public HttpLocation(string url)
         {
-            _ = url ?? throw new ArgumentNullException(nameof(url));
+            Url = url ?? throw new ArgumentNullException(nameof(url));
             GetParameter = new Dictionary<string, string>();
+            DocumentPath = "";
+            DocumentPathTiles = new string[0];
+            CompleteGet = "";
             SetLocation(url);
         }
 

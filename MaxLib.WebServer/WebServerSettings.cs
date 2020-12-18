@@ -4,6 +4,8 @@ using System.Collections.Generic;
 using System.IO;
 using System.Net;
 
+#nullable enable
+
 namespace MaxLib.WebServer
 {
     public class WebServerSettings
@@ -23,7 +25,8 @@ namespace MaxLib.WebServer
         public bool Debug_WriteRequests = false;
         public bool Debug_LogConnections = false;
 
-        public Dictionary<string, string> DefaultFileMimeAssociation { get; } = new Dictionary<string, string>();
+        public Dictionary<string, string> DefaultFileMimeAssociation { get; } 
+            = new Dictionary<string, string>();
 
         protected enum SettingTypes
         {
@@ -31,7 +34,7 @@ namespace MaxLib.WebServer
             ServerSettings
         }
 
-        public string SettingsPath { get; private set; }
+        public string? SettingsPath { get; private set; }
 
         public virtual void LoadSettingFromData(string data)
         {

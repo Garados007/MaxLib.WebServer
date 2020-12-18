@@ -1,5 +1,7 @@
 ﻿using System;
 
+#nullable enable
+
 namespace MaxLib.WebServer
 {
     [Serializable]
@@ -7,28 +9,28 @@ namespace MaxLib.WebServer
     {
         public HttpStateCode StatusCode { get; set; } = HttpStateCode.OK;
 
-        public string FieldLocation
+        public string? FieldLocation
         {
-            get => HeaderParameter.TryGetValue("Location", out string value) ? value : null;
-            set => HeaderParameter["Location"] = value;
+            get => GetHeader("Location");
+            set => SetHeader("Location", value);
         }
 
-        public string FieldDate
+        public string? FieldDate
         {
-            get => HeaderParameter.TryGetValue("Date", out string value) ? value : null;
-            set => HeaderParameter["Date"] = value;
+            get => GetHeader("Date");
+            set => SetHeader("Date", value);
         }
 
-        public string FieldLastModified
+        public string? FieldLastModified
         {
-            get => HeaderParameter.TryGetValue("Last-Modified", out string value) ? value : null;
-            set => HeaderParameter["Last-Modified"] = value;
+            get => GetHeader("Last-Modified");
+            set => SetHeader("Last-Modified", value);
         }
 
-        public string FieldContentType
+        public string? FieldContentType
         {
-            get => HeaderParameter.TryGetValue("Content-Type", out string value) ? value : null;
-            set => HeaderParameter["Content-Type"] = value;
+            get => GetHeader("Content-Type");
+            set => SetHeader("Content-Type", value);
         }
 
         public virtual void SetActualDate()
