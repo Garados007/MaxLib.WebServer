@@ -44,7 +44,7 @@ namespace MaxLib.WebServer.Services
             {
                 await Task.Delay(100);
                 mwt--;
-                if (!task.Session.NetworkClient.Connected) return;
+                if (!task.Connection.NetworkClient.Connected) return;
             }
             try
             {
@@ -126,7 +126,7 @@ namespace MaxLib.WebServer.Services
             {
                 sb = new StringBuilder();
                 sb.AppendLine(WebServerUtils.GetDateString(DateTime.Now) + "  " +
-                    task.Session.NetworkClient.Client.RemoteEndPoint.ToString());
+                    task.Connection.NetworkClient.Client.RemoteEndPoint.ToString());
                 var host = header.HeaderParameter.ContainsKey("Host") ? header.HeaderParameter["Host"] : "";
                 sb.AppendLine("    " + host + task.Document.RequestHeader.Location.DocumentPath);
                 sb.AppendLine();

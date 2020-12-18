@@ -27,8 +27,6 @@ namespace MaxLib.WebServer
             set => Information[identifer] = value;
         }
 
-        public HttpSession Session { get; set; }
-
         public void Dispose()
         {
             foreach (var ds in DataSources.ToArray()) ds.Dispose();

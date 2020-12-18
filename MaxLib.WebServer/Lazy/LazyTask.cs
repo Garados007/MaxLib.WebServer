@@ -1,4 +1,5 @@
-﻿using System;
+﻿using System.Data;
+using System;
 using System.Collections.Generic;
 
 namespace MaxLib.WebServer.Lazy
@@ -8,7 +9,7 @@ namespace MaxLib.WebServer.Lazy
     {
         public Server Server { get; }
 
-        public HttpSession Session { get; }
+        public HttpConnection Connection { get; }
 
         public HttpRequestHeader Header { get; }
 
@@ -24,7 +25,7 @@ namespace MaxLib.WebServer.Lazy
         {
             _ = task ?? throw new ArgumentNullException(nameof(task));
             Server = task.Server;
-            Session = task.Session;
+            Connection = task.Connection;
             Header = task.Document.RequestHeader;
             Information = task.Document.Information;
         }

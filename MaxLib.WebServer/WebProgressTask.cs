@@ -14,7 +14,7 @@ namespace MaxLib.WebServer
 
         public Server Server { get; set; }
 
-        public HttpSession Session { get; set; }
+        public HttpConnection Connection { get; set; }
 
         public void Dispose()
         {
