@@ -12,24 +12,34 @@ namespace MaxLib.WebServer
         public WebService(ServerStage stage)
         {
             Stage = stage;
-            Importance = WebProgressImportance.Normal;
         }
 
         public abstract Task ProgressTask(WebProgressTask task);
 
         public abstract bool CanWorkWith(WebProgressTask task);
 
+        public event EventHandler? PriorityChanged;
+
+        [Obsolete("Use PriorityChanged instead")]
         public event EventHandler? ImportanceChanged;
 
-        WebProgressImportance importance;
+        WebServicePriority priority = WebServicePriority.Normal;
+        public WebServicePriority Priority
+        {
+            get => priority;
+            protected set 
+            {
+                priority = value;
+                ImportanceChanged?.Invoke(this, EventArgs.Empty);
+                PriorityChanged?.Invoke(this, EventArgs.Empty);
+            }
+        }
+
+        [Obsolete("Use Priority instead")]
         public WebProgressImportance Importance
         {
-            get => importance;
-            protected set
-            {
-                importance = value;
-                ImportanceChanged?.Invoke(this, EventArgs.Empty);
-            }
+            get => (WebProgressImportance)Priority;
+            protected set => Priority = (WebServicePriority)value;
         }
     }
 }

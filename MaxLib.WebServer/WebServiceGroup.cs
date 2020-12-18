@@ -13,7 +13,7 @@ namespace MaxLib.WebServer
         public WebServiceGroup(ServerStage stage)
         {
             Stage = stage;
-            Services = new PriorityList<WebProgressImportance, WebService>();
+            Services = new PriorityList<WebServicePriority, WebService>();
         }
 
         public virtual bool SingleExecution
@@ -36,26 +36,26 @@ namespace MaxLib.WebServer
             }
         }
 
-        protected PriorityList<WebProgressImportance, WebService> Services { get; private set; }
+        protected PriorityList<WebServicePriority, WebService> Services { get; private set; }
 
         public void Add(WebService service)
         {
             _ = service ?? throw new ArgumentNullException(nameof(service));
-            service.ImportanceChanged += Service_ImportanceChanged;
-            Services.Add(service.Importance, service);
+            service.PriorityChanged += Service_PriorityChanged;
+            Services.Add(service.Priority, service);
         }
 
-        private void Service_ImportanceChanged(object sender, EventArgs e)
+        private void Service_PriorityChanged(object sender, EventArgs e)
         {
             var service = (WebService)sender;
-            Services.ChangePriority(service.Importance, service);
+            Services.ChangePriority(service.Priority, service);
         }
 
         public bool Remove(WebService service)
         {
             if (Services.Remove(service))
             {
-                service.ImportanceChanged -= Service_ImportanceChanged;
+                service.PriorityChanged -= Service_PriorityChanged;
                 return true;
             }
             else return false;

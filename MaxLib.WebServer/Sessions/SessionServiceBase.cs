@@ -10,7 +10,11 @@ namespace MaxLib.WebServer.Sessions
         public SessionServiceBase() 
             : base(ServerStage.ParseRequest)
         {
-            Importance = WebProgressImportance.High;
+            // HttpHeaderPostParser has a default priority of VeryHigh. This needs to be executed 
+            // right after it but before others.
+            Priority = (WebServicePriority)(
+                ((int)WebServicePriority.VeryHigh + (int)WebServicePriority.High) / 2
+            );
         }
 
         public override bool CanWorkWith(WebProgressTask task)
