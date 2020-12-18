@@ -19,7 +19,6 @@ namespace MaxLib.WebServer
                 {
                     Ip = "127.0.0.1",
                     LastWorkTime = -1,
-                    ConnectionKey = new byte[0],
                 },
                 NetworkStream = new MemoryStream()
             };
