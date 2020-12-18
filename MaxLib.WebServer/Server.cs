@@ -244,7 +244,6 @@ namespace MaxLib.WebServer
             {
                 CurrentStage = ServerStage.FIRST_STAGE,
                 NextStage = (ServerStage)((int)ServerStage.FIRST_STAGE + 1),
-                Document = new HttpDocument(),
                 Server = this,
                 Connection = connection,
                 NetworkStream = stream,

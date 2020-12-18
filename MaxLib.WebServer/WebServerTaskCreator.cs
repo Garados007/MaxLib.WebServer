@@ -15,7 +15,6 @@ namespace MaxLib.WebServer
             Task = new WebProgressTask()
             {
                 CurrentStage = ServerStage.FIRST_STAGE,
-                Document = new HttpDocument(),
                 Connection = new HttpConnection
                 {
                     Ip = "127.0.0.1",
