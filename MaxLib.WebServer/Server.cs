@@ -147,11 +147,13 @@ namespace MaxLib.WebServer
         protected virtual void ClientConnected(TcpClient client)
         {
             //prepare session
-            var connection = CreateRandomConnection();
-            connection.NetworkClient = client;
-            connection.Ip = client.Client.RemoteEndPoint is IPEndPoint iPEndPoint
-                ? iPEndPoint.Address.ToString()
-                : client.Client.RemoteEndPoint.ToString();
+            var connection = new HttpConnection()
+            {
+                NetworkClient = client,
+                Ip = client.Client.RemoteEndPoint is IPEndPoint iPEndPoint
+                    ? iPEndPoint.Address.ToString()
+                    : client.Client.RemoteEndPoint.ToString(),
+            };
             AllConnections.Add(connection);
             //listen to connection
             _ = Task.Run(async () => await SafeClientStartListen(connection));
@@ -250,18 +252,10 @@ namespace MaxLib.WebServer
             };
         }
 
+        [Obsolete("this method is no longer used by the server")]
         protected virtual HttpConnection CreateRandomConnection()
         {
-            var s = new HttpConnection();
-            var r = new Random();
-            do
-            {
-                s.ConnectionKey = new byte[16];
-                r.NextBytes(s.ConnectionKey);
-            }
-            while (AllConnections.Exists((ht) => ht != null && WebServerUtils.BytesEqual(ht.ConnectionKey, s.ConnectionKey)));
-            s.LastWorkTime = -1;
-            return s;
+            return new HttpConnection();
         }
     }
 }

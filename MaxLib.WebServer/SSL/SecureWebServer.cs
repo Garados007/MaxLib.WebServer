@@ -76,11 +76,13 @@ namespace MaxLib.WebServer.SSL
                 return;
             }
             //prepare session
-            var connection = CreateRandomConnection();
-            connection.NetworkClient = client;
-            connection.Ip = client.Client.RemoteEndPoint is IPEndPoint iPEndPoint
-                ? iPEndPoint.Address.ToString()
-                : client.Client.RemoteEndPoint.ToString();
+            var connection = new HttpConnection()
+            {
+                NetworkClient = client,
+                Ip = client.Client.RemoteEndPoint is IPEndPoint iPEndPoint
+                    ? iPEndPoint.Address.ToString()
+                    : client.Client.RemoteEndPoint.ToString(),
+            };
             AllConnections.Add(connection);
             //listen to connection
             _ = Task.Run(async () =>

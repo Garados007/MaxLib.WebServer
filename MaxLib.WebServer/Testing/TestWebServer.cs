@@ -56,6 +56,7 @@ namespace MaxLib.WebServer.Testing
         public new void RemoveConnection(HttpConnection connection)
             => base.RemoveConnection(connection);
 
+        [Obsolete("This method is no longer internaly used")]
         public new HttpConnection CreateRandomConnection()
             => base.CreateRandomConnection();
 

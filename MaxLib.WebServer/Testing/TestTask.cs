@@ -40,7 +40,7 @@ namespace MaxLib.WebServer.Testing
         /// Generate a random session and assign it to the task
         /// </summary>
         public void SetConnection()
-            => SetConnection(WebServer.CreateRandomConnection());
+            => SetConnection(new HttpConnection());
 
         public void SetConnection(HttpConnection connection)
         {
