@@ -52,8 +52,6 @@ namespace MaxLib.WebServer.Services
             {
                 header.Cookie.SetRequestCookieString(value);
             }
-            //Session
-            Session.SessionManager.Register(task);
 
             await Task.CompletedTask;
         }
