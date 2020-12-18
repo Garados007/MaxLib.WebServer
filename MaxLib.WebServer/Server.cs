@@ -193,7 +193,7 @@ namespace MaxLib.WebServer
 
                 await ExecuteTaskChain(task);
 
-                if (task.Document.RequestHeader.FieldConnection == HttpConnectionType.KeepAlive)
+                if (task.Request.FieldConnection == HttpConnectionType.KeepAlive)
                 {
                     if (!KeepAliveConnections.Contains(connection)) 
                         KeepAliveConnections.Add(connection);
@@ -244,11 +244,7 @@ namespace MaxLib.WebServer
             {
                 CurrentStage = ServerStage.FIRST_STAGE,
                 NextStage = (ServerStage)((int)ServerStage.FIRST_STAGE + 1),
-                Document = new HttpDocument
-                {
-                    RequestHeader = new HttpRequestHeader(),
-                    ResponseHeader = new HttpResponseHeader(),
-                },
+                Document = new HttpDocument(),
                 Server = this,
                 Connection = connection,
                 NetworkStream = stream,

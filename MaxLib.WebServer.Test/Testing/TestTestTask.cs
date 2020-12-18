@@ -12,7 +12,7 @@ namespace MaxLib.WebServer.Test.Testing
         {
             var server = new TestWebServer();
             var test = new TestTask(server);
-            test.Task.Document.RequestHeader.Cookie.AddedCookies.Add(
+            test.Task.Request.Cookie.AddedCookies.Add(
                 "test1",
                 new MaxLib.WebServer.HttpCookie.Cookie("test2", "test3"));
             var added = test.GetAddedCookies().ToArray();

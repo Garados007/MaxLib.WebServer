@@ -23,7 +23,7 @@ namespace MaxLib.WebServer.Services
         {
             _ = task ?? throw new ArgumentNullException(nameof(task));
 
-            var header = task.Document.RequestHeader;
+            var header = task.Request;
             var stream = task.NetworkStream;
             var reader = new StreamReader(stream);
             var mwt = 50;
@@ -50,9 +50,9 @@ namespace MaxLib.WebServer.Services
             {
                 if (stream is NetworkStream ns && !ns.DataAvailable)
                 {
-                    task.Document.RequestHeader.FieldConnection = HttpConnectionType.KeepAlive;
+                    task.Request.FieldConnection = HttpConnectionType.KeepAlive;
                     WebServerLog.Add(ServerLogType.Error, GetType(), "Header", "Request Time out");
-                    task.Document.ResponseHeader.StatusCode = HttpStateCode.RequestTimeOut;
+                    task.Response.StatusCode = HttpStateCode.RequestTimeOut;
                     task.NextStage = ServerStage.CreateResponse;
                     return;
                 }
@@ -60,7 +60,7 @@ namespace MaxLib.WebServer.Services
             catch (ObjectDisposedException)
             {
                 WebServerLog.Add(ServerLogType.Error, GetType(), "Header", "Connection closed by remote host");
-                task.Document.ResponseHeader.StatusCode = HttpStateCode.RequestTimeOut;
+                task.Response.StatusCode = HttpStateCode.RequestTimeOut;
                 task.NextStage = task.CurrentStage = ServerStage.FINAL_STAGE;
                 return;
             }
@@ -70,14 +70,14 @@ namespace MaxLib.WebServer.Services
             catch
             {
                 WebServerLog.Add(ServerLogType.Error, GetType(), "Header", "Connection closed by remote host");
-                task.Document.ResponseHeader.StatusCode = HttpStateCode.RequestTimeOut;
+                task.Response.StatusCode = HttpStateCode.RequestTimeOut;
                 task.NextStage = task.CurrentStage = ServerStage.FINAL_STAGE;
                 return;
             }
             if (line == null)
             {
                 WebServerLog.Add(ServerLogType.Error, GetType(), "Header", "Can't read Header line");
-                task.Document.ResponseHeader.StatusCode = HttpStateCode.BadRequest;
+                task.Response.StatusCode = HttpStateCode.BadRequest;
                 task.NextStage = ServerStage.CreateResponse;
                 return;
             }
@@ -104,7 +104,7 @@ namespace MaxLib.WebServer.Services
             catch
             {
                 WebServerLog.Add(ServerLogType.Error, GetType(), "Header", "Bad Request");
-                task.Document.ResponseHeader.StatusCode = HttpStateCode.BadRequest;
+                task.Response.StatusCode = HttpStateCode.BadRequest;
                 task.NextStage = ServerStage.CreateResponse;
                 return;
             }
@@ -128,7 +128,7 @@ namespace MaxLib.WebServer.Services
                 sb.AppendLine(WebServerUtils.GetDateString(DateTime.Now) + "  " +
                     task.Connection.NetworkClient.Client.RemoteEndPoint.ToString());
                 var host = header.HeaderParameter.ContainsKey("Host") ? header.HeaderParameter["Host"] : "";
-                sb.AppendLine("    " + host + task.Document.RequestHeader.Location.DocumentPath);
+                sb.AppendLine("    " + host + task.Request.Location.DocumentPath);
                 sb.AppendLine();
                 lock (lockRequestFile) File.AppendAllText("requests.txt", sb.ToString());
             }

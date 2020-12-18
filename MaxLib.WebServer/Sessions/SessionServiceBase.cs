@@ -25,12 +25,12 @@ namespace MaxLib.WebServer.Sessions
         public override async Task ProgressTask(WebProgressTask task)
         {
             _ = task ?? throw new ArgumentNullException(nameof(task));
-            var cookie = task.Document?.RequestHeader.Cookie.Get("Session");
+            var cookie = task.Request?.Cookie.Get("Session");
             string key;
             if (cookie == null)
             {
                 key = await GenerateSessionKey();
-                task.Document?.RequestHeader.Cookie.AddedCookies.Add("Session",
+                task.Request?.Cookie.AddedCookies.Add("Session",
                     new HttpCookie.Cookie(
                         "Session",
                         key,

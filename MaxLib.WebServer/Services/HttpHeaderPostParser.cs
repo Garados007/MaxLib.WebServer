@@ -23,7 +23,7 @@ namespace MaxLib.WebServer.Services
         {
             _ = task ?? throw new ArgumentNullException(nameof(task));
 
-            var header = task.Document.RequestHeader;
+            var header = task.Request;
             //Accept
             if (header.HeaderParameter.TryGetValue("Accept", out string value))
             {

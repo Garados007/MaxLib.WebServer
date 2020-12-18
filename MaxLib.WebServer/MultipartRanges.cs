@@ -50,26 +50,47 @@ namespace MaxLib.WebServer
 
         readonly List<HttpDataSource> streams = new List<HttpDataSource>();
         readonly Stream baseStream;
-        readonly HttpDocument document;
+        // readonly HttpDocument document;
+        readonly HttpResponseHeader response;
         List<Range> ranges = new List<Range>();
 
+        [Obsolete("Use MultipartRanges(Stream, HttpRequestHeader, HttpResponseHeader, string) instead. This will be removed in a future release.")]
         public MultipartRanges(Stream stream, HttpDocument document, string mime)
+            : this(stream, document.RequestHeader, document.ResponseHeader, mime)
         {
-            this.document = document ?? throw new ArgumentNullException(nameof(document));
+
+        }
+
+        public MultipartRanges(Stream stream, WebProgressTask task, string mime)
+            : this(
+                stream,
+                task?.Request ?? throw new ArgumentNullException(nameof(task.Request)),
+                task?.Response ?? throw new ArgumentNullException(nameof(task.Response)),
+                mime
+            )
+        {
+
+        }
+
+        public MultipartRanges(Stream stream, HttpRequestHeader request, 
+            HttpResponseHeader response, string mime)
+        {
+            _ = request ?? throw new ArgumentNullException(nameof(request));
+            this.response = response ?? throw new ArgumentNullException(nameof(response));
             baseStream = stream ?? throw new ArgumentNullException(nameof(stream));
             MimeType = mime;
 
-            document.ResponseHeader.HeaderParameter["Accept-Ranges"] = "bytes";
-            if (document.RequestHeader.HeaderParameter.ContainsKey("Range"))
+            response.HeaderParameter["Accept-Ranges"] = "bytes";
+            if (request.HeaderParameter.ContainsKey("Range"))
             {
-                ParseRanges(document.RequestHeader.HeaderParameter["Range"]);
+                ParseRanges(response.HeaderParameter["Range"]);
                 var valid = ranges.Count > 0;
                 foreach (var r in ranges)
                     if (r.From < 0 || r.From >= baseStream.Length || r.To < 0 || r.To >= baseStream.Length)
                         valid = false;
                 if (!valid)
                 {
-                    document.ResponseHeader.StatusCode = HttpStateCode.RequestedRangeNotSatisfiable;
+                    response.StatusCode = HttpStateCode.RequestedRangeNotSatisfiable;
                     return;
                 }
                 FormatRanges();
@@ -138,8 +159,8 @@ namespace MaxLib.WebServer
 
         void SinglePart()
         {
-            document.ResponseHeader.StatusCode = HttpStateCode.PartialContent;
-            var h = document.ResponseHeader.HeaderParameter;
+            response.StatusCode = HttpStateCode.PartialContent;
+            var h = response.HeaderParameter;
             h["Content-Range"] = ranges[0].ToString(baseStream.Length);
             streams.Add(new HttpStreamDataSource(baseStream)
             {
@@ -155,7 +176,7 @@ namespace MaxLib.WebServer
             new Random().NextBytes(b);
             var boundary = BitConverter.ToString(b).Replace("-", "");
             base.MimeType = WebServer.MimeType.MultipartByteranges + "; boundary=" + boundary;
-            document.ResponseHeader.StatusCode = HttpStateCode.PartialContent;
+            response.StatusCode = HttpStateCode.PartialContent;
             var sb = new StringBuilder();
             foreach (var r in ranges)
             {

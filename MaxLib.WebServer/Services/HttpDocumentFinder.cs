@@ -69,7 +69,7 @@ namespace MaxLib.WebServer.Services
         {
             _ = task ?? throw new ArgumentNullException(nameof(task));
 
-            var path = task.Document.RequestHeader.Location.DocumentPathTiles;
+            var path = task.Request.Location.DocumentPathTiles;
             var rule = new List<Rule>();
             var level = -1;
             for (int i = 0; i < Rules.Count; ++i)
@@ -85,7 +85,7 @@ namespace MaxLib.WebServer.Services
             }
             foreach (var r in rule)
             {
-                var url = task.Document.RequestHeader.Location.DocumentPathTiles;
+                var url = task.Request.Location.DocumentPathTiles;
                 var p = r.LocalMappedPath;
                 for (int i = r.UrlMappedPath.Length; i < url.Length; ++i) p += "\\" + url[i];
                 if (r.File)

@@ -16,9 +16,12 @@ namespace MaxLib.WebServer
 
         public string PrimaryEncoding { get; set; } = null;
 
-        public HttpRequestHeader RequestHeader { get; set; }
+        [Obsolete("Use WebProgressTask.Request. this will be removed in a future release.")]
+        public HttpRequestHeader RequestHeader { get; set; } = new HttpRequestHeader();
 
-        public HttpResponseHeader ResponseHeader { get; set; }
+        [Obsolete("Use WebProgressTask.Response. this will be removed in a future release.")]
+        public HttpResponseHeader ResponseHeader { get; set; } = new HttpResponseHeader();
+        
         public Dictionary<object, object> Information { get; } = new Dictionary<object, object>();
 
         public object this[object identifer]

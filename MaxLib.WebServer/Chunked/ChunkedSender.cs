@@ -28,7 +28,7 @@ namespace MaxLib.WebServer.Chunked
 
         public override async Task ProgressTask(WebProgressTask task)
         {
-            var header = task.Document.ResponseHeader;
+            var header = task.Response;
             var stream = task.NetworkStream;
             var writer = new StreamWriter(stream);
             await writer.WriteAsync(header.HttpProtocol);
@@ -43,7 +43,7 @@ namespace MaxLib.WebServer.Chunked
                 await writer.WriteAsync(": ");
                 await writer.WriteLineAsync(e.Value);
             }
-            foreach (var cookie in task.Document.RequestHeader.Cookie.AddedCookies) //Cookies
+            foreach (var cookie in task.Request.Cookie.AddedCookies) //Cookies
             {
                 await writer.WriteAsync("Set-Cookie: ");
                 await writer.WriteLineAsync(cookie.ToString());

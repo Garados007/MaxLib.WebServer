@@ -61,12 +61,12 @@ namespace MaxLib.WebServer.Services
                     MimeType = GetMime(Path.GetExtension(path), task)
                 };
                 task.Document.DataSources.Add(source);
-                task.Document.ResponseHeader.StatusCode = HttpStateCode.OK;
+                task.Response.StatusCode = HttpStateCode.OK;
             }
             if (MapFolderToo && task.Document.Information.ContainsKey("HttpDocumentFolder"))
             {
                 var path = task.Document.Information["HttpDocumentFolder"].ToString();
-                var url = task.Document.RequestHeader.Location.DocumentPath.TrimEnd('/');
+                var url = task.Request.Location.DocumentPath.TrimEnd('/');
                 var d = new DirectoryInfo(path);
                 var html = "<html lang=\"de\"><head><title>" + d.Name + "</title></head><body>";
                 html += "<h1>" + path + "</h1><a href=\"../\">Eine Ebene h&ouml;her</a><ul>";
@@ -82,7 +82,7 @@ namespace MaxLib.WebServer.Services
                     MimeType = MimeType.TextHtml
                 };
                 task.Document.DataSources.Add(source);
-                task.Document.ResponseHeader.StatusCode = HttpStateCode.OK;
+                task.Response.StatusCode = HttpStateCode.OK;
             }
             await Task.CompletedTask;
         }

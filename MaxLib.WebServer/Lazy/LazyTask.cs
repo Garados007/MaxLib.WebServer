@@ -26,7 +26,7 @@ namespace MaxLib.WebServer.Lazy
             _ = task ?? throw new ArgumentNullException(nameof(task));
             Server = task.Server;
             Connection = task.Connection;
-            Header = task.Document.RequestHeader;
+            Header = task.Request;
             Information = task.Document.Information;
         }
     }

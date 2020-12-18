@@ -15,11 +15,7 @@ namespace MaxLib.WebServer
             Task = new WebProgressTask()
             {
                 CurrentStage = ServerStage.FIRST_STAGE,
-                Document = new HttpDocument()
-                {
-                    RequestHeader = new HttpRequestHeader(),
-                    ResponseHeader = new HttpResponseHeader(),
-                },
+                Document = new HttpDocument(),
                 Connection = new HttpConnection
                 {
                     Ip = "127.0.0.1",
@@ -40,37 +36,37 @@ namespace MaxLib.WebServer
 
         public void SetProtocolHeader(string url, string method = "GET", string protocol = "HTTP/1.1")
         {
-            Task.Document.RequestHeader.ProtocolMethod = method;
-            Task.Document.RequestHeader.Url = url;
-            Task.Document.RequestHeader.HttpProtocol = protocol;
+            Task.Request.ProtocolMethod = method;
+            Task.Request.Url = url;
+            Task.Request.HttpProtocol = protocol;
         }
 
         public void SetHeaderParameter(string key, string value)
         {
-            if (Task.Document.RequestHeader.HeaderParameter.ContainsKey(key))
-                Task.Document.RequestHeader.HeaderParameter[key] = value;
-            else Task.Document.RequestHeader.HeaderParameter.Add(key, value);
+            if (Task.Request.HeaderParameter.ContainsKey(key))
+                Task.Request.HeaderParameter[key] = value;
+            else Task.Request.HeaderParameter.Add(key, value);
         }
 
         public void SetPost(string post, string mime)
         {
-            Task.Document.RequestHeader.Post.SetPost(post, mime);
+            Task.Request.Post.SetPost(post, mime);
         }
 
         public void SetAccept(string[] acceptTypes = null, string[] encoding = null)
         {
-            if (acceptTypes != null) Task.Document.RequestHeader.FieldAccept.AddRange(acceptTypes);
-            if (encoding != null) Task.Document.RequestHeader.FieldAcceptEncoding.AddRange(acceptTypes);
+            if (acceptTypes != null) Task.Request.FieldAccept.AddRange(acceptTypes);
+            if (encoding != null) Task.Request.FieldAcceptEncoding.AddRange(acceptTypes);
         }
 
         public void SetHost(string host)
         {
-            Task.Document.RequestHeader.Host = host;
+            Task.Request.Host = host;
         }
 
         public void SetCookie(string cookieString)
         {
-            Task.Document.RequestHeader.Cookie.SetRequestCookieString(cookieString);
+            Task.Request.Cookie.SetRequestCookieString(cookieString);
         }
 
         public void SetStream(Stream stream)

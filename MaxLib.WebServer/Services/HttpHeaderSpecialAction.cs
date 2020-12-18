@@ -17,7 +17,7 @@ namespace MaxLib.WebServer.Services
         {
             _ = task ?? throw new ArgumentNullException(nameof(task));
 
-            switch (task.Document.RequestHeader.ProtocolMethod)
+            switch (task.Request.ProtocolMethod)
             {
                 case HttpProtocollMethod.Head:
                     task.Document.Information["Only Header"] = true;
@@ -42,7 +42,7 @@ namespace MaxLib.WebServer.Services
         {
             _ = task ?? throw new ArgumentNullException(nameof(task));
 
-            switch (task.Document.RequestHeader.ProtocolMethod)
+            switch (task.Request.ProtocolMethod)
             {
                 case HttpProtocollMethod.Head: return true;
                 case HttpProtocollMethod.Options: return true;
