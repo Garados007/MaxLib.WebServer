@@ -16,16 +16,16 @@ namespace MaxLib.WebServer.SSL
             WebServerLog.Add(ServerLogType.Information, GetType(), "StartUp", "The use of dual mode is critical");
         }
 
-        protected override async Task ClientStartListen(HttpSession session)
+        protected override async Task ClientStartListen(HttpConnection connection)
         {
-            if (session.NetworkStream == null && DualSettings.Certificate != null)
+            if (connection.NetworkStream == null && DualSettings.Certificate != null)
             {
-                var peaker = new StreamPeaker(session.NetworkClient.GetStream());
+                var peaker = new StreamPeaker(connection.NetworkClient.GetStream());
                 var mark = peaker.FirstByte;
                 if (mark != 0 && (mark < 32 || mark >= 127))
                 {
                     var ssl = new SslStream(peaker, false);
-                    session.NetworkStream = ssl;
+                    connection.NetworkStream = ssl;
                     ssl.AuthenticateAsServer(
                         serverCertificate:          DualSettings.Certificate,
                         clientCertificateRequired:  false,
@@ -35,14 +35,14 @@ namespace MaxLib.WebServer.SSL
                     if (!ssl.IsAuthenticated)
                     {
                         ssl.Dispose();
-                        session.NetworkClient.Close();
-                        AllSessions.Remove(session);
+                        connection.NetworkClient.Close();
+                        AllConnections.Remove(connection);
                         return;
                     }
                 }
-                else session.NetworkStream = peaker;
+                else connection.NetworkStream = peaker;
             }
-            await base.ClientStartListen(session);
+            await base.ClientStartListen(connection);
         }
 
         class StreamPeaker : Stream

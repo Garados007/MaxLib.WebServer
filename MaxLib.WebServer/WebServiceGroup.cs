@@ -79,10 +79,10 @@ namespace MaxLib.WebServer
             var services = Services.ToArray();
             foreach (var service in services)
             {
-                if (task.Session.NetworkClient != null && !task.Session.NetworkClient.Connected) return;
+                if (task.Connection.NetworkClient != null && !task.Connection.NetworkClient.Connected) return;
                 if (service.CanWorkWith(task))
                 {
-                    if (task.Session.NetworkClient != null && !task.Session.NetworkClient.Connected) return;
+                    if (task.Connection.NetworkClient != null && !task.Connection.NetworkClient.Connected) return;
                     await service.ProgressTask(task);
                     task.Document[ServiceType] = true;
                     if (se) 

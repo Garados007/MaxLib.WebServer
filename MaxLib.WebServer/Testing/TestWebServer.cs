@@ -41,10 +41,10 @@ namespace MaxLib.WebServer.Testing
         {
         }
 
-        protected override Task SafeClientStartListen(HttpSession session)
+        protected override Task SafeClientStartListen(HttpConnection connection)
             => Task.CompletedTask;
 
-        protected override Task ClientStartListen(HttpSession session)
+        protected override Task ClientStartListen(HttpConnection connection)
             => Task.CompletedTask;
 
         public Task Execute(WebProgressTask task, WebServiceType terminationState = WebServiceType.SendResponse)
@@ -53,11 +53,11 @@ namespace MaxLib.WebServer.Testing
             return ExecuteTaskChain(task, terminationState);
         }
 
-        public new void RemoveSession(HttpSession session)
-            => base.RemoveSession(session);
+        public new void RemoveConnection(HttpConnection connection)
+            => base.RemoveConnection(connection);
 
-        public new HttpSession CreateRandomSession()
-            => base.CreateRandomSession();
+        public new HttpConnection CreateRandomConnection()
+            => base.CreateRandomConnection();
 
         public TestTask CreateTest()
             => new TestTask(this);

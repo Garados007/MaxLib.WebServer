@@ -39,13 +39,12 @@ namespace MaxLib.WebServer.Testing
         /// <summary>
         /// Generate a random session and assign it to the task
         /// </summary>
-        public void SetSession()
-            => SetSession(WebServer.CreateRandomSession());
+        public void SetConnection()
+            => SetConnection(WebServer.CreateRandomConnection());
 
-        public void SetSession(HttpSession session)
+        public void SetConnection(HttpConnection connection)
         {
-            Task.Session = session ?? throw new ArgumentNullException(nameof(session));
-            Task.Document.Session = session;
+            Task.Connection = connection ?? throw new ArgumentNullException(nameof(connection));
         }
 
         /// <summary>

@@ -19,16 +19,15 @@ namespace MaxLib.WebServer
                 {
                     RequestHeader = new HttpRequestHeader(),
                     ResponseHeader = new HttpResponseHeader(),
-                    Session = new HttpSession()
-                    {
-                        Ip = "127.0.0.1",
-                        LastWorkTime = -1,
-                        SessionKey = new byte[0]
-                    }
+                },
+                Connection = new HttpConnection
+                {
+                    Ip = "127.0.0.1",
+                    LastWorkTime = -1,
+                    ConnectionKey = new byte[0],
                 },
                 NetworkStream = new MemoryStream()
             };
-            Task.Session = Task.Document.Session;
             TerminationState = WebServiceType.SendResponse;
         }
 
