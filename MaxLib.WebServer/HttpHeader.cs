@@ -1,6 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
 
+#nullable enable
+
 namespace MaxLib.WebServer
 {
     [Serializable]
@@ -20,11 +22,33 @@ namespace MaxLib.WebServer
 
         public Dictionary<string, string> HeaderParameter { get; } = new Dictionary<string, string>();
 
-        public void SetHeader(IEnumerable<(string, string)> headers)
+        public string? GetHeader(string key)
+        {
+            _ = key ?? throw new ArgumentNullException(nameof(key));
+            return HeaderParameter.TryGetValue(key, out string value) ? value : null;
+        }
+
+        public void SetHeader(IEnumerable<(string, string?)> headers)
         {
             _ = headers ?? throw new ArgumentNullException(nameof(headers));
             foreach (var (key, value) in headers)
+                if (value != null)
+                    HeaderParameter[key] = value;
+                else HeaderParameter.Remove(key);
+        }
+
+        public void SetHeader(params (string, string?)[] header)
+        {
+            _ = header ?? throw new ArgumentNullException(nameof(header));
+            SetHeader(headers: header);
+        }
+
+        public void SetHeader(string key, string? value)
+        {
+            _ = key ?? throw new ArgumentNullException(nameof(key));
+            if (value != null)
                 HeaderParameter[key] = value;
+            else HeaderParameter.Remove(key);
         }
 
         private string protocolMethod = HttpProtocollMethod.Get;

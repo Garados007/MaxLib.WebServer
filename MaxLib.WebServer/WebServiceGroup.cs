@@ -2,6 +2,8 @@
 using System;
 using System.Threading.Tasks;
 
+#nullable enable
+
 namespace MaxLib.WebServer
 {
     public class WebServiceGroup
@@ -45,7 +47,7 @@ namespace MaxLib.WebServer
 
         private void Service_ImportanceChanged(object sender, EventArgs e)
         {
-            var service = sender as WebService;
+            var service = (WebService)sender;
             Services.ChangePriority(service.Importance, service);
         }
 
@@ -71,7 +73,7 @@ namespace MaxLib.WebServer
 
         public T Get<T>() where T : WebService
         {
-            return Services.Find((ws) => ws is T) as T;
+            return (T)Services.Find((ws) => ws is T);
         }
 
         public virtual async Task Execute(WebProgressTask task)
@@ -81,10 +83,10 @@ namespace MaxLib.WebServer
             var services = Services.ToArray();
             foreach (var service in services)
             {
-                if (task.Connection.NetworkClient != null && !task.Connection.NetworkClient.Connected) return;
+                if (task.Connection?.NetworkClient != null && !task.Connection.NetworkClient.Connected) return;
                 if (service.CanWorkWith(task))
                 {
-                    if (task.Connection.NetworkClient != null && !task.Connection.NetworkClient.Connected) return;
+                    if (task.Connection?.NetworkClient != null && !task.Connection.NetworkClient.Connected) return;
                     await service.ProgressTask(task);
                     task.Document[Stage] = true;
                     if (se) 

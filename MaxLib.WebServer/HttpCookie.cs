@@ -3,6 +3,8 @@ using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Text;
 
+#nullable enable
+
 namespace MaxLib.WebServer
 {
     [Serializable]
@@ -68,7 +70,7 @@ namespace MaxLib.WebServer
             }
         }
 
-        public string CompleteRequestCookie { get; private set; }
+        public string CompleteRequestCookie { get; private set; } = "";
 
         public Dictionary<string, Cookie> AddedCookies { get; }
 

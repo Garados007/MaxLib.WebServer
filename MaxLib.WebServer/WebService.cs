@@ -1,6 +1,8 @@
 ﻿using System;
 using System.Threading.Tasks;
 
+#nullable enable
+
 namespace MaxLib.WebServer
 {
     public abstract class WebService
@@ -17,7 +19,7 @@ namespace MaxLib.WebServer
 
         public abstract bool CanWorkWith(WebProgressTask task);
 
-        public event EventHandler ImportanceChanged;
+        public event EventHandler? ImportanceChanged;
 
         WebProgressImportance importance;
         public WebProgressImportance Importance

@@ -1,6 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
 
+#nullable enable
+
 namespace MaxLib.WebServer
 {
     [Serializable]
@@ -27,10 +29,10 @@ namespace MaxLib.WebServer
         public HttpConnectionType FieldConnection { get; set; } = HttpConnectionType.Close;
         public HttpCookie Cookie { get; } = new HttpCookie("");
 
-        public string FieldUserAgent
+        public string? FieldUserAgent
         {
-            get => HeaderParameter.TryGetValue("User-Agent", out string value) ? value : null;
-            set => HeaderParameter["User-Agent"] = value;
+            get => GetHeader("User-Agent");
+            set => SetHeader("User-Agent", value);
         }
     }
 }

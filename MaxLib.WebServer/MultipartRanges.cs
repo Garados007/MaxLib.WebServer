@@ -5,6 +5,8 @@ using System.IO;
 using System.Text;
 using System.Threading.Tasks;
 
+#nullable enable
+
 namespace MaxLib.WebServer
 {
     [Serializable]
@@ -55,13 +57,13 @@ namespace MaxLib.WebServer
         List<Range> ranges = new List<Range>();
 
         [Obsolete("Use MultipartRanges(Stream, HttpRequestHeader, HttpResponseHeader, string) instead. This will be removed in a future release.")]
-        public MultipartRanges(Stream stream, HttpDocument document, string mime)
+        public MultipartRanges(Stream stream, HttpDocument document, string? mime)
             : this(stream, document.RequestHeader, document.ResponseHeader, mime)
         {
 
         }
 
-        public MultipartRanges(Stream stream, WebProgressTask task, string mime)
+        public MultipartRanges(Stream stream, WebProgressTask task, string? mime)
             : this(
                 stream,
                 task?.Request ?? throw new ArgumentNullException(nameof(task.Request)),
@@ -73,12 +75,12 @@ namespace MaxLib.WebServer
         }
 
         public MultipartRanges(Stream stream, HttpRequestHeader request, 
-            HttpResponseHeader response, string mime)
+            HttpResponseHeader response, string? mime)
         {
             _ = request ?? throw new ArgumentNullException(nameof(request));
             this.response = response ?? throw new ArgumentNullException(nameof(response));
             baseStream = stream ?? throw new ArgumentNullException(nameof(stream));
-            MimeType = mime;
+            MimeType = string.IsNullOrWhiteSpace(mime) ? WebServer.MimeType.TextHtml : mime;
 
             response.HeaderParameter["Accept-Ranges"] = "bytes";
             if (request.HeaderParameter.ContainsKey("Range"))

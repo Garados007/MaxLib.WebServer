@@ -4,6 +4,8 @@ using System.IO;
 using System.Text;
 using System.Threading.Tasks;
 
+#nullable enable
+
 namespace MaxLib.WebServer
 {
     [Serializable]
@@ -22,7 +24,7 @@ namespace MaxLib.WebServer
             get => encoding;
             set
             {
-                encoding = value;
+                encoding = value ?? throw new ArgumentNullException(nameof(value));
                 Encoder = Encoding.GetEncoding(value);
             }
         }

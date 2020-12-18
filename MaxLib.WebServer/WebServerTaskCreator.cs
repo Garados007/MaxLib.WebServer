@@ -2,6 +2,8 @@
 using System.IO;
 using System.Threading.Tasks;
 
+#nullable enable
+
 namespace MaxLib.WebServer
 {
     public class WebServerTaskCreator
@@ -50,7 +52,7 @@ namespace MaxLib.WebServer
             Task.Request.Post.SetPost(post, mime);
         }
 
-        public void SetAccept(string[] acceptTypes = null, string[] encoding = null)
+        public void SetAccept(string[]? acceptTypes = null, string[]? encoding = null)
         {
             if (acceptTypes != null) Task.Request.FieldAccept.AddRange(acceptTypes);
             if (encoding != null) Task.Request.FieldAcceptEncoding.AddRange(acceptTypes);

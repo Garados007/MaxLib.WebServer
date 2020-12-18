@@ -3,15 +3,17 @@ using System;
 using System.IO;
 using System.Threading.Tasks;
 
+#nullable enable
+
 namespace MaxLib.WebServer
 {
     [Serializable]
     public class HttpFileDataSource : HttpDataSource
     {
-        public FileStream File { get; private set; }
+        public FileStream? File { get; private set; }
 
-        private string path = null;
-        public virtual string Path
+        private string? path = null;
+        public virtual string? Path
         {
             get => path;
             set
@@ -37,7 +39,7 @@ namespace MaxLib.WebServer
 
         public override bool CanProvideData => true;
 
-        public HttpFileDataSource(string path, bool readOnly = true)
+        public HttpFileDataSource(string? path, bool readOnly = true)
         {
             ReadOnly = readOnly;
             Path = path;
@@ -54,6 +56,8 @@ namespace MaxLib.WebServer
         protected override async Task<long> WriteStreamInternal(Stream stream, long start, long? stop)
         {
             await Task.CompletedTask;
+            if (File == null)
+                return 0;
             File.Position = start;
             using (var skip = new SkipableStream(File, 0))
             {
@@ -75,6 +79,8 @@ namespace MaxLib.WebServer
             await Task.CompletedTask;
             if (ReadOnly)
                 throw new NotSupportedException();
+            if (File == null)
+                return 0;
             File.Position = 0;
             using (var skip = new SkipableStream(File, 0))
             {

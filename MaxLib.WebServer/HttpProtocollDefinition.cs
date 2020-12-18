@@ -1,6 +1,8 @@
 ﻿using System;
 using System.Linq;
 
+#nullable enable
+
 namespace MaxLib.WebServer
 {
     public static class HttpProtocollDefinition
