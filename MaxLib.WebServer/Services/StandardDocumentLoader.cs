@@ -16,7 +16,7 @@ namespace MaxLib.WebServer.Services
         public StandardDocumentLoader()
             : base(ServerStage.CreateDocument)
         {
-            Importance = WebProgressImportance.VeryLow;
+            Priority = WebServicePriority.VeryLow;
             Document = "<html><head><meta charset=\"utf-8\" /></head><body>Kein Dokument gefunden.</body></html>";
         }
 

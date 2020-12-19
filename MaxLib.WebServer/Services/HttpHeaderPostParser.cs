@@ -16,7 +16,7 @@ namespace MaxLib.WebServer.Services
         public HttpHeaderPostParser()
             : base(ServerStage.ParseRequest)
         {
-            Importance = WebProgressImportance.VeryHigh;
+            Priority = WebServicePriority.VeryHigh;
         }
 
         public override async Task ProgressTask(WebProgressTask task)

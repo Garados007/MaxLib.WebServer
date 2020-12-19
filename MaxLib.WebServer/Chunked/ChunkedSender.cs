@@ -15,7 +15,7 @@ namespace MaxLib.WebServer.Chunked
         {
             OnlyWithLazy = onlyWithLazy;
             if (onlyWithLazy) 
-                Importance = WebProgressImportance.High;
+                Priority = WebServicePriority.High;
         }
 
         public override bool CanWorkWith(WebProgressTask task)

@@ -10,7 +10,7 @@ namespace MaxLib.WebServer.Services
         public Http404Service() 
             : base(ServerStage.CreateDocument)
         {
-            Importance = WebProgressImportance.VeryLow;
+            Priority = WebServicePriority.Last;
         }
 
         public override bool CanWorkWith(WebProgressTask task)
