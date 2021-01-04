@@ -234,7 +234,7 @@ namespace MaxLib.WebServer
                 await WebServiceGroups[task.CurrentStage].Execute(task);
                 if (task.CurrentStage == terminationState) 
                     break;
-                task.CurrentStage = task.CurrentStage;
+                task.CurrentStage = task.NextStage;
                 task.NextStage = task.NextStage == ServerStage.FINAL_STAGE
                     ? ServerStage.FINAL_STAGE
                     : (ServerStage)((int)task.NextStage + 1);
