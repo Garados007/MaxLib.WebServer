@@ -33,7 +33,7 @@ namespace MaxLib.WebServer.Api.Rest
         {
             _ = task ?? throw new ArgumentNullException(nameof(task));
             _ = location ?? throw new ArgumentNullException(nameof(location));
-            return new RestQueryArgs(location, task.Request.Location.GetParameter, task.Request.Post);
+            return new RestQueryArgs(location, task.Request.Location.GetParameter, task.Request.Post, task.Session);
         }
 
         protected virtual HttpDataSource NoEndpoint(WebProgressTask task, RestQueryArgs args)

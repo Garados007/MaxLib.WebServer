@@ -123,6 +123,26 @@ namespace MaxLib.WebServer.Api.Rest
             }
         }
 
+        public class SessionRule : ApiRule
+        {
+            public string SessionKey { get; set; }
+
+            public string Key { get; set; }
+
+            public override bool Check(RestQueryArgs args)
+            {
+                _ = args ?? throw new ArgumentNullException(nameof(args));
+                if (args.Session == null || Key == null || SessionKey == null)
+                    return false;
+                if (args.Session.TryGetValue(SessionKey, out object value))
+                {
+                    args.ParsedArguments[Key] = value;
+                    return true;
+                }
+                else return false;
+            }
+        }
+
         public UrlConstantRule UrlConstant(string constant, bool ignoreCase = false, int index = 0)
         {
             return new UrlConstantRule
@@ -235,6 +255,24 @@ namespace MaxLib.WebServer.Api.Rest
                 Condition = condition,
                 Success = success,
                 Fail = fail,
+            };
+        }
+
+        public SessionRule Session(string key)
+        {
+            return new SessionRule
+            {
+                Key = key,
+                SessionKey = key,
+            };
+        }
+
+        public SessionRule Session(string sessionKey, string key)
+        {
+            return new SessionRule
+            {
+                Key = key,
+                SessionKey = sessionKey,
             };
         }
     }
