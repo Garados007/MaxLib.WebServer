@@ -31,6 +31,7 @@ namespace MaxLib.WebServer
                 }
             }
 
+            PostParameter.Clear();
             switch (MimeType = mime)
             {
                 case WebServer.MimeType.ApplicationXWwwFromUrlencoded:
@@ -38,13 +39,12 @@ namespace MaxLib.WebServer
                     break;
                 case WebServer.MimeType.MultipartFormData:
                     {
-                        var regex = new Regex("boundary\\s*=\\s*\"([^\"]*)\"");
+                        var regex = new Regex("boundary\\s*=\\s*(?:\"(?<name>[^\"]*)\"|(?<name>[^\"]*))");
                         var match = regex.Match(args);
-                        var boundary = match.Success ? match.Groups[1].Value : "";
+                        var boundary = match.Success ? match.Groups["name"].Value : "";
                         SetPostFormData(post, boundary);
                     } break;
             }
-            PostParameter.Clear();
         }
 
         protected virtual void SetPostFormUrlencoded(string post)

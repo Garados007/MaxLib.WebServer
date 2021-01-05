@@ -36,7 +36,7 @@ namespace MaxLib.WebServer.Api.Rest
         public virtual RestQueryArgs Check(RestQueryArgs args)
         {
             _ = args ?? throw new ArgumentNullException(nameof(args));
-            var realArgs = new RestQueryArgs(args.Location, args.GetArgs, args.Post);
+            var realArgs = new RestQueryArgs(args.Location, args.GetArgs, args.Post, args.Session);
             if (rules.Check(realArgs))
                 return realArgs;
             else return null;

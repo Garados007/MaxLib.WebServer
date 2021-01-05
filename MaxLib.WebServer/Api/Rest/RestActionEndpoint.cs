@@ -70,10 +70,7 @@ namespace MaxLib.WebServer.Api.Rest
         public static RestActionEndpoint Create<T>(Func<T, Task<HttpDataSource>> handler, string argName)
             => new RestActionEndpoint(async args =>
             {
-                T arg = default;
-                if (args.TryGetValue(argName, out object rawArg))
-                    if (rawArg is T)
-                        arg = (T)rawArg;
+                var arg = GetValue<T>(args, argName);
                 var result = await handler(arg);
                 if (result == null)
                     return null;
@@ -83,10 +80,7 @@ namespace MaxLib.WebServer.Api.Rest
         public static RestActionEndpoint Create<T>(Func<T, Task<Stream>> handler, string argName)
             => new RestActionEndpoint(async args =>
             {
-                T arg = default;
-                if (args.TryGetValue(argName, out object rawArg))
-                    if (rawArg is T)
-                        arg = (T)rawArg;
+                var arg = GetValue<T>(args, argName);
                 var result = await handler(arg);
                 if (result == null)
                     return null;
@@ -96,10 +90,7 @@ namespace MaxLib.WebServer.Api.Rest
         public static RestActionEndpoint Create<T>(Func<T, Task<string>> handler, string argName)
             => new RestActionEndpoint(async args =>
             {
-                T arg = default;
-                if (args.TryGetValue(argName, out object rawArg))
-                    if (rawArg is T)
-                        arg = (T)rawArg;
+                var arg = GetValue<T>(args, argName);
                 var result = await handler(arg);
                 if (result == null)
                     return null;
@@ -109,14 +100,8 @@ namespace MaxLib.WebServer.Api.Rest
         public static RestActionEndpoint Create<T1, T2>(Func<T1, T2, Task<HttpDataSource>> handler, string argName1, string argName2)
             => new RestActionEndpoint(async args =>
             {
-                T1 arg1 = default;
-                if (args.TryGetValue(argName1, out object rawArg))
-                    if (rawArg is T1)
-                        arg1 = (T1)rawArg;
-                T2 arg2 = default;
-                if (args.TryGetValue(argName2, out object rawArg2))
-                    if (rawArg is T2)
-                        arg2 = (T2)rawArg2;
+                var arg1 = GetValue<T1>(args, argName1);
+                var arg2 = GetValue<T2>(args, argName2);
                 var result = await handler(arg1, arg2);
                 if (result == null)
                     return null;
@@ -126,14 +111,8 @@ namespace MaxLib.WebServer.Api.Rest
         public static RestActionEndpoint Create<T1, T2>(Func<T1, T2, Task<Stream>> handler, string argName1, string argName2)
             => new RestActionEndpoint(async args =>
             {
-                T1 arg1 = default;
-                if (args.TryGetValue(argName1, out object rawArg))
-                    if (rawArg is T1)
-                        arg1 = (T1)rawArg;
-                T2 arg2 = default;
-                if (args.TryGetValue(argName2, out object rawArg2))
-                    if (rawArg is T2)
-                        arg2 = (T2)rawArg2;
+                var arg1 = GetValue<T1>(args, argName1);
+                var arg2 = GetValue<T2>(args, argName2);
                 var result = await handler(arg1, arg2);
                 if (result == null)
                     return null;
@@ -143,14 +122,8 @@ namespace MaxLib.WebServer.Api.Rest
         public static RestActionEndpoint Create<T1, T2>(Func<T1, T2, Task<string>> handler, string argName1, string argName2)
             => new RestActionEndpoint(async args =>
             {
-                T1 arg1 = default;
-                if (args.TryGetValue(argName1, out object rawArg))
-                    if (rawArg is T1)
-                        arg1 = (T1)rawArg;
-                T2 arg2 = default;
-                if (args.TryGetValue(argName2, out object rawArg2))
-                    if (rawArg is T2)
-                        arg2 = (T2)rawArg2;
+                var arg1 = GetValue<T1>(args, argName1);
+                var arg2 = GetValue<T2>(args, argName2);
                 var result = await handler(arg1, arg2);
                 if (result == null)
                     return null;
@@ -160,18 +133,9 @@ namespace MaxLib.WebServer.Api.Rest
         public static RestActionEndpoint Create<T1, T2, T3>(Func<T1, T2, T3, Task<HttpDataSource>> handler, string argName1, string argName2, string argName3)
             => new RestActionEndpoint(async args =>
             {
-                T1 arg1 = default;
-                if (args.TryGetValue(argName1, out object rawArg))
-                    if (rawArg is T1)
-                        arg1 = (T1)rawArg;
-                T2 arg2 = default;
-                if (args.TryGetValue(argName2, out object rawArg2))
-                    if (rawArg is T2)
-                        arg2 = (T2)rawArg2;
-                T3 arg3 = default;
-                if (args.TryGetValue(argName3, out object rawArg3))
-                    if (rawArg is T3)
-                        arg3 = (T3)rawArg3;
+                var arg1 = GetValue<T1>(args, argName1);
+                var arg2 = GetValue<T2>(args, argName2);
+                var arg3 = GetValue<T3>(args, argName3);
                 var result = await handler(arg1, arg2, arg3);
                 if (result == null)
                     return null;
@@ -181,18 +145,9 @@ namespace MaxLib.WebServer.Api.Rest
         public static RestActionEndpoint Create<T1, T2, T3>(Func<T1, T2, T3, Task<Stream>> handler, string argName1, string argName2, string argName3)
             => new RestActionEndpoint(async args =>
             {
-                T1 arg1 = default;
-                if (args.TryGetValue(argName1, out object rawArg))
-                    if (rawArg is T1)
-                        arg1 = (T1)rawArg;
-                T2 arg2 = default;
-                if (args.TryGetValue(argName2, out object rawArg2))
-                    if (rawArg is T2)
-                        arg2 = (T2)rawArg2;
-                T3 arg3 = default;
-                if (args.TryGetValue(argName3, out object rawArg3))
-                    if (rawArg is T3)
-                        arg3 = (T3)rawArg3;
+                var arg1 = GetValue<T1>(args, argName1);
+                var arg2 = GetValue<T2>(args, argName2);
+                var arg3 = GetValue<T3>(args, argName3);
                 var result = await handler(arg1, arg2, arg3);
                 if (result == null)
                     return null;
@@ -202,18 +157,9 @@ namespace MaxLib.WebServer.Api.Rest
         public static RestActionEndpoint Create<T1, T2, T3>(Func<T1, T2, T3, Task<string>> handler, string argName1, string argName2, string argName3)
             => new RestActionEndpoint(async args =>
             {
-                T1 arg1 = default;
-                if (args.TryGetValue(argName1, out object rawArg))
-                    if (rawArg is T1)
-                        arg1 = (T1)rawArg;
-                T2 arg2 = default;
-                if (args.TryGetValue(argName2, out object rawArg2))
-                    if (rawArg is T2)
-                        arg2 = (T2)rawArg2;
-                T3 arg3 = default;
-                if (args.TryGetValue(argName3, out object rawArg3))
-                    if (rawArg is T3)
-                        arg3 = (T3)rawArg3;
+                var arg1 = GetValue<T1>(args, argName1);
+                var arg2 = GetValue<T2>(args, argName2);
+                var arg3 = GetValue<T3>(args, argName3);
                 var result = await handler(arg1, arg2, arg3);
                 if (result == null)
                     return null;
@@ -258,6 +204,13 @@ namespace MaxLib.WebServer.Api.Rest
                 return false;
             value = property.GetValue(task);
             return true;
+        }
+
+        private static T GetValue<T>(Dictionary<string, object> args, string name)
+        {
+            if (args.TryGetValue(name, out object rawValue) && rawValue is T value)
+                return value;
+            else return default;
         }
     }
 }

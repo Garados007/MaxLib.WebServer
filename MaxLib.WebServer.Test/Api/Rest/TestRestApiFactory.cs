@@ -21,7 +21,8 @@ namespace MaxLib.WebServer.Test.Api.Rest
                     { "foo", "bar" },
                     { "baz", "7" },
                 },
-                new HttpPost("a=1&b=2", MimeType.ApplicationXWwwFromUrlencoded)
+                new HttpPost("a=1&b=2", MimeType.ApplicationXWwwFromUrlencoded),
+                null
                 );
         }
 

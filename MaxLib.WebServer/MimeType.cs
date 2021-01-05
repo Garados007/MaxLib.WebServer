@@ -102,7 +102,7 @@ namespace MaxLib.WebServer
         /// <summary>
         /// mehrteilige Daten aus HTML-Formular (z.B. File-Upload) 
         /// </summary>
-        public const string MultipartFormData = "multipart/form-Data";
+        public const string MultipartFormData = "multipart/form-data";
         /// <summary>
         /// mehrteilige Daten ohne Bezug der Teile untereinander 
         /// </summary>
