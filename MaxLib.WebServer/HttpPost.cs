@@ -1,6 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Text.RegularExpressions;
+using MaxLib.WebServer.Post;
 
 #nullable enable
 
@@ -13,13 +13,29 @@ namespace MaxLib.WebServer
 
         public string? MimeType { get; private set; }
 
-        public Dictionary<string, string> PostParameter { get; }
+
+        protected Lazy<IPostData>? LazyData { get; set; }
+        public IPostData? Data => LazyData?.Value;
+
+        [Obsolete("this will be removed in a future release. Use HttpPost.Data instead.")]
+        public Dictionary<string, string> PostParameter
+            => Data is UrlEncodedData data ? data.Parameter : new Dictionary<string, string>();
+
+        public static Dictionary<string, Func<IPostData>> DataHandler { get; }
+            = new Dictionary<string, Func<IPostData>>();
+
+        static HttpPost()
+        {
+            DataHandler[WebServer.MimeType.ApplicationXWwwFromUrlencoded] =
+                () => new UrlEncodedData();
+            DataHandler[WebServer.MimeType.MultipartFormData] =
+                () => new MultipartFormData();
+        }
 
         public virtual void SetPost(string post, string? mime)
         {
             CompletePost = post ?? throw new ArgumentNullException("Post");
 
-            PostParameter.Clear();
             string args = "";
             if (mime != null)
             {
@@ -31,54 +47,21 @@ namespace MaxLib.WebServer
                 }
             }
 
-            PostParameter.Clear();
-            switch (MimeType = mime)
-            {
-                case WebServer.MimeType.ApplicationXWwwFromUrlencoded:
-                    SetPostFormUrlencoded(post);
-                    break;
-                case WebServer.MimeType.MultipartFormData:
-                    {
-                        var regex = new Regex("boundary\\s*=\\s*(?:\"(?<name>[^\"]*)\"|(?<name>[^\"]*))");
-                        var match = regex.Match(args);
-                        var boundary = match.Success ? match.Groups["name"].Value : "";
-                        SetPostFormData(post, boundary);
-                    } break;
-            }
-        }
-
-        protected virtual void SetPostFormUrlencoded(string post)
-        {
-            if (CompletePost != "")
-            {
-                var tiles = CompletePost.Split('&');
-                foreach (var tile in tiles)
+            if ((MimeType = mime) != null &&
+                DataHandler.TryGetValue(mime!, out Func<IPostData> constructor)
+            )
+                LazyData = new Lazy<IPostData>(() =>
                 {
-                    var ind = tile.IndexOf('=');
-                    if (ind == -1)
-                    {
-                        var t = WebServerUtils.DecodeUri(tile);
-                        if (!PostParameter.ContainsKey(t)) PostParameter.Add(t, "");
-                    }
-                    else
-                    {
-                        var key = WebServerUtils.DecodeUri(tile.Remove(ind));
-                        var value = ind + 1 == tile.Length ? "" : tile.Substring(ind + 1);
-                        if (!PostParameter.ContainsKey(key)) PostParameter.Add(key, WebServerUtils.DecodeUri(value));
-                    }
-                }
-            }
-        }
-
-        protected virtual void SetPostFormData(string post, string boundary)
-        {
-
+                    var data = constructor();
+                    data.Set(post, args);
+                    return data;
+                }, System.Threading.LazyThreadSafetyMode.ExecutionAndPublication);
+            else LazyData = null;
         }
 
         public HttpPost(string post, string? mime)
         {
             CompletePost = post ?? throw new ArgumentNullException(nameof(post));
-            PostParameter = new Dictionary<string, string>();
             SetPost(post, mime);
         }
 
