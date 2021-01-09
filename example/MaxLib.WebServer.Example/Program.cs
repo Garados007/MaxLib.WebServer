@@ -10,7 +10,7 @@ namespace MaxLib.WebServer.Example
             WebServerLog.LogAdded += WebServerLog_LogAdded;
             var server = new Server(new WebServerSettings(8000, 5000));
             // add services
-            server.AddWebService(new HttpHeaderParser());
+            server.AddWebService(new HttpRequestParser());
             server.AddWebService(new HttpHeaderPostParser());
             server.AddWebService(new HttpHeaderSpecialAction());
             server.AddWebService(new StandardDocumentLoader() { Document = "Hello World!" });

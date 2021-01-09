@@ -1,15 +1,13 @@
-﻿using System;
+using System.Text;
+using System.Threading.Tasks;
 using MaxLib.WebServer.Services;
 using MaxLib.WebServer.Testing;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace MaxLib.WebServer.Test.Services
 {
     [TestClass]
-    [Obsolete("because HttpHeaderParser is obsolete")]
-    public class TestHttpHeaderParser
+    public class TestHttpRequestParser
     {
         TestWebServer server;
         TestTask test;
@@ -18,7 +16,7 @@ namespace MaxLib.WebServer.Test.Services
         public void Init()
         {
             server = new TestWebServer();
-            server.AddWebService(new HttpHeaderParser());
+            server.AddWebService(new HttpRequestParser());
             test = new TestTask(server)
             {
                 CurrentStage = ServerStage.ReadRequest,
@@ -27,7 +25,7 @@ namespace MaxLib.WebServer.Test.Services
         }
 
         [TestMethod]
-        public async Task TestSimpleGet()
+        public async Task TestRequestParser_SimpleGet()
         {
             var sb = new StringBuilder();
             sb.AppendLine("GET /test.html HTTP/1.1");
@@ -35,7 +33,7 @@ namespace MaxLib.WebServer.Test.Services
             sb.AppendLine();
             using (var output = test.SetStream(sb.ToString()))
             {
-                await new HttpHeaderParser().ProgressTask(test.Task);
+                await new HttpRequestParser().ProgressTask(test.Task);
                 Assert.AreEqual(HttpProtocollMethod.Get, test.Request.ProtocolMethod);
                 Assert.AreEqual("/test.html", test.Request.Location.DocumentPath);
                 Assert.AreEqual(HttpProtocollDefinition.HttpVersion1_1, test.Request.HttpProtocol);
@@ -44,7 +42,7 @@ namespace MaxLib.WebServer.Test.Services
         }
 
         [TestMethod]
-        public async Task TestSimplePost()
+        public async Task TestRequestParser_SimplePost()
         {
             var content = "foo=bar&baz=foobar";
             var sb = new StringBuilder();
@@ -56,7 +54,7 @@ namespace MaxLib.WebServer.Test.Services
             sb.Append(content);
             using (var output = test.SetStream(sb.ToString()))
             {
-                await new HttpHeaderParser().ProgressTask(test.Task);
+                await new HttpRequestParser().ProgressTask(test.Task);
                 Assert.AreEqual(HttpProtocollMethod.Post, test.Request.ProtocolMethod);
                 Assert.AreEqual("/test.html", test.Request.Location.DocumentPath);
                 Assert.AreEqual(HttpProtocollDefinition.HttpVersion1_1, test.Request.HttpProtocol);
