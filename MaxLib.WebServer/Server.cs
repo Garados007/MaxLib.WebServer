@@ -35,7 +35,7 @@ namespace MaxLib.WebServer
         public virtual void InitialDefault()
         {
             //Pre parse request
-            AddWebService(new Services.HttpHeaderParser());
+            AddWebService(new Services.HttpRequestParser());
             //post parse request
             AddWebService(new Services.HttpHeaderPostParser());
             AddWebService(new Services.HttpDocumentFinder());

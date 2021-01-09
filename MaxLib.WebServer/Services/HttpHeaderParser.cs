@@ -7,15 +7,24 @@ using System.Threading.Tasks;
 namespace MaxLib.WebServer.Services
 {
     /// <summary>
-    /// WebServiceType.PreParseRequest: Liest und parst den Header aus dem Netzwerk-Stream und sammelt alle Informationen
+    /// This <see cref="WebService" /> reads the request und put their data in the current
+    /// <see cref="WebProgressTask" />.
+    /// <br />
+    /// This service works only in text mode and has therefore problems with binary POST data.
+    /// It is recommended to use <see cref="HttpRequestParser" /> instead.
     /// </summary>
+    [Obsolete("use HttpRequestParser instead for better binary support")]
     public class HttpHeaderParser : WebService
     {
         static readonly object lockHeaderFile = new object();
         static readonly object lockRequestFile = new object();
 
         /// <summary>
-        /// WebServiceType.PreParseRequest: Liest und parst den Header aus dem Netzwerk-Stream und sammelt alle Informationen
+        /// This <see cref="WebService" /> reads the request und put their data in the current
+        /// <see cref="WebProgressTask" />.
+        /// <br />
+        /// This service works only in text mode and has therefore problems with binary POST data.
+        /// It is recommended to use <see cref="HttpRequestParser" /> instead.
         /// </summary>
         public HttpHeaderParser() : base(ServerStage.ReadRequest) { }
 
