@@ -1,4 +1,5 @@
-﻿using MaxLib.WebServer.Api.Rest;
+﻿using System.Text;
+using MaxLib.WebServer.Api.Rest;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using System.Collections.Generic;
 
@@ -21,7 +22,8 @@ namespace MaxLib.WebServer.Test.Api.Rest
                     { "foo", "bar" },
                     { "baz", "7" },
                 },
-                new HttpPost("a=1&b=2", MimeType.ApplicationXWwwFromUrlencoded),
+                new HttpPost(Encoding.UTF8.GetBytes("a=1&b=2"),
+                    MimeType.ApplicationXWwwFromUrlencoded),
                 null
                 );
         }

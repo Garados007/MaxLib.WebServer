@@ -1,3 +1,5 @@
+using System.Text.RegularExpressions;
+using System.Text;
 using System;
 using System.Collections.Generic;
 
@@ -44,6 +46,37 @@ namespace MaxLib.WebServer.Post
                     }
                 }
             }
+        }
+
+        static readonly Regex charsetRegex = new Regex(
+            "charset\\s*=\\s*(?<charset>[^\\s;]+)",
+            RegexOptions.Compiled | RegexOptions.IgnoreCase
+        );
+
+        public void Set(ReadOnlyMemory<byte> content, string options)
+        {
+            var match = charsetRegex.Match(options);
+            Encoding? encoding = null;
+            if (match.Success)
+                try
+                { 
+                    encoding = Encoding.GetEncoding(match.Groups["charset"].Value);
+                }
+                catch (Exception e)
+                {
+                    WebServerLog.Add(ServerLogType.Error, GetType(), "SetPost", 
+                        $"invalid encoding {match.Groups["charset"].Value}: {e}");
+                }
+            encoding ??= Encoding.UTF8;
+            Set(encoding.GetString(content.Span), options);
+        }
+
+        public override string ToString()
+        {
+            var sb = new StringBuilder();
+            foreach (var (key, value) in Parameter)
+                sb.AppendLine($"{key}: {value}");
+            return sb.ToString();
         }
     }
 }

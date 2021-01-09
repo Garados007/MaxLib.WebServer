@@ -9,6 +9,7 @@ namespace MaxLib.WebServer
     [Serializable]
     public class HttpPost
     {
+        [Obsolete]
         public string CompletePost { get; private set; }
 
         public string? MimeType { get; private set; }
@@ -32,6 +33,32 @@ namespace MaxLib.WebServer
                 () => new MultipartFormData();
         }
 
+        public virtual void SetPost(ReadOnlyMemory<byte> post, string? mime)
+        {
+            string args = "";
+            if (mime != null)
+            {
+                var ind = mime.IndexOf(';');
+                if (ind >= 0)
+                {
+                    args = mime.Substring(ind + 1);
+                    mime = mime.Remove(ind);
+                }
+            }
+
+            if ((MimeType = mime) != null &&
+                DataHandler.TryGetValue(mime!, out Func<IPostData> constructor)
+            )
+                LazyData = new Lazy<IPostData>(() =>
+                {
+                    var data = constructor();
+                    data.Set(post, args);
+                    return data;
+                }, System.Threading.LazyThreadSafetyMode.ExecutionAndPublication);
+            else LazyData = new Lazy<IPostData>(new UnknownPostData(post, mime));
+        }
+
+        [Obsolete]
         public virtual void SetPost(string post, string? mime)
         {
             CompletePost = post ?? throw new ArgumentNullException("Post");
@@ -59,6 +86,18 @@ namespace MaxLib.WebServer
             else LazyData = null;
         }
 
+        public HttpPost()
+        {
+            #pragma warning disable CS0612 // 'HttpPost.CompletePost' is obsolete 
+            CompletePost = "";
+            #pragma warning restore CS0612
+        }
+
+        public HttpPost(ReadOnlyMemory<byte> post, string? mime)
+            : this()
+            => SetPost(post, mime);
+
+        [Obsolete]
         public HttpPost(string post, string? mime)
         {
             CompletePost = post ?? throw new ArgumentNullException(nameof(post));
@@ -67,7 +106,7 @@ namespace MaxLib.WebServer
 
         public override string ToString()
         {
-            return CompletePost;
+            return $"{MimeType}: {Data}";
         }
     }
 }

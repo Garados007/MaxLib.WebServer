@@ -30,7 +30,7 @@ namespace MaxLib.WebServer.Services
             foreach (var (key, value) in task.Request.HeaderParameter)
                 sb.AppendLine($"\t{WebUtility.HtmlEncode(key)}: {WebUtility.HtmlEncode(value)}");
             sb.AppendLine($"Body:");
-            sb.AppendLine(WebUtility.HtmlEncode(task.Request.Post.CompletePost));
+            sb.AppendLine(WebUtility.HtmlEncode(task.Request.Post.ToString()));
             sb.Append($"</pre><p>Try to change the request to get your expected response.</p>");
             sb.Append($"<small>Created by <a href=\"https://github.com/Garados007/MaxLib.WebServer\" " +
                 $"target=\"_blank\">MaxLib.WebServer</a>: {DateTime.UtcNow:r}</small></body></html>");

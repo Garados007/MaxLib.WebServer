@@ -47,7 +47,13 @@ namespace MaxLib.WebServer
             else Task.Request.HeaderParameter.Add(key, value);
         }
 
+        [Obsolete]
         public void SetPost(string post, string mime)
+        {
+            Task.Request.Post.SetPost(post, mime);
+        }
+
+        public void SetPost(ReadOnlyMemory<byte> post, string mime)
         {
             Task.Request.Post.SetPost(post, mime);
         }

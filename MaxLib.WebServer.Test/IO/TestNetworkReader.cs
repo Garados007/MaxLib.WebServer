@@ -95,5 +95,15 @@ namespace MaxLib.WebServer.Test.IO
             // read an undefined char
             Assert.AreEqual(65533, (int)(await reader.ReadCharAsync()));
         }
+
+        [TestMethod]
+        public async Task TestReadUntil()
+        {
+            var baseStream = new MemoryStream(new byte[] { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9 });
+            var reader = new NetworkReader(baseStream);
+            var readed = await reader.ReadUntilAsync(new byte[] { 4, 5, 6 });
+            Assert.AreEqual("00-01-02-03", BitConverter.ToString(readed.ToArray()));
+            Assert.AreEqual("04-05-06-07-08-09", BitConverter.ToString(await reader.ReadBytesAsync(6)));
+        }
     }
 }

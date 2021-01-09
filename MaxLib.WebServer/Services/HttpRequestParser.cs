@@ -221,12 +221,12 @@ namespace MaxLib.WebServer.Services
                 return false;
             }
 
-            var buffer = await reader.ReadBytesAsync(length);
-            var strContent = Encoding.UTF8.GetString(buffer);
-            debugBuilder?.AppendLine(strContent);
+            var buffer = await reader.ReadMemoryAsync(length);
+            debugBuilder?.Append(Encoding.UTF8.GetChars(buffer.ToArray()));
+            debugBuilder?.AppendLine();
 
             task.Request.Post.SetPost(
-                strContent,
+                buffer,
                 task.Request.HeaderParameter.TryGetValue("Content-Type", out string contentType)
                     ? contentType : null
             );
