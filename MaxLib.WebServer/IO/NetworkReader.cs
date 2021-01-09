@@ -103,18 +103,20 @@ namespace MaxLib.WebServer.IO
             this.leaveOpen = leaveOpen;
         }
 
-        protected void RefillBuffer()
+        protected void RefillBuffer(int expectLength = 0)
         {
             // This is to fix a speed penality with memory streams:
             // An async read with Memory<> is 100 times fast than a sync one.
             // Maybe this is a bug with my installation or something else.
 
-            RefillBufferAsync(CancellationToken.None).AsTask().Wait();
+            RefillBufferAsync(CancellationToken.None, expectLength).AsTask().Wait();
             return;
 
 #pragma warning disable CS0162 // Unreachable code detected
 
-            if (readBufferCount >= expectedCharBytes)
+            if (expectLength <= 0)
+                expectLength = expectedCharBytes;
+            if (readBufferCount >= expectLength)
                 return;
             // move the data to the left only if less then the half buffer is available
             if ((readBufferOffset << 1) > readBuffer.Length)
@@ -135,14 +137,17 @@ namespace MaxLib.WebServer.IO
                     return;
                 readBufferCount += readed;
             }
-            while (readBufferCount < expectedCharBytes);
+            while (readBufferCount < expectLength);
 
 #pragma warning restore CS0162 // Unreachable code detected
         }
 
-        protected async ValueTask RefillBufferAsync(CancellationToken cancellationToken)
+        protected async ValueTask RefillBufferAsync(CancellationToken cancellationToken, 
+            int expectLength = 0)
         {
-            if (readBufferCount >= expectedCharBytes)
+            if (expectLength <= 0)
+                expectLength = expectedCharBytes;
+            if (readBufferCount >= expectLength)
                 return;
             // move the data to the left only if less then the half buffer is available
             if ((readBufferOffset << 1) > readBuffer.Length && readBufferCount > 0)
@@ -162,7 +167,7 @@ namespace MaxLib.WebServer.IO
                     return;
                 readBufferCount += readed;
             }
-            while (readBufferCount < expectedCharBytes);
+            while (readBufferCount < expectLength);
         }
 
         int lastBytesUsed = 0;
@@ -460,7 +465,7 @@ namespace MaxLib.WebServer.IO
 
             // discard the whole char buffer
             if (charBufferOffset > 0)
-            MoveByteBufferFromCharBuffer(0, charBufferOffset);
+                MoveByteBufferFromCharBuffer(0, charBufferOffset);
             charBufferCount = charBufferOffset = lastBytesUsed = 0;
 
             int length = Math.Min(buffer.Length, readBufferCount);
@@ -539,6 +544,121 @@ namespace MaxLib.WebServer.IO
             }
             
             return originalCount - count;
+        }
+
+        public ReadOnlyMemory<byte> ReadUntil(
+            ReadOnlySpan<byte> marking
+        )
+        {
+            if (marking.Length == 0)
+                return ReadOnlyMemory<byte>.Empty;
+
+            if (marking.Length * 2 > readBuffer.Length)
+                throw new ArgumentException("marking is to large to fit the read buffer", nameof(marking));
+            
+            // discard the whole char buffer
+            if (charBufferOffset > 0)
+                MoveByteBufferFromCharBuffer(0, charBufferOffset);
+            charBufferCount = charBufferOffset = lastBytesUsed = 0;
+
+            // initialize a buffer where we can write completed data into
+            using var stream = new MemoryStream();
+
+            // loop until we found the signature
+            int length;
+            do
+            {
+                // ensure we have enough bytes in buffer
+                RefillBuffer(marking.Length);
+                if (readBufferCount < marking.Length)
+                {
+                    // there wasn't enough bytes at the end to fit the marking.
+                    // we just read the rest and thats it
+                    stream.Write(readBuffer.Span.Slice(readBufferOffset, readBufferCount));
+                    readBufferOffset += readBufferCount;
+                    readBufferCount = 0;
+                    break;
+                }
+
+                int i = readBufferOffset;
+                // move the check window until we found the pattern
+                do
+                {
+                    if (readBuffer.Span[i ..].StartsWith(marking))
+                        break;
+                    i++;
+                }
+                while (i < readBufferOffset + readBufferCount);
+                // add the data until the pattern to the stream
+                stream.Write(readBuffer.Span[readBufferOffset .. i]);
+                // move the index to the end
+                length = i - readBufferOffset;
+                readBufferOffset = i;
+                readBufferCount -= length;
+                // break if the length is 0
+            }
+            while (length > 0);
+
+            // now extract the data from the buffer and return
+            return stream.ToArray();
+        }
+
+        public async ValueTask<ReadOnlyMemory<byte>> ReadUntilAsync(
+            ReadOnlyMemory<byte> marking,
+            CancellationToken cancellationToken = default
+        )
+        {
+            if (marking.Length == 0)
+                return marking;
+
+            if (marking.Length * 2 > readBuffer.Length)
+                throw new ArgumentException("marking is to large to fit the read buffer", nameof(marking));
+            
+            // discard the whole char buffer
+            if (charBufferOffset > 0)
+                MoveByteBufferFromCharBuffer(0, charBufferOffset);
+            charBufferCount = charBufferOffset = lastBytesUsed = 0;
+
+            // initialize a buffer where we can write completed data into
+            using var stream = new MemoryStream();
+
+            // loop until we found the signature
+            int length;
+            do
+            {
+                // ensure we have enough bytes in buffer
+                await RefillBufferAsync(cancellationToken, marking.Length);
+                if (readBufferCount < marking.Length)
+                {
+                    // there wasn't enough bytes at the end to fit the marking.
+                    // we just read the rest and thats it
+                    stream.Write(readBuffer.Span.Slice(readBufferOffset, readBufferCount));
+                    readBufferOffset += readBufferCount;
+                    readBufferCount = 0;
+                    break;
+                }
+
+                int i = readBufferOffset;
+                // move the check window until we found the pattern
+                do
+                {
+                    if (readBuffer.Span[i ..].StartsWith(marking.Span))
+                        break;
+                    i++;
+                }
+                while (i < readBufferOffset + readBufferCount);
+                // add the data until the pattern to the stream
+                stream.Write(readBuffer.Span[readBufferOffset .. i]);
+                // move the index to the end
+                length = i - readBufferOffset;
+                readBufferOffset = i;
+                readBufferCount -= length;
+                // break if the length is 0
+            }
+            while (length > 0);
+
+            // now extract the data from the buffer and return
+            return stream.ToArray();
         }
     }
 }
