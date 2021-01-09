@@ -233,9 +233,7 @@ namespace MaxLib.WebServer.Post
             ReadOnlySpan<byte> rawBoundary = Encoding.UTF8.GetBytes(boundary);
 
             Entries.Clear();
-            // Currently the NetworkReader cannot work with Memory<> directly and therefore
-            // we need to copy all the data to a MemoryStream.
-            using var stream = new MemoryStream(content.ToArray());
+            using var stream = new SpanStream(content);
             using var reader = new NetworkReader(stream);
 
             // parse the content
