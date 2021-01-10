@@ -1,11 +1,13 @@
 ﻿using MaxLib.WebServer.Services;
 using MaxLib.WebServer.Testing;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
+using System;
 using System.Threading.Tasks;
 
 namespace MaxLib.WebServer.Test.Services
 {
     [TestClass]
+    [Obsolete]
     public class TestHttpHeaderPostParser
     {
         TestWebServer server;

@@ -11,7 +11,6 @@ namespace MaxLib.WebServer.Example
             var server = new Server(new WebServerSettings(8000, 5000));
             // add services
             server.AddWebService(new HttpRequestParser());
-            server.AddWebService(new HttpHeaderPostParser());
             server.AddWebService(new HttpHeaderSpecialAction());
             server.AddWebService(new StandardDocumentLoader() { Document = "Hello World!" });
             server.AddWebService(new HttpResponseCreator());

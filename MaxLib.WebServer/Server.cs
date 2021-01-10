@@ -37,7 +37,6 @@ namespace MaxLib.WebServer
             //Pre parse request
             AddWebService(new Services.HttpRequestParser());
             //post parse request
-            AddWebService(new Services.HttpHeaderPostParser());
             AddWebService(new Services.HttpDocumentFinder());
             AddWebService(new Services.HttpHeaderSpecialAction());
             //pre create document
