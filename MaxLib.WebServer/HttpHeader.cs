@@ -20,7 +20,8 @@ namespace MaxLib.WebServer
             }
         }
 
-        public Dictionary<string, string> HeaderParameter { get; } = new Dictionary<string, string>();
+        public Dictionary<string, string> HeaderParameter { get; } 
+            = new Dictionary<string, string>(StringComparer.InvariantCultureIgnoreCase);
 
         public string? GetHeader(string key)
         {
