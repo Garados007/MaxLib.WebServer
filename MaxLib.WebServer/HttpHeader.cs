@@ -13,7 +13,7 @@ namespace MaxLib.WebServer
 
         public HttpHeader()
         {
-            var param = new ObservableDictionary<string, string>();
+            var param = new ObservableDictionary<string, string>(StringComparer.InvariantCultureIgnoreCase);
             param.CollectionChanged += (_, __) => 
             {
                 if (!lockReset)
@@ -50,7 +50,7 @@ namespace MaxLib.WebServer
             }
         }
 
-        public IDictionary<string, string> HeaderParameter { get; }
+        public ObservableDictionary<string, string> HeaderParameter { get; }
 
         public string? GetHeader(string key)
         {
