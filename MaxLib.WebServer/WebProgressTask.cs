@@ -1,5 +1,6 @@
 ﻿using System.Net;
 using System;
+using System.Threading.Tasks;
 
 #nullable enable
 
@@ -37,6 +38,24 @@ namespace MaxLib.WebServer
         public void Dispose()
         {
             Document?.Dispose();
+        }
+
+        internal Func<Task>? SwitchProtocolHandler { get; private set; } = null;
+
+        /// <summary>
+        /// A call to this method notify the web server that this connection will switch protocols 
+        /// after all steps are finished. The web server will remove this connection from its 
+        /// watch list and call <paramref name="handler"/> after its finished.
+        /// <br />
+        /// You as the caller are responsible to safely cleanup the connection it is no more
+        /// used.
+        /// </summary>
+        /// <param name="handler">
+        /// This handler will be called after the server has no more control of this connection.
+        /// </param>
+        public void SwitchProtocols(Func<Task> handler)
+        {
+            SwitchProtocolHandler = handler;
         }
     }
 }
