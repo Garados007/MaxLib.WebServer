@@ -204,6 +204,15 @@ namespace MaxLib.WebServer
 
                 await ExecuteTaskChain(task);
 
+                if (task.SwitchProtocolHandler != null)
+                {
+                    KeepAliveConnections.Remove(connection);
+                    AllConnections.Remove(connection);
+                    task.Dispose();
+                    _ = task.SwitchProtocolHandler();
+                    return;
+                }
+
                 if (task.Request.FieldConnection == HttpConnectionType.KeepAlive)
                 {
                     if (!KeepAliveConnections.Contains(connection)) 
