@@ -85,7 +85,7 @@ namespace MaxLib.WebServer
             response.HeaderParameter["Accept-Ranges"] = "bytes";
             if (request.HeaderParameter.ContainsKey("Range"))
             {
-                ParseRanges(response.HeaderParameter["Range"]);
+                ParseRanges(request.HeaderParameter["Range"]);
                 var valid = ranges.Count > 0;
                 foreach (var r in ranges)
                     if (r.From < 0 || r.From >= baseStream.Length || r.To < 0 || r.To >= baseStream.Length)
