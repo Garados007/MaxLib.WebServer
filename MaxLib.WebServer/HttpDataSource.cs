@@ -46,7 +46,7 @@ namespace MaxLib.WebServer
             _ = stream ?? throw new ArgumentNullException(nameof(stream));
             if (start < 0) throw new ArgumentOutOfRangeException(nameof(start));
             var length = Length();
-            if (length != null && start >= length.Value)
+            if (length != null && start > length.Value)
                 throw new ArgumentOutOfRangeException(nameof(start));
             if (stop != null && stop < start) throw new ArgumentOutOfRangeException(nameof(stop));
             return await WriteStreamInternal(stream, start, stop);
