@@ -2,7 +2,7 @@
 <Project>
   
   <PropertyGroup>
-    <Version>2.4.2</Version>
+    <Version>2.5.0</Version>
     <AssemblyVersion>$(Version).0</AssemblyVersion>
     <FileVersion>$(Version).0</FileVersion>
   </PropertyGroup>
