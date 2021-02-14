@@ -23,6 +23,8 @@ namespace MaxLib.WebServer.WebSocket
 
         public event EventHandler? Closed;
 
+        public event EventHandler? PongReceived;
+
         public WebSocketConnection(Stream networkStream)
         {
             NetworkStream = networkStream ?? throw new ArgumentNullException(nameof(networkStream));
@@ -112,6 +114,7 @@ namespace MaxLib.WebServer.WebSocket
                             break;
                         case OpCode.Pong:
                             LastPong = DateTime.UtcNow;
+                            _ = Task.Run(() => PongReceived?.Invoke(this, EventArgs.Empty));
                             break;
                         default:
                             if (payloadQueue.Count == 0)

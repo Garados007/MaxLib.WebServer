@@ -6,3 +6,4 @@ TestResults
 .vscode
 # under development
 MaxLib.WebServer.Files
+.vs
