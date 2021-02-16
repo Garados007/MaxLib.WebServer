@@ -11,7 +11,12 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "MaxLib.WebServer.Example", 
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Example", "Example", "{39740782-6F07-470C-92B8-C0A07A5C0DFB}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MaxLib.WebServer.WebSocket.Echo", "MaxLib.WebServer.WebSocket.Echo\MaxLib.WebServer.WebSocket.Echo.csproj", "{01C302FF-8E99-4D54-8234-D4BA59862176}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "MaxLib.WebServer.WebSocket.Echo", "MaxLib.WebServer.WebSocket.Echo\MaxLib.WebServer.WebSocket.Echo.csproj", "{01C302FF-8E99-4D54-8234-D4BA59862176}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{29467014-E04B-477A-82B7-16A3BAE7B5A6}"
+	ProjectSection(SolutionItems) = preProject
+		.editorconfig = .editorconfig
+	EndProjectSection
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
