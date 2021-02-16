@@ -9,6 +9,7 @@ namespace MaxLib.WebServer.Services
     /// WebServiceType.PostParseRequest: Analysiert die Dokumentabfrage und versucht mit den definierten Regeln 
     /// dieses Dokument auf der Festplatte zu finden.
     /// </summary>
+    [Obsolete("Use LocalIOMapper instead")]
     public class HttpDocumentFinder : WebService
     {
         /// <summary>

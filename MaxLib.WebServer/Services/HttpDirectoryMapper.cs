@@ -8,6 +8,7 @@ namespace MaxLib.WebServer.Services
     /// WebServiceType.PreCreateDocument: Lädt das Dokument, welches vorher von <see cref="HttpDocumentFinder"/> 
     /// gefunden wurde.
     /// </summary>
+    [Obsolete("Use LocalIOMapper instead")]
     public class HttpDirectoryMapper : WebService
     {
         public bool MapFolderToo { get; set; }

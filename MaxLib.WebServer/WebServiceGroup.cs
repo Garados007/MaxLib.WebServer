@@ -1,6 +1,8 @@
 ﻿using MaxLib.Collections;
 using System;
+using System.Collections.Generic;
 using System.Threading.Tasks;
+using System.Linq;
 
 #nullable enable
 
@@ -74,6 +76,11 @@ namespace MaxLib.WebServer
         public T Get<T>() where T : WebService
         {
             return (T)Services.Find((ws) => ws is T);
+        }
+
+        public IEnumerable<T> GetAll<T>() where T : WebService
+        {
+            return Services.Where(x => x is T).Cast<T>();
         }
 
         public virtual async Task Execute(WebProgressTask task)

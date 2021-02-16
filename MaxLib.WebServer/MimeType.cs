@@ -178,11 +178,13 @@ namespace MaxLib.WebServer
         /// Searches for a mime type for a given file extension. This requires that the mime
         /// cache is loaded with <see cref="LoadMimeTypesForExtensions(bool)"/>.
         /// </summary>
-        /// <param name="extension">the file extension without a leading dot</param>
+        /// <param name="extension">the file extension</param>
         /// <returns>the found mime type</returns>
         public static string? GetMimeTypeForExtension(string extension)
         {
             _ = extension ?? throw new ArgumentNullException(nameof(extension));
+            if (extension.StartsWith('.'))
+                return GetMimeTypeForExtension(extension[1..]);
             if (mimeTypes.TryGetValue(extension.ToLower(), out string mime))
                 return mime;
             else return null;

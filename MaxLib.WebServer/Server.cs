@@ -1,6 +1,8 @@
 ﻿using MaxLib.Collections;
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
+using System.Linq;
 using System.Net;
 using System.Net.Sockets;
 using System.Threading;
@@ -38,11 +40,10 @@ namespace MaxLib.WebServer
             AddWebService(new Services.HttpRequestParser());
             //post parse request
             AddWebService(new Services.HttpHeaderPostParser());
-            AddWebService(new Services.HttpDocumentFinder());
             AddWebService(new Services.HttpHeaderSpecialAction());
             //pre create document
             AddWebService(new Services.StandardDocumentLoader());
-            AddWebService(new Services.HttpDirectoryMapper(true));
+            AddWebService(new Services.LocalIOMapper());
             AddWebService(new Services.Http404Service());
             //pre create response
             AddWebService(new Services.HttpResponseCreator());
@@ -68,6 +69,18 @@ namespace MaxLib.WebServer
             if (webService == null) 
                 return;
             WebServiceGroups[webService.Stage].Remove(webService);
+        }
+
+        public virtual T? GetWebService<T>()
+            where T : WebService
+            => GetWebServices<T>().FirstOrDefault();
+
+        public virtual IEnumerable<T> GetWebServices<T>()
+            where T : WebService
+        {
+            foreach (var group in WebServiceGroups)
+                foreach (var service in group.Value.GetAll<T>())
+                    yield return service;
         }
 
         public virtual void Start()

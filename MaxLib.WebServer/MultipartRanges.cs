@@ -63,6 +63,14 @@ namespace MaxLib.WebServer
 
         }
 
+        /// <summary>
+        /// Creates a new <see cref="MultipartRanges"/> data source that can deliver parts
+        /// of the given stream.
+        /// </summary>
+        /// <param name="stream">the stream with the full data. This streams needs to be seekable.</param>
+        /// <param name="task">the progress task to work on</param>
+        /// <param name="mime">the optional mime type of this data source</param>
+        /// <exception cref="ArgumentNullException" />
         public MultipartRanges(Stream stream, WebProgressTask task, string? mime)
             : this(
                 stream,
@@ -74,6 +82,15 @@ namespace MaxLib.WebServer
 
         }
 
+        /// <summary>
+        /// Creates a new <see cref="MultipartRanges"/> data source that can deliver parts
+        /// of the given stream.
+        /// </summary>
+        /// <param name="stream">the stream with the full data. This streams needs to be seekable.</param>
+        /// <param name="request">the request header</param>
+        /// <param name="response">the response header</param>
+        /// <param name="mime">the optional mime type of this data source</param>
+        /// <exception cref="ArgumentNullException" />
         public MultipartRanges(Stream stream, HttpRequestHeader request, 
             HttpResponseHeader response, string? mime)
         {
@@ -113,9 +130,9 @@ namespace MaxLib.WebServer
         {
             code = code.Trim();
             if (!code.StartsWith("bytes")) return;
-            code = code.Substring(5).TrimStart();
+            code = code[5..].TrimStart();
             if (!code.StartsWith("=")) return;
-            code = code.Substring(1).TrimStart();
+            code = code[1..].TrimStart();
             foreach (var part in code.Split(','))
             {
                 var t = part.Split('-');
