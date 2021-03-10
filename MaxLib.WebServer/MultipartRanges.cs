@@ -262,7 +262,7 @@ namespace MaxLib.WebServer
                     var size = s.Length();
                     if (size == null)
                     {
-                        total += await s.WriteStream(skip, 0, end);
+                        total += await s.WriteStream(skip, 0, end).ConfigureAwait(false);
                     }
                     else
                     {
@@ -273,7 +273,7 @@ namespace MaxLib.WebServer
                         }
                         var leftSkip = skip.SkipBytes;
                         skip.Skip(skip.SkipBytes);
-                        total += await s.WriteStream(skip, leftSkip, end);
+                        total += await s.WriteStream(skip, leftSkip, end).ConfigureAwait(false);
                     }
                 }
                 return total;

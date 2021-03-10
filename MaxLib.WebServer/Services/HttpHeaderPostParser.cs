@@ -53,7 +53,7 @@ namespace MaxLib.WebServer.Services
                 header.Cookie.SetRequestCookieString(value);
             }
 
-            await Task.CompletedTask;
+            await Task.CompletedTask.ConfigureAwait(false);
         }
 
         public override bool CanWorkWith(WebProgressTask task)

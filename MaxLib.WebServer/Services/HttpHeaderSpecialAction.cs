@@ -35,7 +35,7 @@ namespace MaxLib.WebServer.Services
                     break;
             }
 
-            await Task.CompletedTask;
+            await Task.CompletedTask.ConfigureAwait(false);
         }
 
         public override bool CanWorkWith(WebProgressTask task)

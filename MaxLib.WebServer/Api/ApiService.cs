@@ -34,7 +34,7 @@ namespace MaxLib.WebServer.Api
             var tiles = task.Request.Location.DocumentPathTiles;
             var location = new string[tiles.Length - endpoint.Length];
             Array.Copy(tiles, endpoint.Length, location, 0, location.Length);
-            var data = await HandleRequest(task, location);
+            var data = await HandleRequest(task, location).ConfigureAwait(false);
             if (data != null)
                 task.Document.DataSources.Add(data);
             else task.Response.StatusCode = HttpStateCode.InternalServerError;

@@ -38,7 +38,7 @@ namespace MaxLib.WebServer.WebSocket
 
         public async ValueTask DisposeAsync()
         {
-            await Task.WhenAll(Endpoints.Select(async x => await x.DisposeAsync()));
+            await Task.WhenAll(Endpoints.Select(async x => await x.DisposeAsync())).ConfigureAwait(false);
         }
 
         public override async Task ProgressTask(WebProgressTask task)
@@ -76,7 +76,7 @@ namespace MaxLib.WebServer.WebSocket
                     continue;
                 }
 
-                var connection = await endpoint.Create(task.NetworkStream, task.Request);
+                var connection = await endpoint.Create(task.NetworkStream, task.Request).ConfigureAwait(false);
                 if (connection == null)
                     continue;
 
@@ -92,11 +92,11 @@ namespace MaxLib.WebServer.WebSocket
                 task.SwitchProtocols(async () =>
                 {
                     if (System.Diagnostics.Debugger.IsAttached)
-                        await connection.HandshakeFinished();
+                        await connection.HandshakeFinished().ConfigureAwait(false);
                     else
                         try
                         {
-                            await connection.HandshakeFinished();
+                            await connection.HandshakeFinished().ConfigureAwait(false);
                         }
                         catch (Exception e)
                         {

@@ -49,7 +49,7 @@ namespace MaxLib.WebServer
             if (length != null && start > length.Value)
                 throw new ArgumentOutOfRangeException(nameof(start));
             if (stop != null && stop < start) throw new ArgumentOutOfRangeException(nameof(stop));
-            return await WriteStreamInternal(stream, start, stop);
+            return await WriteStreamInternal(stream, start, stop).ConfigureAwait(false);
         }
 
         /// <summary>
@@ -60,7 +60,7 @@ namespace MaxLib.WebServer
         /// <param name="stream">the stream to write the data into</param>
         /// <returns>the effective number of bytes written to the stream</returns>
         public async Task<long> WriteStream(Stream stream)
-            => await WriteStream(stream ?? throw new ArgumentNullException(nameof(stream)), RangeStart, RangeEnd);
+            => await WriteStream(stream ?? throw new ArgumentNullException(nameof(stream)), RangeStart, RangeEnd).ConfigureAwait(false);
 
         /// <summary>
         /// Read the data of <paramref name="stream"/> and replace its own data with it.
@@ -72,7 +72,7 @@ namespace MaxLib.WebServer
         {
             _ = stream ?? throw new ArgumentNullException(nameof(stream));
             if (length != null && length < 0) throw new ArgumentOutOfRangeException(nameof(length));
-            return await ReadStreamInternal(stream, length);
+            return await ReadStreamInternal(stream, length).ConfigureAwait(false);
         }
 
         private long rangeStart = 0;
@@ -130,7 +130,7 @@ namespace MaxLib.WebServer
             var buffered = new BufferedSinkStream();
             _ = new Task(async () =>
             {
-                await dataSource.WriteStream(buffered);
+                await dataSource.WriteStream(buffered).ConfigureAwait(false);
                 buffered.FinishWrite();
             });
             return buffered;

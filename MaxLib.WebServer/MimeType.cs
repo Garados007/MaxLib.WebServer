@@ -211,7 +211,7 @@ namespace MaxLib.WebServer
                 using var file = new FileStream("mime-cache.json", FileMode.Open,
                     FileAccess.Read, FileShare.Read
                 );
-                var doc = await JsonDocument.ParseAsync(file);
+                var doc = await JsonDocument.ParseAsync(file).ConfigureAwait(false);
                 foreach (var entry in doc.RootElement.EnumerateObject())
                 {
                     mimeTypes[entry.Name] =  entry.Value.GetString()!;
@@ -250,7 +250,7 @@ namespace MaxLib.WebServer
                     foreach (var (ext, mime) in mimeTypes)
                         writer.WriteString(ext, mime);
                     writer.WriteEndObject();
-                    await writer.FlushAsync();
+                    await writer.FlushAsync().ConfigureAwait(false);
                 }
                 WebServerLog.Add(ServerLogType.Debug, typeof(MimeType), "load mime", "Mime Cache updated");
             }

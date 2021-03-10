@@ -104,7 +104,7 @@ namespace MaxLib.WebServer.SSL
                     return;
                 }
 
-                await SafeClientStartListen(connection);
+                await SafeClientStartListen(connection).ConfigureAwait(false);
             });
         }
     }

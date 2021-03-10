@@ -71,7 +71,7 @@ namespace MaxLib.WebServer.Services
                 return null;
             
             // enter locked debug zone
-            await debugSemaphore.WaitAsync();
+            await debugSemaphore.WaitAsync().ConfigureAwait(false);
 
             if (DebugWriteRequestFile != null)
             {
@@ -94,7 +94,7 @@ namespace MaxLib.WebServer.Services
             {
                 debugBuilder.AppendLine();
                 debugBuilder.AppendLine();
-                await File.AppendAllTextAsync(DebugWriteRequestFile, debugBuilder.ToString());
+                await File.AppendAllTextAsync(DebugWriteRequestFile, debugBuilder.ToString()).ConfigureAwait(false);
             }
 
             // release locked debug zone
@@ -114,7 +114,7 @@ namespace MaxLib.WebServer.Services
             sb.AppendLine("    " + host + task.Request.Location.DocumentPath);
             sb.AppendLine();
             
-            await File.AppendAllTextAsync(DebugLogConnectionFile, sb.ToString());
+            await File.AppendAllTextAsync(DebugLogConnectionFile, sb.ToString()).ConfigureAwait(false);
         }
 
         protected virtual async ValueTask<bool> WaitForData(WebProgressTask task)
@@ -128,7 +128,7 @@ namespace MaxLib.WebServer.Services
                     while (maxDelay > TimeSpan.Zero && !ns.DataAvailable)
                     {
                         var slice = maxSlice < maxDelay ? maxSlice : maxDelay;
-                        await Task.Delay(slice);
+                        await Task.Delay(slice).ConfigureAwait(false);
                         maxDelay -= slice;
                     }
                     if (!ns.DataAvailable)
@@ -154,7 +154,7 @@ namespace MaxLib.WebServer.Services
         protected virtual async ValueTask<string?> ReadLine(WebProgressTask task, NetworkReader reader)
         {
             string? line;
-            try { line = await reader.ReadLineAsync(); }
+            try { line = await reader.ReadLineAsync().ConfigureAwait(false); }
             catch
             {
                 WebServerLog.Add(ServerLogType.Error, GetType(), "Header", "Connection closed by remote host");
@@ -221,7 +221,7 @@ namespace MaxLib.WebServer.Services
                 return false;
             }
 
-            var buffer = await reader.ReadMemoryAsync(length);
+            var buffer = await reader.ReadMemoryAsync(length).ConfigureAwait(false);
             debugBuilder?.Append(Encoding.UTF8.GetChars(buffer.ToArray()));
             debugBuilder?.AppendLine();
 
@@ -244,14 +244,14 @@ namespace MaxLib.WebServer.Services
 
             try
             {
-                debugBuilder = await DebugStartRequest();
+                debugBuilder = await DebugStartRequest().ConfigureAwait(false);
 
                 // wait until some data is received.
                 if (!await WaitForData(task))
                     return;
                 
                 // read first header line
-                var line = await ReadLine(task, reader);
+                var line = await ReadLine(task, reader).ConfigureAwait(false);
                 if (line == null)
                     return;
                 debugBuilder?.AppendLine(line);
@@ -271,11 +271,11 @@ namespace MaxLib.WebServer.Services
                 if (!await LoadContent(task, reader, debugBuilder))
                     return;
                 
-                await DebugConnection(task);
+                await DebugConnection(task).ConfigureAwait(false);
             }
             finally
             {
-                await DebugFinishRequest(debugBuilder);
+                await DebugFinishRequest(debugBuilder).ConfigureAwait(false);
             }
         }
     }

@@ -64,7 +64,7 @@ namespace MaxLib.WebServer.Test.Api.Rest
             var args = new Dictionary<string, object>();
             foreach (var (key, value) in values)
                 args[key] = value;
-            var source = await endpoint.GetSource(args);
+            var source = await endpoint.GetSource(args).ConfigureAwait(false);
             Assert.IsTrue(source is HttpStringDataSource, "source is not a string source");
             var ds = (HttpStringDataSource)source;
             Assert.AreEqual(check, ds.Data);
@@ -74,14 +74,14 @@ namespace MaxLib.WebServer.Test.Api.Rest
         public async Task TestDicSource()
         {
             var ep = RestActionEndpoint.Create(Methods.HandleDicSource);
-            await GetResult(ep, "handle-dic-source");
+            await GetResult(ep, "handle-dic-source").ConfigureAwait(false);
         }
 
         [TestMethod]
         public async Task TestFunc0Source()
         {
             var ep = RestActionEndpoint.Create(Methods.HandleFunc0Source);
-            await GetResult(ep, "handle-func-0-source");
+            await GetResult(ep, "handle-func-0-source").ConfigureAwait(false);
         }
 
         [TestMethod]

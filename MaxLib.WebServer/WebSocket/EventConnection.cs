@@ -18,14 +18,14 @@ namespace MaxLib.WebServer.WebSocket
         protected override async Task ReceivedFrame(Frame frame)
         {
             if (EventFactory.TryParse(frame, out EventBase? @event))
-                await ReceivedFrame(@event);
+                await ReceivedFrame(@event).ConfigureAwait(false);
         }
 
         protected abstract Task ReceivedFrame(EventBase @event);
 
         protected virtual async Task SendFrame(EventBase @event)
         {
-            await SendFrame(@event.ToFrame());
+            await SendFrame(@event.ToFrame()).ConfigureAwait(false);
         }
     }
 }

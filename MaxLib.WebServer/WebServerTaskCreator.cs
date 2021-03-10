@@ -29,7 +29,7 @@ namespace MaxLib.WebServer
         public async Task Start(Server server)
         {
             Task.Server = server;
-            await server.ExecuteTaskChain(Task, TerminationStage);
+            await server.ExecuteTaskChain(Task, TerminationStage).ConfigureAwait(false);
             Task.Server = null;
         }
 

@@ -33,7 +33,7 @@ namespace MaxLib.WebServer.Test.Services
             });
             test.Task.Document.PrimaryEncoding = "utf-8";
             test.Request.HttpProtocol = HttpProtocollDefinition.HttpVersion1_1;
-            await new HttpResponseCreator().ProgressTask(test.Task);
+            await new HttpResponseCreator().ProgressTask(test.Task).ConfigureAwait(false);
             Assert.AreEqual($"{MimeType.TextPlain}; charset=utf-8", test.Response.FieldContentType);
             Assert.AreNotEqual(null, test.Response.FieldDate);
             Assert.AreEqual(HttpProtocollDefinition.HttpVersion1_1, test.Response.HttpProtocol);

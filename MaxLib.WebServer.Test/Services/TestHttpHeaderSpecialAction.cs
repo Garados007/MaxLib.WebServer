@@ -27,7 +27,7 @@ namespace MaxLib.WebServer.Test.Services
         public async Task TestHead()
         {
             test.Request.ProtocolMethod = HttpProtocollMethod.Head;
-            await new HttpHeaderSpecialAction().ProgressTask(test.Task);
+            await new HttpHeaderSpecialAction().ProgressTask(test.Task).ConfigureAwait(false);
             Assert.AreEqual(true, test.GetInfoObject("Only Header"));
         }
 
@@ -35,7 +35,7 @@ namespace MaxLib.WebServer.Test.Services
         public async Task TestOptions()
         {
             test.Request.ProtocolMethod = HttpProtocollMethod.Options;
-            await new HttpHeaderSpecialAction().ProgressTask(test.Task);
+            await new HttpHeaderSpecialAction().ProgressTask(test.Task).ConfigureAwait(false);
             Assert.AreEqual(1, test.GetDataSources().Count);
             Assert.IsTrue(test.GetDataSources()[0] is HttpStringDataSource);
             var dataSource = (HttpStringDataSource)test.GetDataSources()[0];

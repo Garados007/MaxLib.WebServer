@@ -33,7 +33,7 @@ namespace MaxLib.WebServer.Services
                 response.HeaderParameter["Content-Type"] += "; charset=" +
                     task.Document.PrimaryEncoding;
 
-            await Task.CompletedTask;
+            await Task.CompletedTask.ConfigureAwait(false);
         }
 
         public override bool CanWorkWith(WebProgressTask task)

@@ -38,7 +38,7 @@ namespace MaxLib.WebServer.Test.Services
             using (var response = test.SetStream())
             using (var r = new StreamReader(response))
             {
-                await new HttpSender().ProgressTask(test.Task);
+                await new HttpSender().ProgressTask(test.Task).ConfigureAwait(false);
 
                 response.Position = 0;
 

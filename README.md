@@ -136,7 +136,7 @@ public class HelloWorldService : WebService
             TextEncoding = "utf-8",
         });
         // we are now finished
-        await Task.CompletedTask;
+        await Task.CompletedTask.ConfigureAwait(false);
     }
 }
 ```

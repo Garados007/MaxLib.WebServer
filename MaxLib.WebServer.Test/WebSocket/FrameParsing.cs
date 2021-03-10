@@ -15,7 +15,7 @@ namespace MaxLib.WebServer.Test.WebSocket
         public async Task ReadSingleFrameUnmaskedTextMessage()
         {
             var m = new MemoryStream(new byte[] { 0x81, 0x05, 0x48, 0x65, 0x6c, 0x6c, 0x6f });
-            var frame = await Frame.TryRead(m);
+            var frame = await Frame.TryRead(m).ConfigureAwait(false);
             Assert.IsNotNull(frame);
             Assert.IsTrue(frame!.FinalFrame);
             Assert.AreEqual(OpCode.Text, frame.OpCode);
@@ -27,7 +27,7 @@ namespace MaxLib.WebServer.Test.WebSocket
         public async Task ReadSingleFrameMaskedTextMessage()
         {
             var m = new MemoryStream(new byte[] { 0x81, 0x85, 0x37, 0xfa, 0x21, 0x3d, 0x7f, 0x9f, 0x4d, 0x51, 0x58 });
-            var frame = await Frame.TryRead(m);
+            var frame = await Frame.TryRead(m).ConfigureAwait(false);
             Assert.IsNotNull(frame);
             Assert.IsTrue(frame!.FinalFrame);
             Assert.AreEqual(OpCode.Text, frame.OpCode);
@@ -41,7 +41,7 @@ namespace MaxLib.WebServer.Test.WebSocket
         public async Task ReadFragmentedUnmaskedTextMessage()
         {
             var m = new MemoryStream(new byte[] { 0x01, 0x03, 0x48, 0x65, 0x6c });
-            var frame = await Frame.TryRead(m);
+            var frame = await Frame.TryRead(m).ConfigureAwait(false);
             Assert.IsNotNull(frame);
             Assert.IsFalse(frame!.FinalFrame);
             Assert.AreEqual(OpCode.Text, frame.OpCode);
@@ -49,7 +49,7 @@ namespace MaxLib.WebServer.Test.WebSocket
             Assert.AreEqual("Hel", frame.TextPayload);
 
             m = new MemoryStream(new byte[] { 0x80, 0x02, 0x6c, 0x6f });
-            frame = await Frame.TryRead(m);
+            frame = await Frame.TryRead(m).ConfigureAwait(false);
             Assert.IsNotNull(frame);
             Assert.IsTrue(frame!.FinalFrame);
             Assert.AreEqual(OpCode.Continuation, frame.OpCode);
@@ -62,7 +62,7 @@ namespace MaxLib.WebServer.Test.WebSocket
         public async Task ReadUnmaskedPingAndMaskedPongMessage()
         {
             var m = new MemoryStream(new byte[] { 0x89, 0x05, 0x48, 0x65, 0x6c, 0x6c, 0x6f });
-            var frame = await Frame.TryRead(m);
+            var frame = await Frame.TryRead(m).ConfigureAwait(false);
             Assert.IsNotNull(frame);
             Assert.IsTrue(frame!.FinalFrame);
             Assert.AreEqual(OpCode.Ping, frame.OpCode);
@@ -70,7 +70,7 @@ namespace MaxLib.WebServer.Test.WebSocket
             Assert.AreEqual("Hello", frame.TextPayload);
 
             m = new MemoryStream(new byte[] { 0x8a, 0x85, 0x37, 0xfa, 0x21, 0x3d, 0x7f, 0x9f, 0x4d, 0x51, 0x58 });
-            frame = await Frame.TryRead(m);
+            frame = await Frame.TryRead(m).ConfigureAwait(false);
             Assert.IsNotNull(frame);
             Assert.IsTrue(frame!.FinalFrame);
             Assert.AreEqual(OpCode.Pong, frame.OpCode);
@@ -86,7 +86,7 @@ namespace MaxLib.WebServer.Test.WebSocket
             Memory<byte> data = new byte[4 + 256];
             (new byte[] { 0x82, 0x7E, 0x01, 0x00 }).CopyTo(data[..4]);
             var m = new MemoryStream(data.ToArray());
-            var frame = await Frame.TryRead(m);
+            var frame = await Frame.TryRead(m).ConfigureAwait(false);
             Assert.IsNotNull(frame);
             Assert.IsTrue(frame!.FinalFrame);
             Assert.AreEqual(OpCode.Binary, frame.OpCode);
@@ -100,7 +100,7 @@ namespace MaxLib.WebServer.Test.WebSocket
             Memory<byte> data = new byte[10 + 65536];
             (new byte[] { 0x82, 0x7F, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01, 0x00, 0x00 }).CopyTo(data[..10]);
             var m = new MemoryStream(data.ToArray());
-            var frame = await Frame.TryRead(m);
+            var frame = await Frame.TryRead(m).ConfigureAwait(false);
             Assert.IsNotNull(frame);
             Assert.IsTrue(frame!.FinalFrame);
             Assert.AreEqual(OpCode.Binary, frame.OpCode);

@@ -32,20 +32,20 @@ namespace MaxLib.WebServer.WebSocket
             buffer.Span[1] = (byte)(Payload.Length < 126 ? Payload.Length : 
                 (Payload.Length <= ushort.MaxValue ? 126 : 127)
             );
-            await output.WriteAsync(buffer[ .. 2]);
+            await output.WriteAsync(buffer[ .. 2]).ConfigureAwait(false);
             if (Payload.Length >= 126 && Payload.Length <= ushort.MaxValue)
             {
                 ToNetworkByteOrder(BitConverter.GetBytes((ushort)Payload.Length), buffer.Span[0..2]);
-                await output.WriteAsync(buffer[..2]);
+                await output.WriteAsync(buffer[..2]).ConfigureAwait(false);
             }
             if (Payload.Length > ushort.MaxValue)
             {
                 ToNetworkByteOrder(BitConverter.GetBytes((ulong)Payload.Length), buffer.Span);
-                await output.WriteAsync(buffer);
+                await output.WriteAsync(buffer).ConfigureAwait(false);
             }
             if (HasMaskingKey)
-                await output.WriteAsync(MaskingKey);
-            await output.WriteAsync(Payload);
+                await output.WriteAsync(MaskingKey).ConfigureAwait(false);
+            await output.WriteAsync(Payload).ConfigureAwait(false);
         }
 
         public static async Task<Frame?> TryRead(Stream input, bool throwLargePayload = false)

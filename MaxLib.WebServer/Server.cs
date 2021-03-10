@@ -178,16 +178,16 @@ namespace MaxLib.WebServer
             };
             AllConnections.Add(connection);
             //listen to connection
-            _ = Task.Run(async () => await SafeClientStartListen(connection));
+            _ = Task.Run(async () => await SafeClientStartListen(connection)).ConfigureAwait(false);
         }
 
         protected virtual async Task SafeClientStartListen(HttpConnection connection)
         {
             if (Debugger.IsAttached)
-                await ClientStartListen(connection);
+                await ClientStartListen(connection).ConfigureAwait(false);
             else
             {
-                try { await ClientStartListen(connection); }
+                try { await ClientStartListen(connection).ConfigureAwait(false); }
                 catch (Exception e)
                 {
                     WebServerLog.Add(
@@ -215,7 +215,7 @@ namespace MaxLib.WebServer
                     return;
                 }
 
-                await ExecuteTaskChain(task);
+                await ExecuteTaskChain(task).ConfigureAwait(false);
 
                 if (task.SwitchProtocolHandler != null)
                 {
@@ -253,7 +253,7 @@ namespace MaxLib.WebServer
             if (task == null) return;
             while (true)
             {
-                await WebServiceGroups[task.CurrentStage].Execute(task);
+                await WebServiceGroups[task.CurrentStage].Execute(task).ConfigureAwait(false);
                 if (task.CurrentStage == terminationState) 
                     break;
                 task.CurrentStage = task.NextStage;

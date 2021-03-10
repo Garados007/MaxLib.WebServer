@@ -32,7 +32,7 @@ namespace MaxLib.WebServer
 
         protected override async Task<long> WriteStreamInternal(Stream stream, long start, long? stop)
         {
-            await Task.CompletedTask;
+            await Task.CompletedTask.ConfigureAwait(false);
             Stream.Position = start;
             using (var skip = new SkipableStream(Stream, 0))
             {
@@ -51,7 +51,7 @@ namespace MaxLib.WebServer
 
         protected override async Task<long> ReadStreamInternal(Stream stream, long? length)
         {
-            await Task.CompletedTask;
+            await Task.CompletedTask.ConfigureAwait(false);
             if (ReadOnly)
                 throw new NotSupportedException();
             Stream.Position = 0;

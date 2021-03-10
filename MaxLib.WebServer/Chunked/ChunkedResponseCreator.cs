@@ -41,7 +41,7 @@ namespace MaxLib.WebServer.Chunked
                 response.HeaderParameter["Content-Type"] += "; charset=" +
                     task.Document.PrimaryEncoding;
             task.Document.Information.Add("block default response creator", true);
-            await Task.CompletedTask;
+            await Task.CompletedTask.ConfigureAwait(false);
         }
     }
 }

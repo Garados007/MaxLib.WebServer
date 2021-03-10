@@ -25,7 +25,7 @@ namespace MaxLib.WebServer.Api.Rest
         public static RestActionEndpoint Create(Func<Dictionary<string, object>, Task<Stream>> handler)
             => new RestActionEndpoint(async args =>
             {
-                var result = await handler(args);
+                var result = await handler(args).ConfigureAwait(false);
                 if (result == null)
                     return null;
                 return new HttpStreamDataSource(result);
@@ -34,7 +34,7 @@ namespace MaxLib.WebServer.Api.Rest
         public static RestActionEndpoint Create(Func<Dictionary<string, object>, Task<string>> handler)
             => new RestActionEndpoint(async args =>
             {
-                var result = await handler(args);
+                var result = await handler(args).ConfigureAwait(false);
                 if (result == null)
                     return null;
                 return new HttpStringDataSource(result);
@@ -43,7 +43,7 @@ namespace MaxLib.WebServer.Api.Rest
         public static RestActionEndpoint Create(Func<Task<HttpDataSource>> handler)
             => new RestActionEndpoint(async args =>
             {
-                var result = await handler();
+                var result = await handler().ConfigureAwait(false);
                 if (result == null)
                     return null;
                 return result;
@@ -52,7 +52,7 @@ namespace MaxLib.WebServer.Api.Rest
         public static RestActionEndpoint Create(Func<Task<Stream>> handler)
             => new RestActionEndpoint(async args =>
             {
-                var result = await handler();
+                var result = await handler().ConfigureAwait(false);
                 if (result == null)
                     return null;
                 return new HttpStreamDataSource(result);
@@ -61,7 +61,7 @@ namespace MaxLib.WebServer.Api.Rest
         public static RestActionEndpoint Create(Func<Task<string>> handler)
             => new RestActionEndpoint(async args =>
             {
-                var result = await handler();
+                var result = await handler().ConfigureAwait(false);
                 if (result == null)
                     return null;
                 return new HttpStringDataSource(result);
@@ -71,7 +71,7 @@ namespace MaxLib.WebServer.Api.Rest
             => new RestActionEndpoint(async args =>
             {
                 var arg = GetValue<T>(args, argName);
-                var result = await handler(arg);
+                var result = await handler(arg).ConfigureAwait(false);
                 if (result == null)
                     return null;
                 return result;
@@ -81,7 +81,7 @@ namespace MaxLib.WebServer.Api.Rest
             => new RestActionEndpoint(async args =>
             {
                 var arg = GetValue<T>(args, argName);
-                var result = await handler(arg);
+                var result = await handler(arg).ConfigureAwait(false);
                 if (result == null)
                     return null;
                 return new HttpStreamDataSource(result);
@@ -91,7 +91,7 @@ namespace MaxLib.WebServer.Api.Rest
             => new RestActionEndpoint(async args =>
             {
                 var arg = GetValue<T>(args, argName);
-                var result = await handler(arg);
+                var result = await handler(arg).ConfigureAwait(false);
                 if (result == null)
                     return null;
                 return new HttpStringDataSource(result);
@@ -102,7 +102,7 @@ namespace MaxLib.WebServer.Api.Rest
             {
                 var arg1 = GetValue<T1>(args, argName1);
                 var arg2 = GetValue<T2>(args, argName2);
-                var result = await handler(arg1, arg2);
+                var result = await handler(arg1, arg2).ConfigureAwait(false);
                 if (result == null)
                     return null;
                 return result;
@@ -113,7 +113,7 @@ namespace MaxLib.WebServer.Api.Rest
             {
                 var arg1 = GetValue<T1>(args, argName1);
                 var arg2 = GetValue<T2>(args, argName2);
-                var result = await handler(arg1, arg2);
+                var result = await handler(arg1, arg2).ConfigureAwait(false);
                 if (result == null)
                     return null;
                 return new HttpStreamDataSource(result);
@@ -124,7 +124,7 @@ namespace MaxLib.WebServer.Api.Rest
             {
                 var arg1 = GetValue<T1>(args, argName1);
                 var arg2 = GetValue<T2>(args, argName2);
-                var result = await handler(arg1, arg2);
+                var result = await handler(arg1, arg2).ConfigureAwait(false);
                 if (result == null)
                     return null;
                 return new HttpStringDataSource(result);
@@ -136,7 +136,7 @@ namespace MaxLib.WebServer.Api.Rest
                 var arg1 = GetValue<T1>(args, argName1);
                 var arg2 = GetValue<T2>(args, argName2);
                 var arg3 = GetValue<T3>(args, argName3);
-                var result = await handler(arg1, arg2, arg3);
+                var result = await handler(arg1, arg2, arg3).ConfigureAwait(false);
                 if (result == null)
                     return null;
                 return result;
@@ -148,7 +148,7 @@ namespace MaxLib.WebServer.Api.Rest
                 var arg1 = GetValue<T1>(args, argName1);
                 var arg2 = GetValue<T2>(args, argName2);
                 var arg3 = GetValue<T3>(args, argName3);
-                var result = await handler(arg1, arg2, arg3);
+                var result = await handler(arg1, arg2, arg3).ConfigureAwait(false);
                 if (result == null)
                     return null;
                 return new HttpStreamDataSource(result);
@@ -160,7 +160,7 @@ namespace MaxLib.WebServer.Api.Rest
                 var arg1 = GetValue<T1>(args, argName1);
                 var arg2 = GetValue<T2>(args, argName2);
                 var arg3 = GetValue<T3>(args, argName3);
-                var result = await handler(arg1, arg2, arg3);
+                var result = await handler(arg1, arg2, arg3).ConfigureAwait(false);
                 if (result == null)
                     return null;
                 return new HttpStringDataSource(result);
@@ -176,7 +176,7 @@ namespace MaxLib.WebServer.Api.Rest
                 var result = handler.DynamicInvoke(use);
                 if (result is Task task)
                 {
-                    await task;
+                    await task.ConfigureAwait(false);
                     if (!GetTaskValue(task, out result))
                         result = null;
                 }

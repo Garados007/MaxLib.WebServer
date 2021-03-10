@@ -35,7 +35,7 @@ namespace MaxLib.WebServer.Services
             var header = task.Request;
             var stream = task.NetworkStream;
             var reader = new StreamReader(stream);
-            var mwt = 50;
+            var mwt = 5000;
             var sb = new StringBuilder();
             // if (!(stream is NetworkStream))
             //     stream = task.Session.NetworkClient.GetStream();
@@ -51,7 +51,7 @@ namespace MaxLib.WebServer.Services
 
             while (stream is NetworkStream ns && !ns.DataAvailable && mwt > 0)
             {
-                await Task.Delay(100);
+                await Task.Delay(1).ConfigureAwait(false);
                 mwt--;
                 if (!task.Connection.NetworkClient.Connected) return;
             }
@@ -75,7 +75,7 @@ namespace MaxLib.WebServer.Services
             }
 
             string line;
-            try { line = await reader.ReadLineAsync(); }
+            try { line = await reader.ReadLineAsync().ConfigureAwait(false); }
             catch
             {
                 WebServerLog.Add(ServerLogType.Error, GetType(), "Header", "Connection closed by remote host");
@@ -120,7 +120,7 @@ namespace MaxLib.WebServer.Services
             if (header.HeaderParameter.ContainsKey("Content-Length"))
             {
                 var buffer = new char[int.Parse(header.HeaderParameter["Content-Length"])];
-                _ = await reader.ReadBlockAsync(buffer, 0, buffer.Length);
+                _ = await reader.ReadBlockAsync(buffer, 0, buffer.Length).ConfigureAwait(false);
                 header.Post.SetPost(new string(buffer), 
                     header.HeaderParameter.TryGetValue("Content-Type", out string mime) ? mime : null);
                 if (task.Server.Settings.Debug_WriteRequests) 

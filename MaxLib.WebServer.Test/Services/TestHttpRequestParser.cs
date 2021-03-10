@@ -34,7 +34,7 @@ namespace MaxLib.WebServer.Test.Services
             sb.AppendLine();
             using (var output = test.SetStream(sb.ToString()))
             {
-                await new HttpRequestParser().ProgressTask(test.Task);
+                await new HttpRequestParser().ProgressTask(test.Task).ConfigureAwait(false);
                 Assert.AreEqual(HttpProtocollMethod.Get, test.Request.ProtocolMethod);
                 Assert.AreEqual("/test.html", test.Request.Location.DocumentPath);
                 Assert.AreEqual(HttpProtocollDefinition.HttpVersion1_1, test.Request.HttpProtocol);
@@ -55,7 +55,7 @@ namespace MaxLib.WebServer.Test.Services
             sb.Append(content);
             using (var output = test.SetStream(sb.ToString()))
             {
-                await new HttpRequestParser().ProgressTask(test.Task);
+                await new HttpRequestParser().ProgressTask(test.Task).ConfigureAwait(false);
                 Assert.AreEqual(HttpProtocollMethod.Post, test.Request.ProtocolMethod);
                 Assert.AreEqual("/test.html", test.Request.Location.DocumentPath);
                 Assert.AreEqual(HttpProtocollDefinition.HttpVersion1_1, test.Request.HttpProtocol);
@@ -89,7 +89,7 @@ namespace MaxLib.WebServer.Test.Services
             sb.Append(content);
             using (var output = test.SetStream(sb.ToString()))
             {
-                await new HttpRequestParser().ProgressTask(test.Task);
+                await new HttpRequestParser().ProgressTask(test.Task).ConfigureAwait(false);
                 Assert.AreEqual(HttpProtocollMethod.Post, test.Request.ProtocolMethod);
                 Assert.AreEqual("/test.html", test.Request.Location.DocumentPath);
                 Assert.AreEqual(HttpProtocollDefinition.HttpVersion1_1, test.Request.HttpProtocol);

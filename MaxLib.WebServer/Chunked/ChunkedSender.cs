@@ -31,25 +31,25 @@ namespace MaxLib.WebServer.Chunked
             var header = task.Response;
             var stream = task.NetworkStream;
             var writer = new StreamWriter(stream);
-            await writer.WriteAsync(header.HttpProtocol);
-            await writer.WriteAsync(" ");
-            await writer.WriteAsync(((int)header.StatusCode).ToString());
-            await writer.WriteAsync(" ");
-            await writer.WriteLineAsync(StatusCodeText(header.StatusCode));
+            await writer.WriteAsync(header.HttpProtocol).ConfigureAwait(false);
+            await writer.WriteAsync(" ").ConfigureAwait(false);
+            await writer.WriteAsync(((int)header.StatusCode).ToString()).ConfigureAwait(false);
+            await writer.WriteAsync(" ").ConfigureAwait(false);
+            await writer.WriteLineAsync(StatusCodeText(header.StatusCode)).ConfigureAwait(false);
             for (int i = 0; i < header.HeaderParameter.Count; ++i) //Parameter
             {
                 var e = header.HeaderParameter.ElementAt(i);
-                await writer.WriteAsync(e.Key);
-                await writer.WriteAsync(": ");
-                await writer.WriteLineAsync(e.Value);
+                await writer.WriteAsync(e.Key).ConfigureAwait(false);
+                await writer.WriteAsync(": ").ConfigureAwait(false);
+                await writer.WriteLineAsync(e.Value).ConfigureAwait(false);
             }
             foreach (var cookie in task.Request.Cookie.AddedCookies) //Cookies
             {
-                await writer.WriteAsync("Set-Cookie: ");
-                await writer.WriteLineAsync(cookie.ToString());
+                await writer.WriteAsync("Set-Cookie: ").ConfigureAwait(false);
+                await writer.WriteLineAsync(cookie.ToString()).ConfigureAwait(false);
             }
-            await writer.WriteLineAsync();
-            try { await writer.FlushAsync(); await stream.FlushAsync(); }
+            await writer.WriteLineAsync().ConfigureAwait(false);
+            try { await writer.FlushAsync().ConfigureAwait(false); await stream.FlushAsync().ConfigureAwait(false); }
             catch (ObjectDisposedException)
             {
                 WebServerLog.Add(ServerLogType.Information, GetType(), "Send", "Connection closed by remote host.");
@@ -66,11 +66,11 @@ namespace MaxLib.WebServer.Chunked
                 if (!(task.Document.Information.ContainsKey("Only Header") && (bool)task.Document.Information["Only Header"]))
                 {
                     foreach (var s in task.Document.DataSources)
-                        await SendChunk(writer, stream, s);
-                    await writer.WriteLineAsync("0");
-                    await writer.WriteLineAsync();
-                    await writer.FlushAsync();
-                    await stream.FlushAsync();
+                        await SendChunk(writer, stream, s).ConfigureAwait(false);
+                    await writer.WriteLineAsync("0").ConfigureAwait(false);
+                    await writer.WriteLineAsync().ConfigureAwait(false);
+                    await writer.FlushAsync().ConfigureAwait(false);
+                    await stream.FlushAsync().ConfigureAwait(false);
                 }
             }
             catch (IOException)
@@ -84,17 +84,17 @@ namespace MaxLib.WebServer.Chunked
         {
             if (source is LazySource lazySource)
                 foreach (var s in lazySource.GetAllSources())
-                    await SendChunk(writer, stream, s);
+                    await SendChunk(writer, stream, s).ConfigureAwait(false);
             else if (source is Remote.MarshalSource ms && ms.IsLazy)
                 foreach (var s in ms.GetAllSources())
-                    await SendChunk(writer, stream, s);
+                    await SendChunk(writer, stream, s).ConfigureAwait(false);
             else if (source is HttpChunkedStream)
             {
-                await stream.FlushAsync();
-                await writer.FlushAsync();
-                await source.WriteStream(stream);
-                await stream.FlushAsync();
-                await writer.FlushAsync();
+                await stream.FlushAsync().ConfigureAwait(false);
+                await writer.FlushAsync().ConfigureAwait(false);
+                await source.WriteStream(stream).ConfigureAwait(false);
+                await stream.FlushAsync().ConfigureAwait(false);
+                await writer.FlushAsync().ConfigureAwait(false);
             }
             else
             {
@@ -104,10 +104,10 @@ namespace MaxLib.WebServer.Chunked
                     {
                         _ = Task.Run(async () =>
                         {
-                            await source.WriteStream(sink);
+                            await source.WriteStream(sink).ConfigureAwait(false);
                             sink.FinishWrite();
                         });
-                        await SendChunk(writer, stream, new HttpChunkedStream(sink));
+                        await SendChunk(writer, stream, new HttpChunkedStream(sink)).ConfigureAwait(false);
                     }
                 //using (var m = new MemoryStream())
                 //{
@@ -122,13 +122,13 @@ namespace MaxLib.WebServer.Chunked
                 else
                 {
                     if (length.Value == 0) return;
-                    await writer.WriteLineAsync(length.Value.ToString("X"));
-                    await writer.FlushAsync();
-                    await source.WriteStream(stream);
+                    await writer.WriteLineAsync(length.Value.ToString("X")).ConfigureAwait(false);
+                    await writer.FlushAsync().ConfigureAwait(false);
+                    await source.WriteStream(stream).ConfigureAwait(false);
                 }
-                await stream.FlushAsync();
-                await writer.WriteLineAsync();
-                await writer.FlushAsync();
+                await stream.FlushAsync().ConfigureAwait(false);
+                await writer.WriteLineAsync().ConfigureAwait(false);
+                await writer.FlushAsync().ConfigureAwait(false);
             }
         }
     }

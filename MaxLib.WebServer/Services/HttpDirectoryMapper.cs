@@ -85,7 +85,7 @@ namespace MaxLib.WebServer.Services
                 task.Document.DataSources.Add(source);
                 task.Response.StatusCode = HttpStateCode.OK;
             }
-            await Task.CompletedTask;
+            await Task.CompletedTask.ConfigureAwait(false);
         }
 
         public override bool CanWorkWith(WebProgressTask task)

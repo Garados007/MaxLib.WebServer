@@ -242,7 +242,7 @@ namespace MaxLib.WebServer.IO
         {
             disposed = true;
             if (!leaveOpen)
-                await BaseStream.DisposeAsync();
+                await BaseStream.DisposeAsync().ConfigureAwait(false);
         }
 
         public char? PeekChar()
@@ -455,7 +455,7 @@ namespace MaxLib.WebServer.IO
             if (count <= length)
                 return length;
             
-            return length + await BaseStream.ReadAsync(buffer, offset + length, count - length, cancellationToken);
+            return length + await BaseStream.ReadAsync(buffer, offset + length, count - length, cancellationToken).ConfigureAwait(false);
         }
     
         public async ValueTask<int> ReadAsync(Memory<byte> buffer, 
@@ -481,7 +481,7 @@ namespace MaxLib.WebServer.IO
             if (buffer.Length == 0)
                 return length;
             
-            return length + await BaseStream.ReadAsync(buffer, cancellationToken);
+            return length + await BaseStream.ReadAsync(buffer, cancellationToken).ConfigureAwait(false);
         }
 
         public async ValueTask<byte[]> ReadBytesAsync(int count, 
@@ -495,7 +495,7 @@ namespace MaxLib.WebServer.IO
             var readed = 0;
             while (readed < count)
             {
-                var r = await ReadAsync(buffer, readed, count - readed, cancellationToken);
+                var r = await ReadAsync(buffer, readed, count - readed, cancellationToken).ConfigureAwait(false);
                 if (r == 0)
                     break;
 
@@ -516,7 +516,7 @@ namespace MaxLib.WebServer.IO
             CancellationToken cancellationToken = default)
         {
             var buffer = new Memory<byte>(new byte[count]);
-            var readed = await ReadAsync(buffer, cancellationToken);
+            var readed = await ReadAsync(buffer, cancellationToken).ConfigureAwait(false);
             return buffer[0 .. readed];
         }
 
@@ -536,10 +536,10 @@ namespace MaxLib.WebServer.IO
             var bytes = new byte[blockSize];
             while (count > 0)
             {
-                int readed = await ReadAsync(bytes, 0, Math.Min(count, blockSize), cancellationToken);
+                int readed = await ReadAsync(bytes, 0, Math.Min(count, blockSize), cancellationToken).ConfigureAwait(false);
                 if (readed == 0)
                     break;
-                await buffer.WriteAsync(bytes, 0, readed, cancellationToken);
+                await buffer.WriteAsync(bytes, 0, readed, cancellationToken).ConfigureAwait(false);
                 count -= readed;
             }
             
@@ -627,7 +627,7 @@ namespace MaxLib.WebServer.IO
             do
             {
                 // ensure we have enough bytes in buffer
-                await RefillBufferAsync(cancellationToken, marking.Length);
+                await RefillBufferAsync(cancellationToken, marking.Length).ConfigureAwait(false);
                 if (readBufferCount < marking.Length)
                 {
                     // there wasn't enough bytes at the end to fit the marking.

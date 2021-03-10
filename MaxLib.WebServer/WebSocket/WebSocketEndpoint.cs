@@ -41,9 +41,9 @@ namespace MaxLib.WebServer.WebSocket
 
         public async ValueTask DisposeAsync()
         {
-            await connectionLock.WaitAsync();
+            await connectionLock.WaitAsync().ConfigureAwait(false);
             foreach (var connection in connections)
-                await connection.DisposeAsync();
+                await connection.DisposeAsync().ConfigureAwait(false);
             connections.Clear();
             connectionLock.Dispose();
         }
@@ -53,7 +53,7 @@ namespace MaxLib.WebServer.WebSocket
             var connection = CreateConnection(stream, header);
             if (connection == null)
                 return null;
-            await connectionLock.WaitAsync();
+            await connectionLock.WaitAsync().ConfigureAwait(false);
             connections.Add(connection);
             connectionLock.Release();
             connection.Closed += Connection_Closed;
@@ -72,7 +72,7 @@ namespace MaxLib.WebServer.WebSocket
 
         public async Task RemoveConnection(T connection)
         {
-            await connectionLock.WaitAsync();
+            await connectionLock.WaitAsync().ConfigureAwait(false);
             connections.Remove(connection);
             connectionLock.Release();
             connection.Closed -= Connection_Closed;

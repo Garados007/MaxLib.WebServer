@@ -55,7 +55,7 @@ namespace MaxLib.WebServer
 
         protected override async Task<long> WriteStreamInternal(Stream stream, long start, long? stop)
         {
-            await Task.CompletedTask;
+            await Task.CompletedTask.ConfigureAwait(false);
             if (File == null)
                 return 0;
             File.Position = start;
@@ -76,7 +76,7 @@ namespace MaxLib.WebServer
 
         protected override async Task<long> ReadStreamInternal(Stream stream, long? length)
         {
-            await Task.CompletedTask;
+            await Task.CompletedTask.ConfigureAwait(false);
             if (ReadOnly)
                 throw new NotSupportedException();
             if (File == null)

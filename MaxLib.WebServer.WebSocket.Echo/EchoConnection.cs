@@ -16,7 +16,7 @@ namespace MaxLib.WebServer.WebSocket.Echo
         {
             WebServerLog.Add(ServerLogType.Information, GetType(), "WebSocket", $"client close websocket ({reason}): {info}");
             if (!SendCloseSignal)
-                await Close();
+                await Close().ConfigureAwait(false);
         }
 
         protected override async Task ReceivedFrame(Frame frame)

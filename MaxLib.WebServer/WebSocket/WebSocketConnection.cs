@@ -38,7 +38,7 @@ namespace MaxLib.WebServer.WebSocket
 
         public virtual async ValueTask DisposeAsync()
         {
-            await NetworkStream.DisposeAsync();
+            await NetworkStream.DisposeAsync().ConfigureAwait(false);
             lockStream.Dispose();
         }
 
@@ -72,11 +72,11 @@ namespace MaxLib.WebServer.WebSocket
                     Frame? frame;
                     try
                     {
-                        frame = await Frame.TryRead(NetworkStream);
+                        frame = await Frame.TryRead(NetworkStream).ConfigureAwait(false);
                     }
                     catch (TooLargePayloadException)
                     {
-                        await Close(CloseReason.TooBigMessage, $"Payload is larger then the allowed {int.MaxValue} bytes");
+                        await Close(CloseReason.TooBigMessage, $"Payload is larger then the allowed {int.MaxValue} bytes").ConfigureAwait(false);
                         return;
                     }
                     if (frame == null)
@@ -106,11 +106,11 @@ namespace MaxLib.WebServer.WebSocket
                                 info = Encoding.UTF8.GetString(frame.Payload.Span[2..]);
                             }
                             ReceivedCloseSignal = true;
-                            await ReceiveClose(reason, info);
+                            await ReceiveClose(reason, info).ConfigureAwait(false);
                             break;
                         case OpCode.Ping:
                             frame.OpCode = OpCode.Pong;
-                            await SendFrame(frame);
+                            await SendFrame(frame).ConfigureAwait(false);
                             break;
                         case OpCode.Pong:
                             LastPong = DateTime.UtcNow;
@@ -118,7 +118,7 @@ namespace MaxLib.WebServer.WebSocket
                             break;
                         default:
                             if (payloadQueue.Count == 0)
-                                await ReceivedFrame(frame);
+                                await ReceivedFrame(frame).ConfigureAwait(false);
                             else
                             {
                                 payloadQueue.Enqueue(frame.Payload);
@@ -139,7 +139,7 @@ namespace MaxLib.WebServer.WebSocket
                                 }
                                 frame.Payload = payload;
                                 frame.OpCode = code;
-                                await ReceivedFrame(frame);
+                                await ReceivedFrame(frame).ConfigureAwait(false);
                             }
                             break;
                     }
@@ -151,7 +151,7 @@ namespace MaxLib.WebServer.WebSocket
             {
                 while (!SendCloseSignal)
                 {
-                    await Task.Delay(TimeSpan.FromSeconds(10));
+                    await Task.Delay(TimeSpan.FromSeconds(10)).ConfigureAwait(false);
                     await SendFrame(new Frame
                     {
                         OpCode = OpCode.Ping
@@ -159,7 +159,7 @@ namespace MaxLib.WebServer.WebSocket
                 }
             });
 
-            await Task.WhenAll(receiver, pinger);
+            await Task.WhenAll(receiver, pinger).ConfigureAwait(false);
             Closed?.Invoke(this, EventArgs.Empty);
         }
 
@@ -167,12 +167,12 @@ namespace MaxLib.WebServer.WebSocket
         {
             if (SendCloseSignal)
                 return;
-            await lockStream.WaitAsync();
+            await lockStream.WaitAsync().ConfigureAwait(false);
             if (frame.OpCode == OpCode.Close)
                 SendCloseSignal = true;
             try 
             { 
-                await frame.Write(NetworkStream); 
+                await frame.Write(NetworkStream).ConfigureAwait(false); 
                 lockStream.Release();
             }
             catch (IOException e)
@@ -182,7 +182,7 @@ namespace MaxLib.WebServer.WebSocket
                 ReceivedCloseSignal = true;
                 SendCloseSignal = true;
                 if (!alreadyReceived)
-                    await ReceiveClose(null, null);
+                    await ReceiveClose(null, null).ConfigureAwait(false);
             }
         }
 

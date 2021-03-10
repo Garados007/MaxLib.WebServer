@@ -42,7 +42,7 @@ namespace MaxLib.WebServer.SSL
                 }
                 else connection.NetworkStream = peaker;
             }
-            await base.ClientStartListen(connection);
+            await base.ClientStartListen(connection).ConfigureAwait(false);
         }
 
         class StreamPeaker : Stream
