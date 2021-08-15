@@ -45,7 +45,8 @@ namespace MaxLib.WebServer.WebSocket
             }
             if (HasMaskingKey)
                 await output.WriteAsync(MaskingKey).ConfigureAwait(false);
-            await output.WriteAsync(Payload).ConfigureAwait(false);
+            if (Payload.Length > 0)
+                await output.WriteAsync(Payload).ConfigureAwait(false);
         }
 
         public static async Task<Frame?> TryRead(Stream input, bool throwLargePayload = false)

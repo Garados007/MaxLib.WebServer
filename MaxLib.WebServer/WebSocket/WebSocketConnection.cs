@@ -171,7 +171,7 @@ namespace MaxLib.WebServer.WebSocket
             if (frame.OpCode == OpCode.Close)
                 SendCloseSignal = true;
             try 
-            { 
+            {
                 await frame.Write(NetworkStream).ConfigureAwait(false); 
                 lockStream.Release();
             }
