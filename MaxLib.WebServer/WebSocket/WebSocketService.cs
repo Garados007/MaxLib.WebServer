@@ -18,6 +18,8 @@ namespace MaxLib.WebServer.WebSocket
         public ICollection<IWebSocketEndpoint> Endpoints { get; } 
             = new List<IWebSocketEndpoint>();
 
+        public WebSocketCloserEndpoint? CloseEndpoint { get; set; }
+
         public void Add<T>(WebSocketEndpoint<T> endpoint)
             where T : WebSocketConnection
         {
@@ -80,31 +82,46 @@ namespace MaxLib.WebServer.WebSocket
                 if (connection == null)
                     continue;
 
-                task.Response.StatusCode = HttpStateCode.SwitchingProtocols;
-                task.Response.SetHeader(
-                    ("Access-Control-Allow-Origin", "*"),
-                    ("Upgrade", "websocket"),
-                    ("Connection", "Upgrade"),
-                    ("Sec-WebSocket-Accept", responseKey),
-                    ("Sec-WebSocket-Protocol", endpoint.Protocol)
-                );
-
-                task.SwitchProtocols(async () =>
-                {
-                    if (System.Diagnostics.Debugger.IsAttached)
-                        await connection.HandshakeFinished().ConfigureAwait(false);
-                    else
-                        try
-                        {
-                            await connection.HandshakeFinished().ConfigureAwait(false);
-                        }
-                        catch (Exception e)
-                        {
-                            WebServerLog.Add(ServerLogType.Error, GetType(), "handshake", $"handshake error: {e}");
-                        }
-                });
-                task.NextStage = ServerStage.SendResponse;
+                HandleCreateConnection(task, responseKey, endpoint, connection);
+                return;
             }
+
+            if (CloseEndpoint is WebSocketCloserEndpoint ep)
+            {
+                var connection = await ep.Create(task.NetworkStream, task.Request).ConfigureAwait(false);
+                if (connection == null)
+                    return;
+                HandleCreateConnection(task, responseKey, ep, connection);
+            }
+        }
+
+        private void HandleCreateConnection(WebProgressTask task, string responseKey, 
+            IWebSocketEndpoint endpoint, WebSocketConnection connection)
+        {
+            task.Response.StatusCode = HttpStateCode.SwitchingProtocols;
+            task.Response.SetHeader(
+                ("Access-Control-Allow-Origin", "*"),
+                ("Upgrade", "websocket"),
+                ("Connection", "Upgrade"),
+                ("Sec-WebSocket-Accept", responseKey),
+                ("Sec-WebSocket-Protocol", endpoint.Protocol)
+            );
+
+            task.SwitchProtocols(async () =>
+            {
+                if (System.Diagnostics.Debugger.IsAttached)
+                    await connection.HandshakeFinished().ConfigureAwait(false);
+                else
+                    try
+                    {
+                        await connection.HandshakeFinished().ConfigureAwait(false);
+                    }
+                    catch (Exception e)
+                    {
+                        WebServerLog.Add(ServerLogType.Error, GetType(), "handshake", $"handshake error: {e}");
+                    }
+            });
+            task.NextStage = ServerStage.SendResponse;
         }
     }
 }
