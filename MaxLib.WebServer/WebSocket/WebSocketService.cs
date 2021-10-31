@@ -40,7 +40,9 @@ namespace MaxLib.WebServer.WebSocket
 
         public async ValueTask DisposeAsync()
         {
-            await Task.WhenAll(Endpoints.Select(async x => await x.DisposeAsync())).ConfigureAwait(false);
+            await Task.WhenAll(
+                Endpoints.Select(async x => await x.DisposeAsync().ConfigureAwait(false))
+            ).ConfigureAwait(false);
         }
 
         public override async Task ProgressTask(WebProgressTask task)

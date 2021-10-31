@@ -53,7 +53,7 @@ namespace MaxLib.WebServer.WebSocket
             {
                 OpCode = OpCode.Close,
                 Payload = payload[..size],
-            });
+            }).ConfigureAwait(false);
         }
 
         /// <summary>
@@ -76,7 +76,8 @@ namespace MaxLib.WebServer.WebSocket
                     }
                     catch (TooLargePayloadException)
                     {
-                        await Close(CloseReason.TooBigMessage, $"Payload is larger then the allowed {int.MaxValue} bytes").ConfigureAwait(false);
+                        await Close(CloseReason.TooBigMessage, $"Payload is larger then the allowed {int.MaxValue} bytes")
+                            .ConfigureAwait(false);
                         return;
                     }
                     if (frame == null)
@@ -127,7 +128,7 @@ namespace MaxLib.WebServer.WebSocket
                                 {
                                     await Close(CloseReason.TooBigMessage, 
                                         $"the payload of all frames add up to {maxSize}. Only {int.MaxValue} is allowed."
-                                    );
+                                    ).ConfigureAwait(false);
                                 }
                                 Memory<byte> payload = new byte[maxSize];
                                 int start = 0;
@@ -155,7 +156,7 @@ namespace MaxLib.WebServer.WebSocket
                     await SendFrame(new Frame
                     {
                         OpCode = OpCode.Ping
-                    });
+                    }).ConfigureAwait(false);
                 }
             });
 
