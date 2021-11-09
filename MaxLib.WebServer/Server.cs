@@ -282,11 +282,5 @@ namespace MaxLib.WebServer
                 NetworkStream = stream,
             };
         }
-
-        [Obsolete("this method is no longer used by the server")]
-        protected virtual HttpConnection CreateRandomConnection()
-        {
-            return new HttpConnection();
-        }
     }
 }

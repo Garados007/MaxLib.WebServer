@@ -56,13 +56,6 @@ namespace MaxLib.WebServer
         readonly HttpResponseHeader response;
         List<Range> ranges = new List<Range>();
 
-        [Obsolete("Use MultipartRanges(Stream, HttpRequestHeader, HttpResponseHeader, string) instead. This will be removed in a future release.")]
-        public MultipartRanges(Stream stream, HttpDocument document, string? mime)
-            : this(stream, document.RequestHeader, document.ResponseHeader, mime)
-        {
-
-        }
-
         /// <summary>
         /// Creates a new <see cref="MultipartRanges"/> data source that can deliver parts
         /// of the given stream.

@@ -27,12 +27,6 @@ namespace MaxLib.WebServer.Post
             throw new NotSupportedException();
         }
 
-        [Obsolete]
-        public void Set(string content, string options)
-        {
-            Data = Encoding.UTF8.GetBytes(content);
-        }
-
         public void Set(ReadOnlyMemory<byte> content, string options)
         {
             Data = content;

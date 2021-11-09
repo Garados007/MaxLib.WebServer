@@ -29,11 +29,9 @@ namespace MaxLib.WebServer
 
         public Sessions.Session? Session { get; set; }
 
-#pragma warning disable CS0618
-        public HttpRequestHeader Request => Document.RequestHeader;
+        public HttpRequestHeader Request { get; } = new HttpRequestHeader();
 
-        public HttpResponseHeader Response => Document.ResponseHeader;
-#pragma warning restore CS0618
+        public HttpResponseHeader Response { get; } = new HttpResponseHeader();
 
         public void Dispose()
         {
