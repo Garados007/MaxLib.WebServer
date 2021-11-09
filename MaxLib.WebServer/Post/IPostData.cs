@@ -1,15 +1,12 @@
 using System;
+using System.Threading.Tasks;
+
 namespace MaxLib.WebServer.Post
 {
-    public interface IPostData
+    public interface IPostData : IDisposable
     {
         string MimeType { get; }
 
-        [Obsolete]
-        void Set(string content, string options);
-
-        void Set(ReadOnlyMemory<byte> content, string options);
-
-        T Get<T>(string key);
+        Task SetAsync(WebProgressTask task, IO.ContentStream content, string options);
     }
 }

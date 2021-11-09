@@ -15,7 +15,7 @@ namespace MaxLib.WebServer
         static long joinGap = 0x40; //1kB
         /// <summary>
         /// If two ranges has a gap smaller then <see cref="JoinGap"/> than this two ranges
-        /// are merged and transfered in one block. A maximum amount of <see cref="JoinGap"/>
+        /// are merged and transferred in one block. A maximum amount of <see cref="JoinGap"/>
         /// bytes need to send extra.
         /// </summary>
         public static long JoinGap
@@ -55,13 +55,6 @@ namespace MaxLib.WebServer
         // readonly HttpDocument document;
         readonly HttpResponseHeader response;
         List<Range> ranges = new List<Range>();
-
-        [Obsolete("Use MultipartRanges(Stream, HttpRequestHeader, HttpResponseHeader, string) instead. This will be removed in a future release.")]
-        public MultipartRanges(Stream stream, HttpDocument document, string? mime)
-            : this(stream, document.RequestHeader, document.ResponseHeader, mime)
-        {
-
-        }
 
         /// <summary>
         /// Creates a new <see cref="MultipartRanges"/> data source that can deliver parts

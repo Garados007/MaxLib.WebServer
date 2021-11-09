@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Threading.Tasks;
 using MaxLib.WebServer.Post;
 
 #nullable enable
@@ -7,20 +8,15 @@ using MaxLib.WebServer.Post;
 namespace MaxLib.WebServer
 {
     [Serializable]
-    public class HttpPost
+    public class HttpPost : IDisposable
     {
-        [Obsolete]
-        public string CompletePost { get; private set; }
-
         public string? MimeType { get; private set; }
 
+        internal IO.ContentStream? Content { get; private set; }
 
-        protected Lazy<IPostData>? LazyData { get; set; }
-        public IPostData? Data => LazyData?.Value;
-
-        [Obsolete("this will be removed in a future release. Use HttpPost.Data instead.")]
-        public Dictionary<string, string> PostParameter
-            => Data is UrlEncodedData data ? data.Parameter : new Dictionary<string, string>();
+        private Lazy<Task<IPostData>>? LazyData;
+        public Task<IPostData>? DataAsync => LazyData?.Value;
+        public IPostData? Data => DataAsync?.Result;
 
         public static Dictionary<string, Func<IPostData>> DataHandler { get; }
             = new Dictionary<string, Func<IPostData>>();
@@ -33,8 +29,9 @@ namespace MaxLib.WebServer
                 () => new MultipartFormData();
         }
 
-        public virtual void SetPost(ReadOnlyMemory<byte> post, string? mime)
+        public virtual void SetPost(WebProgressTask task, IO.ContentStream content, string? mime)
         {
+            Content = content;
             string args = "";
             if (mime != null)
             {
@@ -49,64 +46,58 @@ namespace MaxLib.WebServer
             if ((MimeType = mime) != null &&
                 DataHandler.TryGetValue(mime!, out Func<IPostData> constructor)
             )
-                LazyData = new Lazy<IPostData>(() =>
+                LazyData = new Lazy<Task<IPostData>>(() =>
                 {
-                    var data = constructor();
-                    data.Set(post, args);
-                    return data;
+                    return Task.Run(async () =>
+                    {
+                        var data = constructor();
+                        await data.SetAsync(task, content, args).ConfigureAwait(false);
+                        return data;
+                    });
                 }, System.Threading.LazyThreadSafetyMode.ExecutionAndPublication);
-            else LazyData = new Lazy<IPostData>(new UnknownPostData(post, mime));
-        }
-
-        [Obsolete]
-        public virtual void SetPost(string post, string? mime)
-        {
-            CompletePost = post ?? throw new ArgumentNullException("Post");
-
-            string args = "";
-            if (mime != null)
-            {
-                var ind = mime.IndexOf(';');
-                if (ind >= 0)
-                {
-                    args = mime.Substring(ind + 1);
-                    mime = mime.Remove(ind);
-                }
-            }
-
-            if ((MimeType = mime) != null &&
-                DataHandler.TryGetValue(mime!, out Func<IPostData> constructor)
-            )
-                LazyData = new Lazy<IPostData>(() =>
-                {
-                    var data = constructor();
-                    data.Set(post, args);
-                    return data;
-                }, System.Threading.LazyThreadSafetyMode.ExecutionAndPublication);
-            else LazyData = null;
+            else LazyData = new Lazy<Task<IPostData>>(
+                Task.FromResult<IPostData>(new UnknownPostData(content, mime))
+            );
         }
 
         public HttpPost()
         {
-            #pragma warning disable CS0612 // 'HttpPost.CompletePost' is obsolete 
-            CompletePost = "";
-            #pragma warning restore CS0612
         }
 
-        public HttpPost(ReadOnlyMemory<byte> post, string? mime)
-            : this()
-            => SetPost(post, mime);
-
-        [Obsolete]
-        public HttpPost(string post, string? mime)
+        public HttpPost(WebProgressTask task, ReadOnlyMemory<byte> content, string? mime)
+            : this(
+                task,
+                new IO.ContentStream(
+                    new IO.NetworkReader(new IO.SpanStream(content)),
+                    content.Length
+                ), 
+                mime
+            )
         {
-            CompletePost = post ?? throw new ArgumentNullException(nameof(post));
-            SetPost(post, mime);
+
         }
+
+        public HttpPost(WebProgressTask task, IO.ContentStream content, string? mime)
+            : this()
+            => SetPost(task, content, mime);
+
 
         public override string ToString()
         {
             return $"{MimeType}: {Data}";
+        }
+
+        public void Dispose()
+        {
+            if (LazyData != null && LazyData.IsValueCreated)
+            {
+                Task.Run(async () =>
+                {
+                    var data = await LazyData.Value.ConfigureAwait(false);
+                    data.Dispose();
+                });
+            }
+            Content?.Dispose();
         }
     }
 }

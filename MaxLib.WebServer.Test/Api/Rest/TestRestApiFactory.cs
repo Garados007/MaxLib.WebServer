@@ -22,7 +22,9 @@ namespace MaxLib.WebServer.Test.Api.Rest
                     { "foo", "bar" },
                     { "baz", "7" },
                 },
-                new HttpPost(Encoding.UTF8.GetBytes("a=1&b=2"),
+                new HttpPost(
+                    new WebProgressTask(),
+                    Encoding.UTF8.GetBytes("a=1&b=2"),
                     MimeType.ApplicationXWwwFromUrlencoded),
                 null
                 );

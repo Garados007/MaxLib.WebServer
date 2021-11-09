@@ -22,7 +22,7 @@ namespace MaxLib.WebServer.Services
         /// the request time, the full HTTP header and full POST content.
         /// <br />
         /// If either this or <see cref="DebugLogConnectionFile" /> is set then
-        /// this parser will handle all requests syncronously (only one request
+        /// this parser will handle all requests synchronously (only one request
         /// is at the same time parsing). 
         /// <br />
         /// Do not use this in production!
@@ -36,7 +36,7 @@ namespace MaxLib.WebServer.Services
         /// the requested host and url path.
         /// <br />
         /// If either this or <see cref="DebugWriteRequestFile" /> is set then
-        /// this parser will handle all requests syncronously (only one request
+        /// this parser will handle all requests synchronously (only one request
         /// is at the same time parsing). 
         /// <br />
         /// Do not use this in production!
@@ -44,10 +44,10 @@ namespace MaxLib.WebServer.Services
         public string? DebugLogConnectionFile { get; set; } = null;
 
         /// <summary>
-        /// Sometimes the data is not avaible at instant. This can happen with slow
+        /// Sometimes the data is not available at instant. This can happen with slow
         /// connections. Therefore this instance will wait a maximum time until
         /// the first data is available. Negative or zero time values will disable
-        /// this behaviour.
+        /// this behavior.
         /// </summary>
         public TimeSpan MaxConnectionDelay { get; set; } = TimeSpan.FromSeconds(5);
 
@@ -208,30 +208,29 @@ namespace MaxLib.WebServer.Services
             return true;
         }
 
-        protected virtual async ValueTask<bool> LoadContent(WebProgressTask task, NetworkReader reader, StringBuilder? debugBuilder)
+        protected virtual ValueTask<bool> LoadContent(WebProgressTask task, NetworkReader reader)
         {
             if (!task.Request.HeaderParameter.TryGetValue("Content-Length", out string strLength))
-                return true;
+                return new ValueTask<bool>(true);
             
             if (!int.TryParse(strLength, out int length) || length < 0)
             {
                 WebServerLog.Add(ServerLogType.Error, GetType(), "Header", "Bad Request, invalid content length");
                 task.Response.StatusCode = HttpStateCode.BadRequest;
                 task.NextStage = ServerStage.CreateResponse;
-                return false;
+                return new ValueTask<bool>(false);
             }
 
-            var buffer = await reader.ReadMemoryAsync(length).ConfigureAwait(false);
-            debugBuilder?.Append(Encoding.UTF8.GetChars(buffer.ToArray()));
-            debugBuilder?.AppendLine();
+            var content = new IO.ContentStream(reader, length);
 
             task.Request.Post.SetPost(
-                buffer,
+                task,
+                content,
                 task.Request.HeaderParameter.TryGetValue("Content-Type", out string contentType)
                     ? contentType : null
             );
 
-            return true;
+            return new ValueTask<bool>(true);
         }
 
         public override async Task ProgressTask(WebProgressTask task)
@@ -268,7 +267,7 @@ namespace MaxLib.WebServer.Services
                 debugBuilder?.AppendLine();
 
                 // read content if possible
-                if (!await LoadContent(task, reader, debugBuilder))
+                if (!await LoadContent(task, reader))
                     return;
                 
                 await DebugConnection(task).ConfigureAwait(false);

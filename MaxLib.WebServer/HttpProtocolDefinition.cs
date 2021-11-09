@@ -5,7 +5,7 @@ using System.Linq;
 
 namespace MaxLib.WebServer
 {
-    public static class HttpProtocollDefinition
+    public static class HttpProtocolDefinition
     {
         public const string HttpVersion1_0 = "HTTP/1.0";
         public const string HttpVersion1_1 = "HTTP/1.1";

@@ -2,6 +2,7 @@ using System.Text.RegularExpressions;
 using System.Text;
 using System;
 using System.Collections.Generic;
+using System.Threading.Tasks;
 
 #nullable enable
 
@@ -13,13 +14,6 @@ namespace MaxLib.WebServer.Post
 
         public Dictionary<string, string> Parameter { get; }
             = new Dictionary<string, string>();
-
-        public T Get<T>(string key)
-        {
-            if (!typeof(T).IsAssignableFrom(typeof(string)))
-                throw new NotSupportedException();
-            return (T)(object)Parameter[key];
-        }
 
         public void Set(string content, string options)
         {
@@ -53,7 +47,7 @@ namespace MaxLib.WebServer.Post
             RegexOptions.Compiled | RegexOptions.IgnoreCase
         );
 
-        public void Set(ReadOnlyMemory<byte> content, string options)
+        public async Task SetAsync(WebProgressTask task, IO.ContentStream content, string options)
         {
             var match = charsetRegex.Match(options);
             Encoding? encoding = null;
@@ -68,7 +62,9 @@ namespace MaxLib.WebServer.Post
                         $"invalid encoding {match.Groups["charset"].Value}: {e}");
                 }
             encoding ??= Encoding.UTF8;
-            Set(encoding.GetString(content.Span), options);
+            var buffer = new byte[content.UnreadData];
+            await content.ReadAsync(buffer, 0, buffer.Length).ConfigureAwait(false);
+            Set(encoding.GetString(buffer), options);
         }
 
         public override string ToString()
@@ -77,6 +73,10 @@ namespace MaxLib.WebServer.Post
             foreach (var (key, value) in Parameter)
                 sb.AppendLine($"{key}: {value}");
             return sb.ToString();
+        }
+
+        public void Dispose()
+        {
         }
     }
 }
