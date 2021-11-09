@@ -180,7 +180,7 @@ namespace MaxLib.WebServer.Post
                 var entry = GetEntry(dict);
 
                 var storeInTemp = (AlwaysStoreFiles && entry is FormDataFile) ||
-                    (MaximumCacheSize >= 0 && content.FullLength < MaximumCacheSize);
+                    (MaximumCacheSize >= 0 && content.FullLength > MaximumCacheSize);
 
                 // read the content of these entries
                 if (storeInTemp)

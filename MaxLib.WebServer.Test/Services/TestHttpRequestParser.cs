@@ -102,6 +102,8 @@ namespace MaxLib.WebServer.Test.Services
                 Assert.AreEqual(1, data.Entries.Count);
                 Assert.AreEqual(1, data.Entries[0].Header.Count);
                 Assert.AreEqual("text/plain", data.Entries[0].Header["Content-Type"]);
+                Assert.IsNull(data.Entries[0].TempFile);
+                Assert.IsTrue(data.Entries[0].Content.HasValue);
                 Assert.AreEqual("Hello World",
                     Encoding.UTF8.GetString(data.Entries[0].Content.Value.ToArray())
                 );
