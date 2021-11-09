@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Threading.Tasks;
 using MaxLib.WebServer.Post;
 
 #nullable enable
@@ -7,13 +8,15 @@ using MaxLib.WebServer.Post;
 namespace MaxLib.WebServer
 {
     [Serializable]
-    public class HttpPost
+    public class HttpPost : IDisposable
     {
         public string? MimeType { get; private set; }
 
+        internal IO.ContentStream? Content { get; private set; }
 
-        protected Lazy<IPostData>? LazyData { get; set; }
-        public IPostData? Data => LazyData?.Value;
+        private Lazy<Task<IPostData>>? LazyData;
+        public Task<IPostData>? DataAsync => LazyData?.Value;
+        public IPostData? Data => DataAsync?.Result;
 
         public static Dictionary<string, Func<IPostData>> DataHandler { get; }
             = new Dictionary<string, Func<IPostData>>();
@@ -26,8 +29,9 @@ namespace MaxLib.WebServer
                 () => new MultipartFormData();
         }
 
-        public virtual void SetPost(ReadOnlyMemory<byte> post, string? mime)
+        public virtual void SetPost(IO.ContentStream content, string? mime)
         {
+            Content = content;
             string args = "";
             if (mime != null)
             {
@@ -42,27 +46,57 @@ namespace MaxLib.WebServer
             if ((MimeType = mime) != null &&
                 DataHandler.TryGetValue(mime!, out Func<IPostData> constructor)
             )
-                LazyData = new Lazy<IPostData>(() =>
+                LazyData = new Lazy<Task<IPostData>>(() =>
                 {
-                    var data = constructor();
-                    data.Set(post, args);
-                    return data;
+                    return Task.Run(async () =>
+                    {
+                        var data = constructor();
+                        await data.SetAsync(content, args).ConfigureAwait(false);
+                        return data;
+                    });
                 }, System.Threading.LazyThreadSafetyMode.ExecutionAndPublication);
-            else LazyData = new Lazy<IPostData>(new UnknownPostData(post, mime));
+            else LazyData = new Lazy<Task<IPostData>>(
+                Task.FromResult<IPostData>(new UnknownPostData(content, mime))
+            );
         }
 
         public HttpPost()
         {
         }
 
-        public HttpPost(ReadOnlyMemory<byte> post, string? mime)
+        public HttpPost(ReadOnlyMemory<byte> content, string? mime)
+            : this(
+                new IO.ContentStream(
+                    new IO.NetworkReader(new IO.SpanStream(content)),
+                    content.Length
+                ), 
+                mime
+            )
+        {
+
+        }
+
+        public HttpPost(IO.ContentStream content, string? mime)
             : this()
-            => SetPost(post, mime);
+            => SetPost(content, mime);
 
 
         public override string ToString()
         {
             return $"{MimeType}: {Data}";
+        }
+
+        public void Dispose()
+        {
+            if (LazyData != null && LazyData.IsValueCreated)
+            {
+                Task.Run(async () =>
+                {
+                    var data = await LazyData.Value.ConfigureAwait(false);
+                    data.Dispose();
+                });
+            }
+            Content?.Dispose();
         }
     }
 }

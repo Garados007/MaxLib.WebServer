@@ -19,7 +19,7 @@ namespace MaxLib.WebServer
 
         public WebServerSettings Settings { get; protected set; }
 
-        //Serveraktivitäten
+        // Server activity
 
         protected TcpListener? Listener;
         protected Thread? ServerThread;
@@ -107,7 +107,7 @@ namespace MaxLib.WebServer
         {
             if (Listener == null)
                 return;
-            WebServerLog.Add(ServerLogType.Information, GetType(), "StartUp", "Server succesfuly started");
+            WebServerLog.Add(ServerLogType.Information, GetType(), "StartUp", "Server successfully started");
             var watch = new Stopwatch();
             while (ServerExecution)
             {
@@ -163,7 +163,7 @@ namespace MaxLib.WebServer
                 AllConnections[i].NetworkClient?.Close();
             AllConnections.Clear();
             KeepAliveConnections.Clear();
-            WebServerLog.Add(ServerLogType.Information, GetType(), "StartUp", "Server succesfuly stopped");
+            WebServerLog.Add(ServerLogType.Information, GetType(), "StartUp", "Server successfully stopped");
         }
 
         protected virtual void ClientConnected(TcpClient client)

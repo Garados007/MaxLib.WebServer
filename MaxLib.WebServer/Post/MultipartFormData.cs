@@ -5,6 +5,7 @@ using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Text.RegularExpressions;
 using MaxLib.WebServer.IO;
+using System.Threading.Tasks;
 
 #nullable enable
 
@@ -12,17 +13,52 @@ namespace MaxLib.WebServer.Post
 {
     public class MultipartFormData : IPostData
     {
-        public class FormEntry
+        public class FormEntry : IDisposable
         {
             public ReadOnlyDictionary<string, string> Header { get; }
 
-            public ReadOnlyMemory<byte> Content { get; }
+            public ReadOnlyMemory<byte>? Content { get; private set; }
 
-            public FormEntry(Dictionary<string, string> header, ReadOnlyMemory<byte> content)
+            public FileInfo? TempFile { get; private set; }
+
+            public FormEntry(Dictionary<string, string> header)
             {
                 _ = header ?? throw new ArgumentNullException(nameof(header));
-                Content = content;
                 Header = new ReadOnlyDictionary<string, string>(header);
+            }
+
+            public void Set(ReadOnlyMemory<byte> content)
+            {
+                Content = content;
+                if (TempFile != null && TempFile.Exists)
+                    try 
+                    {
+                        TempFile.Delete();
+                    }
+                    catch (Exception)
+                    {
+                        WebServerLog.Add(ServerLogType.Information, GetType(), "POST", "Cannot delete temp file");
+                    }
+                TempFile = null;
+            }
+
+            public void Set(FileInfo tempFile)
+            {
+                Content = null;
+                if (TempFile != null && TempFile.FullName != tempFile.FullName)
+                    try 
+                    {
+                        TempFile.Delete();
+                    }
+                    catch (Exception)
+                    {
+                        WebServerLog.Add(ServerLogType.Information, GetType(), "POST", "Cannot delete temp file");
+                    }
+                TempFile = tempFile;
+            }
+
+            public virtual void Dispose()
+            {
             }
         }
 
@@ -30,8 +66,8 @@ namespace MaxLib.WebServer.Post
         {
             public string Name { get; }
 
-            public FormData(Dictionary<string, string> header, string name, ReadOnlyMemory<byte> value)
-                : base(header, value)
+            public FormData(Dictionary<string, string> header, string name)
+                : base(header)
             {
                 Name = name ?? throw new ArgumentNullException(nameof(name));
             }
@@ -43,8 +79,8 @@ namespace MaxLib.WebServer.Post
 
             public string? MimeType => Header.TryGetValue("Content-Type", out string mime) ? mime : null;
 
-            public FormDataFile(Dictionary<string, string> header, string name, string fileName, ReadOnlyMemory<byte> value)
-                : base(header, name, value)
+            public FormDataFile(Dictionary<string, string> header, string name, string fileName)
+                : base(header, name)
             {
                 FileName = fileName ?? throw new ArgumentNullException(nameof(fileName));
             }
@@ -72,15 +108,14 @@ namespace MaxLib.WebServer.Post
             RegexOptions.Compiled
         );
 
-        protected virtual FormEntry GetEntry(Dictionary<string, string> header, 
-            ReadOnlyMemory<byte> value)
+        protected virtual FormEntry GetEntry(Dictionary<string, string> header)
         {
             _ = header ?? throw new ArgumentNullException(nameof(header));
 
             if (header.TryGetValue("Content-Disposition", out string disposition))
             {
                 if (!disposition.StartsWith("form-data"))
-                    return new FormEntry(header, value);
+                    return new FormEntry(header);
                 var nameResult = nameRegex.Match(disposition);
                 var name = nameResult.Success ? nameResult.Groups["name"].Value : null;
 
@@ -88,39 +123,41 @@ namespace MaxLib.WebServer.Post
                 var filename = filenameResult.Success ? filenameResult.Groups["name"].Value : null;
 
                 if (filename != null && name != null)
-                    return new FormDataFile(header, name, filename, value);
+                    return new FormDataFile(header, name, filename);
                 if (filename != null)
-                    return new FormDataFile(header, filename, filename, value);
+                    return new FormDataFile(header, filename, filename);
                 if (name != null)
-                    return new FormData(header, name, value);
-                return new FormEntry(header, value);
+                    return new FormData(header, name);
+                return new FormEntry(header);
             }
-            else return new FormEntry(header, value);
+            else return new FormEntry(header);
         }
 
-        public T Get<T>(string key)
-        {
-            if (!typeof(T).IsAssignableFrom(typeof(string)))
-                throw new NotSupportedException();
-            var entry = Entries.Find(x => x is FormData d && d.Name == key);
-            if (entry != null)
-                return (T)(object)entry.Content;
-            entry = Entries.Find(x => x is FormDataFile d && d.FileName == key);
-            if (entry != null)
-                return (T)(object)entry.Content;
-            throw new KeyNotFoundException();
-        }
+        /// <summary>
+        /// This is the maximum number of bytes the whole POST content can have to have its parts
+        /// cached in memory. If the whole POST content is larger than this all parts will be
+        /// stored in individual files.
+        /// <br />
+        /// If this is set to a negative number all content will be stored in memory regardless its
+        /// size.
+        /// </summary>
+        public static long MaximumCacheSize { get; set; } = 50 * 1024 * 1024;
 
-        public void Set(ReadOnlyMemory<byte> content, string options)
+        /// <summary>
+        /// If this option is set to true all files from the POST content will be stored as local
+        /// temp files. The setting <see cref="MaximumCacheSize" /> will be ignored for this kind.
+        /// </summary>
+        public static bool AlwaysStoreFiles { get; set; } = true;
+
+        public async Task SetAsync(IO.ContentStream content, string options)
         {
             var match = boundaryRegex.Match(options);
             var boundary = match.Success ? match.Groups["name"].Value : "";
             boundary = $"--{boundary}";
-            ReadOnlySpan<byte> rawBoundary = Encoding.UTF8.GetBytes(boundary);
+            ReadOnlyMemory<byte> rawBoundary = Encoding.UTF8.GetBytes(boundary);
 
             Entries.Clear();
-            using var stream = new SpanStream(content);
-            using var reader = new NetworkReader(stream);
+            using var reader = new NetworkReader(content, null, true);
 
             // parse the content
             while (true)
@@ -140,12 +177,32 @@ namespace MaxLib.WebServer.Post
                     dict.Add(header.Groups["name"].Value, header.Groups["value"].Value);
                 }
 
-                // read content until boundary bound
-                var entryContent = reader.ReadUntil(rawBoundary);
+                var entry = GetEntry(dict);
+
+                var storeInTemp = (AlwaysStoreFiles && entry is FormDataFile) ||
+                    (MaximumCacheSize >= 0 && content.FullLength < MaximumCacheSize);
+
+                // read the content of these entries
+                if (storeInTemp)
+                {
+                    var name = Path.GetTempFileName();
+                    using var stream = new FileStream(name, FileMode.OpenOrCreate, FileAccess.Write,
+                        FileShare.None
+                    );
+                    await reader.ReadUntilAsync(rawBoundary, stream).ConfigureAwait(false);
+                    entry.Set(new FileInfo(name));
+                }
+                else
+                {
+                    entry.Set(await reader.ReadUntilAsync(rawBoundary).ConfigureAwait(false));
+                }
 
                 // add new entry
-                Entries.Add(GetEntry(dict, entryContent));
+                Entries.Add(entry);
             }
+
+            // there should nothing left but to be sure just discard the rest
+            content.Discard();
         }
 
         public override string ToString()
@@ -159,10 +216,18 @@ namespace MaxLib.WebServer.Post
                 foreach (var (key, value) in entry.Header)
                     sb.AppendLine($"{key}: {value}");
                 sb.AppendLine();
-                sb.AppendLine($"[{entry.Content.Length:#,#0} Bytes]");
+                if (entry.Content != null)
+                    sb.AppendLine($"[{entry.Content.Value.Length:#,#0} Bytes]");
+                if (entry.TempFile != null && entry.TempFile.Exists)
+                    sb.AppendLine($"[{entry.TempFile.Length:#,#0} Bytes in {entry.TempFile.FullName}]");
             }
             sb.AppendLine(boundary);
             return sb.ToString();
+        }
+
+        public void Dispose()
+        {
+            Entries.ForEach(x => x.Dispose());
         }
     }
 }

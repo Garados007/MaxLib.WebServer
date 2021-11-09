@@ -20,7 +20,7 @@ namespace MaxLib.WebServer
         /// </summary>
         public static event Action<ServerLogItem>? LogAdded;
 
-        static readonly object lockObjekt = new object();
+        static readonly object lockObject = new object();
         public static void Add(ServerLogItem logItem)
         {
             if (IgnoreSenderEvents.Exists((type) => type.FullName== logItem.SenderType)) 
@@ -29,7 +29,7 @@ namespace MaxLib.WebServer
             LogPreAdded?.Invoke(eventArgs);
             if (eventArgs.Discard)
                 return;
-            lock (lockObjekt) 
+            lock (lockObject) 
                 ServerLog.Add(logItem);
             LogAdded?.Invoke(logItem);
         }

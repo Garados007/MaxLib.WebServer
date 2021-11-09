@@ -27,7 +27,7 @@ namespace MaxLib.WebServer.Test.Services
         [TestMethod]
         public async Task TestSending()
         {
-            test.Response.HttpProtocol = HttpProtocollDefinition.HttpVersion1_1;
+            test.Response.HttpProtocol = HttpProtocolDefinition.HttpVersion1_1;
             test.Response.StatusCode = HttpStateCode.OK;
             test.Response.FieldContentType = MimeType.TextPlain;
             test.Request.Cookie.AddedCookies.Add("test",

@@ -49,7 +49,10 @@ namespace MaxLib.WebServer
 
         public void SetPost(ReadOnlyMemory<byte> post, string mime)
         {
-            Task.Request.Post.SetPost(post, mime);
+            Task.Request.Post.SetPost(
+                new IO.ContentStream(new IO.NetworkReader(new IO.SpanStream(post)), post.Length), 
+                mime
+            );
         }
 
         public void SetAccept(string[]? acceptTypes = null, string[]? encoding = null)

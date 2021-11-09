@@ -8,7 +8,7 @@ namespace MaxLib.WebServer
     [Serializable]
     public abstract class HttpHeader
     {
-        private string httpProtocol = HttpProtocollDefinition.HttpVersion1_1;
+        private string httpProtocol = HttpProtocolDefinition.HttpVersion1_1;
         public string HttpProtocol
         {
             get => httpProtocol;
@@ -52,7 +52,7 @@ namespace MaxLib.WebServer
             else HeaderParameter.Remove(key);
         }
 
-        private string protocolMethod = HttpProtocollMethod.Get;
+        private string protocolMethod = HttpProtocolMethod.Get;
         public string ProtocolMethod
         {
             get => protocolMethod;

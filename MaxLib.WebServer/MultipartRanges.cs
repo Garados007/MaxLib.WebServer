@@ -15,7 +15,7 @@ namespace MaxLib.WebServer
         static long joinGap = 0x40; //1kB
         /// <summary>
         /// If two ranges has a gap smaller then <see cref="JoinGap"/> than this two ranges
-        /// are merged and transfered in one block. A maximum amount of <see cref="JoinGap"/>
+        /// are merged and transferred in one block. A maximum amount of <see cref="JoinGap"/>
         /// bytes need to send extra.
         /// </summary>
         public static long JoinGap
