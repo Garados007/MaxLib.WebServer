@@ -29,7 +29,7 @@ namespace MaxLib.WebServer
                 () => new MultipartFormData();
         }
 
-        public virtual void SetPost(IO.ContentStream content, string? mime)
+        public virtual void SetPost(WebProgressTask task, IO.ContentStream content, string? mime)
         {
             Content = content;
             string args = "";
@@ -51,7 +51,7 @@ namespace MaxLib.WebServer
                     return Task.Run(async () =>
                     {
                         var data = constructor();
-                        await data.SetAsync(content, args).ConfigureAwait(false);
+                        await data.SetAsync(task, content, args).ConfigureAwait(false);
                         return data;
                     });
                 }, System.Threading.LazyThreadSafetyMode.ExecutionAndPublication);
@@ -64,8 +64,9 @@ namespace MaxLib.WebServer
         {
         }
 
-        public HttpPost(ReadOnlyMemory<byte> content, string? mime)
+        public HttpPost(WebProgressTask task, ReadOnlyMemory<byte> content, string? mime)
             : this(
+                task,
                 new IO.ContentStream(
                     new IO.NetworkReader(new IO.SpanStream(content)),
                     content.Length
@@ -76,9 +77,9 @@ namespace MaxLib.WebServer
 
         }
 
-        public HttpPost(IO.ContentStream content, string? mime)
+        public HttpPost(WebProgressTask task, IO.ContentStream content, string? mime)
             : this()
-            => SetPost(content, mime);
+            => SetPost(task, content, mime);
 
 
         public override string ToString()

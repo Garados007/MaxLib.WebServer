@@ -47,7 +47,7 @@ namespace MaxLib.WebServer.Post
             RegexOptions.Compiled | RegexOptions.IgnoreCase
         );
 
-        public async Task SetAsync(IO.ContentStream content, string options)
+        public async Task SetAsync(WebProgressTask task, IO.ContentStream content, string options)
         {
             var match = charsetRegex.Match(options);
             Encoding? encoding = null;

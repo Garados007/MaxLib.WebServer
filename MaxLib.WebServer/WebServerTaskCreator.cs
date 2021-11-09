@@ -47,9 +47,10 @@ namespace MaxLib.WebServer
             else Task.Request.HeaderParameter.Add(key, value);
         }
 
-        public void SetPost(ReadOnlyMemory<byte> post, string mime)
+        public void SetPost(WebProgressTask task, ReadOnlyMemory<byte> post, string mime)
         {
             Task.Request.Post.SetPost(
+                task,
                 new IO.ContentStream(new IO.NetworkReader(new IO.SpanStream(post)), post.Length), 
                 mime
             );

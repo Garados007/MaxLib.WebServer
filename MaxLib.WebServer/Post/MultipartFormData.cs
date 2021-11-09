@@ -149,7 +149,7 @@ namespace MaxLib.WebServer.Post
         /// </summary>
         public static bool AlwaysStoreFiles { get; set; } = true;
 
-        public async Task SetAsync(IO.ContentStream content, string options)
+        public async Task SetAsync(WebProgressTask task, IO.ContentStream content, string options)
         {
             var match = boundaryRegex.Match(options);
             var boundary = match.Success ? match.Groups["name"].Value : "";
@@ -186,9 +186,10 @@ namespace MaxLib.WebServer.Post
                 if (storeInTemp)
                 {
                     var name = Path.GetTempFileName();
-                    using var stream = new FileStream(name, FileMode.OpenOrCreate, FileAccess.Write,
+                    using var file = new FileStream(name, FileMode.OpenOrCreate, FileAccess.Write,
                         FileShare.None
                     );
+                    using var stream = StorageMapper?.Invoke(task, file) ?? file;
                     await reader.ReadUntilAsync(rawBoundary, stream).ConfigureAwait(false);
                     entry.Set(new FileInfo(name));
                 }
@@ -204,6 +205,25 @@ namespace MaxLib.WebServer.Post
             // there should nothing left but to be sure just discard the rest
             content.Discard();
         }
+
+        /// <summary>
+        /// This maps the file stream that is used to cache entries on the local disk. This is
+        /// usefull if you want to add a layer of compression, encryption or throttleling between
+        /// the original data received from the client and the local file.
+        /// <br/>
+        /// The default behavior is to take the data as it is and dump it into the target file
+        /// without any processing in between. This can leak confidential data if your file system
+        /// is not secure enough.
+        /// <br/>
+        /// Any temp file that is not moved away until the processing of the request is finished
+        /// will automatically deleted from <see cref="Services.HttpResponseCreator" />.
+        /// <br/>
+        /// This stream is only used for storing the data from the POST request. After that this
+        /// will automatically disposed. The entries contain only the references to the files as
+        /// <see cref="FileInfo" />. If you want to decompress, decrypt or manipulate them you have
+        /// to do this in your business logic when you use them.
+        /// </summary>
+        public static Func<WebProgressTask, Stream, Stream>? StorageMapper { get; set; }
 
         public override string ToString()
         {

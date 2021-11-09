@@ -7,6 +7,6 @@ namespace MaxLib.WebServer.Post
     {
         string MimeType { get; }
 
-        Task SetAsync(IO.ContentStream content, string options);
+        Task SetAsync(WebProgressTask task, IO.ContentStream content, string options);
     }
 }

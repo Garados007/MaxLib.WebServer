@@ -18,7 +18,7 @@ namespace MaxLib.WebServer.Post
             Data = data;
         }
 
-        public Task SetAsync(IO.ContentStream content, string options)
+        public Task SetAsync(WebProgressTask task, IO.ContentStream content, string options)
         {
             Data = content;
             return Task.CompletedTask;

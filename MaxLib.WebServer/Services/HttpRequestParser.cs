@@ -224,6 +224,7 @@ namespace MaxLib.WebServer.Services
             var content = new IO.ContentStream(reader, length);
 
             task.Request.Post.SetPost(
+                task,
                 content,
                 task.Request.HeaderParameter.TryGetValue("Content-Type", out string contentType)
                     ? contentType : null
