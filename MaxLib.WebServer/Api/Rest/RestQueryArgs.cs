@@ -15,15 +15,18 @@ namespace MaxLib.WebServer.Api.Rest
 
         public Sessions.Session? Session { get; }
 
-        public Dictionary<string, object> ParsedArguments { get; }
+        public string Host { get; }
 
-        public RestQueryArgs(string[] location, Dictionary<string, string> getArgs, HttpPost post, Sessions.Session? session = null)
+        public Dictionary<string, object?> ParsedArguments { get; }
+
+        public RestQueryArgs(string host, string[] location, Dictionary<string, string> getArgs, HttpPost post, Sessions.Session? session = null)
         {
+            Host = host;
             Location = location ?? throw new ArgumentNullException(nameof(location));
             GetArgs = getArgs ?? throw new ArgumentNullException(nameof(getArgs));
             Post = post ?? throw new ArgumentNullException(nameof(post));
             Session = session;
-            ParsedArguments = new Dictionary<string, object>();
+            ParsedArguments = new Dictionary<string, object?>();
         }
     }
 }
