@@ -16,6 +16,7 @@ namespace MaxLib.WebServer.Test.Api.Rest
         {
             fact = new ApiRuleFactory();
             args = new RestQueryArgs(
+                "localhost",
                 new[] { "foo", "bar", "0", "1" },
                 new Dictionary<string, string>
                 {

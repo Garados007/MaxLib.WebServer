@@ -177,6 +177,16 @@ namespace MaxLib.WebServer.Api.Rest
             };
         }
 
+        public HostRule Host(string key, string host, bool endsWith = false)
+        {
+            return new HostRule
+            {
+                Key = key,
+                Host = host,
+                EndsWith = endsWith,
+            };
+        }
+
         public UrlConstantRule UrlConstant(string constant, bool ignoreCase = false, int index = 0)
         {
             return new UrlConstantRule
