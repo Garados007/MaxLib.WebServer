@@ -201,14 +201,21 @@ namespace MaxLib.WebServer
         /// <c>./mime-cache.json</c>.
         /// </summary>
         /// <param name="useLocalCache">true if to use the cache file</param>
+        /// <param name="localCachePath">
+        /// the path where the cache file should be stored. If this parameter is null or empty it
+        /// will store at './mime-cache.json' in the current execution directory. It is expected
+        /// that the directory exists and the path is writable.
+        /// </param>
         /// <returns>the task that loads the data</returns>
-        public static async Task LoadMimeTypesForExtensions(bool useLocalCache)
+        public static async Task LoadMimeTypesForExtensions(bool useLocalCache, string? localCachePath = null)
         {
+            if (string.IsNullOrEmpty(localCachePath))
+                localCachePath = "mime-cache.json";
             var mimeTypes = new Dictionary<string, string>();
-            if (useLocalCache && File.Exists("mime-cache.json"))
+            if (useLocalCache && File.Exists(localCachePath))
             {
                 WebServerLog.Add(ServerLogType.Debug, typeof(MimeType), "load mime", "load mime cache");
-                using var file = new FileStream("mime-cache.json", FileMode.Open,
+                using var file = new FileStream(localCachePath, FileMode.Open,
                     FileAccess.Read, FileShare.Read
                 );
                 var doc = await JsonDocument.ParseAsync(file).ConfigureAwait(false);
@@ -243,7 +250,7 @@ namespace MaxLib.WebServer
                 }
                 if (useLocalCache)
                 {
-                    using var file = new FileStream("mime-cache.json", FileMode.OpenOrCreate,
+                    using var file = new FileStream(localCachePath, FileMode.OpenOrCreate,
                         FileAccess.Write, FileShare.Read);
                     using var writer = new Utf8JsonWriter(file);
                     writer.WriteStartObject();
