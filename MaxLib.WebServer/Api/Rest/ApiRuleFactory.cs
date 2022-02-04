@@ -19,11 +19,10 @@ namespace MaxLib.WebServer.Api.Rest
             public override bool Check(RestQueryArgs args)
             {
                 _ = args ?? throw new ArgumentNullException(nameof(args));
-                if (Host is null)
-                    return false;
-                var success = EndsWith
-                    ? args.Host.EndsWith(Host, StringComparison.InvariantCultureIgnoreCase)
-                    : string.Equals(Host, args.Host, StringComparison.InvariantCultureIgnoreCase);
+                var success = Host is null ? true 
+                    : EndsWith
+                        ? args.Host.EndsWith(Host, StringComparison.InvariantCultureIgnoreCase)
+                        : string.Equals(Host, args.Host, StringComparison.InvariantCultureIgnoreCase);
                 if (success && Key != null)
                     args.ParsedArguments[Key] = args.Host;
                 return success;
@@ -177,7 +176,7 @@ namespace MaxLib.WebServer.Api.Rest
             };
         }
 
-        public HostRule Host(string key, string host, bool endsWith = false)
+        public HostRule Host(string key, string? host, bool endsWith = false)
         {
             return new HostRule
             {

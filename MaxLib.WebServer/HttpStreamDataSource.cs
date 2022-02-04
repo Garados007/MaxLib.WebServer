@@ -33,8 +33,8 @@ namespace MaxLib.WebServer
         protected override async Task<long> WriteStreamInternal(Stream stream, long start, long? stop)
         {
             await Task.CompletedTask.ConfigureAwait(false);
-            Stream.Position = start;
-            using (var skip = new SkipableStream(Stream, 0))
+            // Stream.Position = start;
+            using (var skip = new SkipableStream(Stream, start))
             {
                 try
                 {
