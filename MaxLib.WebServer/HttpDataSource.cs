@@ -26,16 +26,7 @@ namespace MaxLib.WebServer
             }
         }
 
-        [Obsolete("HttpDataSource become readonly in a future release")]
-        public abstract bool CanAcceptData { get; }
-
-        public abstract bool CanProvideData { get; }
-
         protected abstract Task<long> WriteStreamInternal(Stream stream, long start, long? stop);
-
-
-        [Obsolete("HttpDataSource become readonly in a future release")]
-        protected abstract Task<long> ReadStreamInternal(Stream stream, long? length);
 
         /// <summary>
         /// Write its content to <paramref name="stream"/>.
@@ -66,20 +57,6 @@ namespace MaxLib.WebServer
 #pragma warning disable CS0618
             => await WriteStream(stream ?? throw new ArgumentNullException(nameof(stream)), RangeStart, RangeEnd).ConfigureAwait(false);
 #pragma warning restore CS0618
-
-        /// <summary>
-        /// Read the data of <paramref name="stream"/> and replace its own data with it.
-        /// </summary>
-        /// <param name="stream">the stream to read the data from</param>
-        /// <param name="length">the number of bytes that should been readed. null to read all bytes.</param>
-        /// <returns>the number of bytes readed from the stream</returns>
-        [Obsolete("HttpDataSource become readonly in a future release")]
-        public async Task<long> ReadStream(Stream stream, long? length = null)
-        {
-            _ = stream ?? throw new ArgumentNullException(nameof(stream));
-            if (length != null && length < 0) throw new ArgumentOutOfRangeException(nameof(length));
-            return await ReadStreamInternal(stream, length).ConfigureAwait(false);
-        }
 
         private long rangeStart = 0;
         [Obsolete("HttpDataSource will change its Range behaviour")]

@@ -25,33 +25,15 @@ namespace MaxLib.WebServer
                 {
                     var fi = new FileInfo(value);
                     if (!fi.Directory.Exists) fi.Directory.Create();
-                    File = new FileStream(value, FileMode.OpenOrCreate,
-#pragma warning disable CS0612
-                        ReadOnly ? FileAccess.Read : FileAccess.ReadWrite,
-#pragma warning restore CS0612
+                    File = new FileStream(value, FileMode.OpenOrCreate, FileAccess.Read,
                         FileShare.ReadWrite);
                 }
                 path = value;
             }
         }
 
-        [Obsolete]
-        public bool ReadOnly { get; }
-
-        [Obsolete]
-        public override bool CanAcceptData => !ReadOnly;
-
-        public override bool CanProvideData => true;
-
         public HttpFileDataSource(string? path)
         {
-            Path = path;
-        }
-
-        [Obsolete]
-        public HttpFileDataSource(string? path, bool readOnly = true)
-        {
-            ReadOnly = readOnly;
             Path = path;
         }
 
@@ -81,32 +63,6 @@ namespace MaxLib.WebServer
                     WebServerLog.Add(ServerLogType.Information, GetType(), "Send", "Connection closed by remote Host");
                     return File.Position - start;
                 }
-            }
-        }
-
-        [Obsolete]
-        protected override async Task<long> ReadStreamInternal(Stream stream, long? length)
-        {
-            await Task.CompletedTask.ConfigureAwait(false);
-            if (ReadOnly)
-                throw new NotSupportedException();
-            if (File == null)
-                return 0;
-            File.Position = 0;
-            using (var skip = new SkipableStream(File, 0))
-            {
-                long readed;
-                try
-                {
-                    readed = skip.ReadFromStream(stream, length);
-                }
-                catch (IOException)
-                {
-                    WebServerLog.Add(ServerLogType.Information, GetType(), "Send", "Connection closed by remote Host");
-                    readed = File.Position;
-                }
-                File.SetLength(readed);
-                return readed;
             }
         }
     }

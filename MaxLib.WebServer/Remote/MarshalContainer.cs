@@ -16,19 +16,6 @@ namespace MaxLib.WebServer.Remote
             Origin = origin ?? throw new ArgumentNullException(nameof(origin));
         }
 
-        [Obsolete]
-        public bool CanAcceptData()
-        {
-            _ = Origin ?? throw new InvalidOperationException("Origin is not set");
-            return Origin.CanAcceptData;
-        }
-
-        public bool CanProvideData()
-        {
-            _ = Origin ?? throw new InvalidOperationException("Origin is not set");
-            return Origin.CanProvideData;
-        }
-
         public long? Length()
         {
             _ = Origin ?? throw new InvalidOperationException("Origin is not set");
@@ -45,13 +32,6 @@ namespace MaxLib.WebServer.Remote
         {
             _ = Origin ?? throw new InvalidOperationException("Origin is not set");
             return Origin.WriteStream(stream, start, stop);
-        }
-
-        [Obsolete]
-        public Task<long> ReadStream(Stream stream, long? length)
-        {
-            _ = Origin ?? throw new InvalidOperationException("Origin is not set");
-            return Origin.ReadStream(stream, length);
         }
 
         [Obsolete]

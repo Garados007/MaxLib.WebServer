@@ -23,11 +23,6 @@ namespace MaxLib.WebServer.Chunked
 
         public int ReadBufferLength { get; }
 
-        [Obsolete]
-        public override bool CanAcceptData => BaseStream.CanWrite;
-
-        public override bool CanProvideData => BaseStream.CanRead;
-
         public override long? Length() => null;
 
         public override void Dispose()
@@ -80,65 +75,6 @@ namespace MaxLib.WebServer.Chunked
             }
             while (readed > 0);
             return total - start;
-        }
-
-        [Obsolete]
-        protected override async Task<long> ReadStreamInternal(Stream stream, long? length)
-        {
-            long total = 0;
-            int readed, numberLength;
-            var ascii = Encoding.ASCII;
-            var buffer = new byte[0x10000];
-            while (true)
-            {
-                try { numberLength = await ReadNumber(stream, buffer).ConfigureAwait(false); }
-                catch (IOException)
-                {
-                    WebServerLog.Add(ServerLogType.Information, GetType(), "read", "connection closed");
-                    return total;
-                }
-                if (numberLength == 0)
-                    return total;
-                var numberString = ascii.GetString(buffer, 0, numberLength);
-                if (!long.TryParse(numberString,
-                    NumberStyles.HexNumber,
-                    CultureInfo.InvariantCulture.NumberFormat,
-                    out long number) || number < 0)
-                {
-                    WebServerLog.Add(ServerLogType.Information, GetType(), "read", "invalid number of bytes indicator");
-                    return total;
-                }
-                while (number > 0)
-                {
-                    try { readed = await stream.ReadAsync(buffer, 0, (int)Math.Min(number, buffer.Length)).ConfigureAwait(false); }
-                    catch (IOException)
-                    {
-                        WebServerLog.Add(ServerLogType.Information, GetType(), "read", "connection closed");
-                        return total;
-                    }
-                    if (readed == 0)
-                    {
-                        WebServerLog.Add(ServerLogType.Information, GetType(), "read", "could not read the block completly");
-                        return total;
-                    }
-                    await BaseStream.WriteAsync(buffer, 0, readed).ConfigureAwait(false);
-                    total += readed;
-                    number -= readed;
-                }
-                try
-                {
-                    readed = await stream.ReadAsync(buffer, 0, 1).ConfigureAwait(false);
-                    if (readed > 0 && buffer[0] == '\r')
-                        readed = await stream.ReadAsync(buffer, 0, 1).ConfigureAwait(false);
-                    if (readed == 0)
-                        return total;
-                }
-                catch (IOException)
-                {
-                    WebServerLog.Add(ServerLogType.Information, GetType(), "read", "connection closed");
-                    return total;
-                }
-            }
         }
 
         private async Task<int> ReadNumber(Stream stream, byte[] buffer)

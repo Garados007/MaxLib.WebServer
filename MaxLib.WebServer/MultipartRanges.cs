@@ -28,11 +28,6 @@ namespace MaxLib.WebServer
             }
         }
 
-        [Obsolete]
-        public override bool CanAcceptData => false;
-
-        public override bool CanProvideData => true;
-
         [Serializable]
         struct Range
         {
@@ -278,9 +273,5 @@ namespace MaxLib.WebServer
                 return total;
             }
         }
-
-        [Obsolete]
-        protected override Task<long> ReadStreamInternal(Stream stream, long? length)
-            => throw new NotSupportedException();
     }
 }

@@ -41,11 +41,6 @@ namespace MaxLib.WebServer
             Count = count;
         }
 
-        [Obsolete]
-        public override bool CanAcceptData => false;
-
-        public override bool CanProvideData => true;
-
         public override void Dispose()
         {
             BaseSource.Dispose();
@@ -57,12 +52,6 @@ namespace MaxLib.WebServer
             var availableBaseLength = baseLength == null ? null : baseLength - Start;
             return Count == null ? availableBaseLength :
                 availableBaseLength == null ? Count : Math.Min(Count.Value, availableBaseLength.Value);
-        }
-
-        [Obsolete]
-        protected override Task<long> ReadStreamInternal(Stream stream, long? length)
-        {
-            throw new NotSupportedException();
         }
 
         protected override async Task<long> WriteStreamInternal(Stream stream, long start, long? stop)

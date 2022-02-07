@@ -29,10 +29,6 @@ namespace MaxLib.WebServer.Remote
             => Container.WriteStream(stream, start, stop);
 
         [Obsolete]
-        protected override Task<long> ReadStreamInternal(Stream stream, long? length)
-            => Container.ReadStream(stream, length);
-
-        [Obsolete]
         public override long? RangeEnd
         {
             get => Container.RangeEnd();
@@ -58,11 +54,6 @@ namespace MaxLib.WebServer.Remote
             get => Container.MimeType();
             set => Container.MimeType(value);
         }
-
-        [Obsolete]
-        public override bool CanAcceptData => Container.CanAcceptData();
-
-        public override bool CanProvideData => Container.CanProvideData();
 
         public Collections.MarshalEnumerable<HttpDataSource>? GetAllSources()
             => Container.Sources();
