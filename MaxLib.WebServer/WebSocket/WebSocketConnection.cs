@@ -153,6 +153,8 @@ namespace MaxLib.WebServer.WebSocket
                 while (!SendCloseSignal)
                 {
                     await Task.Delay(TimeSpan.FromSeconds(10)).ConfigureAwait(false);
+                    if (SendCloseSignal)
+                        break;
                     await SendFrame(new Frame
                     {
                         OpCode = OpCode.Ping
@@ -178,7 +180,10 @@ namespace MaxLib.WebServer.WebSocket
             }
             catch (IOException e)
             {
-                WebServerLog.Add(ServerLogType.Information, GetType(), "WebSocket", $"Unexpected network error: {e}");
+                if (frame.OpCode != OpCode.Ping && frame.OpCode != OpCode.Pong)
+                    WebServerLog.Add(ServerLogType.Information, GetType(), "WebSocket",
+                        $"Unexpected network error: frame={frame.OpCode} error={e}"
+                    );
                 var alreadyReceived = ReceivedCloseSignal;
                 ReceivedCloseSignal = true;
                 SendCloseSignal = true;
