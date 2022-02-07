@@ -23,7 +23,7 @@ namespace MaxLib.WebServer.Chunked
             return !OnlyWithLazy || (task.Document.DataSources.Count > 0 &&
                 task.Document.DataSources.Any((s) => s is LazySource ||
                     (s is Remote.MarshalSource ms && ms.IsLazy)
-                ));
+                )) || task.Document.DataSources.Any(s => s.Length() is null);
         }
 
         public override async Task ProgressTask(WebProgressTask task)
@@ -39,6 +39,8 @@ namespace MaxLib.WebServer.Chunked
             for (int i = 0; i < header.HeaderParameter.Count; ++i) //Parameter
             {
                 var e = header.HeaderParameter.ElementAt(i);
+                if (e.Key == "Content-Length")
+                    continue;
                 await writer.WriteAsync(e.Key).ConfigureAwait(false);
                 await writer.WriteAsync(": ").ConfigureAwait(false);
                 await writer.WriteLineAsync(e.Value).ConfigureAwait(false);

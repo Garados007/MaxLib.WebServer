@@ -21,7 +21,7 @@ namespace MaxLib.WebServer.Chunked
             return !OnlyWithLazy || (task.Document.DataSources.Count > 0 &&
                 task.Document.DataSources.Any((s) => s is LazySource ||
                     (s is Remote.MarshalSource ms && ms.IsLazy)
-                ));
+                )) || task.Document.DataSources.Any(s => s.Length() is null);
         }
 
         public override async Task ProgressTask(WebProgressTask task)

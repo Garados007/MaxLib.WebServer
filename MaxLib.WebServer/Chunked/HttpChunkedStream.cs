@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.IO;
 using System.Text;
 using System.Globalization;
@@ -39,11 +39,15 @@ namespace MaxLib.WebServer.Chunked
             byte[] buffer = new byte[ReadBufferLength];
             do
             {
-                readed = await BaseStream.ReadAsync(buffer, 0, (int)Math.Min(buffer.Length, start - total)).ConfigureAwait(false);
+                readed = await BaseStream.ReadAsync(
+                    buffer, 
+                    0, 
+                    (int)Math.Min(buffer.Length, start - total)
+                ).ConfigureAwait(false);
                 total += readed;
             }
             while (total < start && readed > 0);
-            if (readed == 0)
+            if (readed == 0 && start > 0)
                 return 0;
             var ascii = Encoding.ASCII;
             var nl = ascii.GetBytes("\r\n");
