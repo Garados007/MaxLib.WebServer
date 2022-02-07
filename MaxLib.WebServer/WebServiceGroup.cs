@@ -94,7 +94,16 @@ namespace MaxLib.WebServer
                 if (service.CanWorkWith(task))
                 {
                     if (task.Connection?.NetworkClient != null && !task.Connection.NetworkClient.Connected) return;
-                    await service.ProgressTask(task).ConfigureAwait(false);
+                    try
+                    {
+                        await service.ProgressTask(task).ConfigureAwait(false);
+                    }
+                    catch (HttpException e)
+                    {
+                        task.Response.StatusCode = e.StateCode;
+                        if (e.DataSource != null)
+                            task.Document.DataSources.Add(e.DataSource);
+                    }
                     task.Document[Stage] = true;
                     if (se) 
                         return;
