@@ -33,12 +33,20 @@ namespace MaxLib.WebServer
             }
         }
 
+        [Obsolete]
         public bool ReadOnly { get; }
 
+        [Obsolete]
         public override bool CanAcceptData => !ReadOnly;
 
         public override bool CanProvideData => true;
 
+        public HttpFileDataSource(string? path)
+        {
+            Path = path;
+        }
+
+        [Obsolete]
         public HttpFileDataSource(string? path, bool readOnly = true)
         {
             ReadOnly = readOnly;
@@ -74,6 +82,7 @@ namespace MaxLib.WebServer
             }
         }
 
+        [Obsolete]
         protected override async Task<long> ReadStreamInternal(Stream stream, long? length)
         {
             await Task.CompletedTask.ConfigureAwait(false);

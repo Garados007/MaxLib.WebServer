@@ -29,6 +29,7 @@ namespace MaxLib.WebServer
             }
         }
 
+        [Obsolete]
         public override bool CanAcceptData => true;
 
         public override bool CanProvideData => true;
@@ -40,7 +41,6 @@ namespace MaxLib.WebServer
             Data = data ?? throw new ArgumentNullException(nameof(data));
             Encoder = Encoding.UTF8;
             encoding = Encoder.WebName;
-            TransferCompleteData = true;
         }
 
         public override void Dispose()
@@ -65,6 +65,7 @@ namespace MaxLib.WebServer
             }
         }
 
+        [Obsolete]
         protected override async Task<long> ReadStreamInternal(Stream stream, long? length)
         {
             await Task.CompletedTask.ConfigureAwait(false);

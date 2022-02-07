@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.IO;
 using System.Text;
 using System.Globalization;
@@ -21,6 +21,7 @@ namespace MaxLib.WebServer.Chunked
 
         public int ReadBufferLength { get; }
 
+        [Obsolete]
         public override bool CanAcceptData => BaseStream.CanWrite;
 
         public override bool CanProvideData => BaseStream.CanRead;
@@ -79,6 +80,7 @@ namespace MaxLib.WebServer.Chunked
             return total - start;
         }
 
+        [Obsolete]
         protected override async Task<long> ReadStreamInternal(Stream stream, long? length)
         {
             long total = 0;

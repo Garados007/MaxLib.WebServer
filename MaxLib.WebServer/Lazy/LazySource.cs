@@ -79,27 +79,32 @@ namespace MaxLib.WebServer.Lazy
             }
         }
 
+        [Obsolete]
         protected override Task<long> ReadStreamInternal(Stream stream, long? length)
             => throw new NotSupportedException();
 
+        [Obsolete]
         public override long RangeStart
         {
             get => 0;
             set => throw new NotSupportedException();
         }
 
+        [Obsolete]
         public override long? RangeEnd
         {
             get => null;
             set => throw new NotSupportedException();
         }
 
+        [Obsolete]
         public override bool TransferCompleteData
         {
             get => true;
             set => throw new NotSupportedException();
         }
 
+        [Obsolete]
         public override bool CanAcceptData => false;
 
         public override bool CanProvideData => true;

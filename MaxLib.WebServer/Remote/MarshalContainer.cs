@@ -14,6 +14,7 @@ namespace MaxLib.WebServer.Remote
             Origin = origin ?? throw new ArgumentNullException(nameof(origin));
         }
 
+        [Obsolete]
         public bool CanAcceptData()
             => Origin?.CanAcceptData ?? false;
 
@@ -33,34 +34,41 @@ namespace MaxLib.WebServer.Remote
         public Task<long> WriteStream(Stream stream, long start, long? stop)
             => Origin.WriteStream(stream, start, stop);
 
+        [Obsolete]
         public Task<long> ReadStream(Stream stream, long? length)
             => Origin.ReadStream(stream, length);
 
+        [Obsolete]
         public long? RangeEnd()
         {
             return Origin.RangeEnd;
         }
 
+        [Obsolete]
         public void RangeEnd(long? value)
         {
             Origin.RangeEnd = value;
         }
 
+        [Obsolete]
         public long RangeStart()
         {
             return Origin.RangeStart;
         }
 
+        [Obsolete]
         public void RangeStart(long value)
         {
             Origin.RangeStart = value;
         }
 
+        [Obsolete]
         public bool TransferCompleteData()
         {
             return Origin.TransferCompleteData;
         }
 
+        [Obsolete]
         public void TransferCompleteData(bool value)
         {
             Origin.TransferCompleteData = value;

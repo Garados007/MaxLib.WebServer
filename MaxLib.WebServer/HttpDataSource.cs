@@ -26,12 +26,15 @@ namespace MaxLib.WebServer
             }
         }
 
+        [Obsolete("HttpDataSource become readonly in a future release")]
         public abstract bool CanAcceptData { get; }
 
         public abstract bool CanProvideData { get; }
 
         protected abstract Task<long> WriteStreamInternal(Stream stream, long start, long? stop);
 
+
+        [Obsolete("HttpDataSource become readonly in a future release")]
         protected abstract Task<long> ReadStreamInternal(Stream stream, long? length);
 
         /// <summary>
@@ -68,6 +71,7 @@ namespace MaxLib.WebServer
         /// <param name="stream">the stream to read the data from</param>
         /// <param name="length">the number of bytes that should been readed. null to read all bytes.</param>
         /// <returns>the number of bytes readed from the stream</returns>
+        [Obsolete("HttpDataSource become readonly in a future release")]
         public async Task<long> ReadStream(Stream stream, long? length = null)
         {
             _ = stream ?? throw new ArgumentNullException(nameof(stream));
@@ -76,6 +80,7 @@ namespace MaxLib.WebServer
         }
 
         private long rangeStart = 0;
+        [Obsolete("HttpDataSource will change its Range behaviour")]
         public virtual long RangeStart
         {
             get => rangeStart;
@@ -89,6 +94,7 @@ namespace MaxLib.WebServer
         }
 
         private long? rangeEnd = null;
+        [Obsolete("HttpDataSource will change its Range behaviour")]
         public virtual long? RangeEnd
         {
             get => rangeEnd;
@@ -106,6 +112,7 @@ namespace MaxLib.WebServer
         }
 
         private bool transferCompleteData = true;
+        [Obsolete("In a future release HttpDataSource will always transfer the complete data")]
         public virtual bool TransferCompleteData
         {
             get => transferCompleteData;

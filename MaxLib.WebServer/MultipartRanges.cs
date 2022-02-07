@@ -28,6 +28,7 @@ namespace MaxLib.WebServer
             }
         }
 
+        [Obsolete]
         public override bool CanAcceptData => false;
 
         public override bool CanProvideData => true;
@@ -112,10 +113,7 @@ namespace MaxLib.WebServer
             }
             else
             {
-                streams.Add(new HttpStreamDataSource(stream)
-                {
-                    TransferCompleteData = true
-                });
+                streams.Add(new HttpStreamDataSource(stream));
             }
         }
 

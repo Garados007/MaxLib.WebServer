@@ -27,7 +27,6 @@ namespace MaxLib.WebServer.Services
                         var source = new HttpStringDataSource("GET\r\nPOST\r\nHEAD\r\nOPTIONS\r\nTRACE")
                         {
                             MimeType = MimeType.TextPlain,
-                            TransferCompleteData = true
                         };
                         task.Document.DataSources.Add(source);
                         task.NextStage = ServerStage.CreateResponse;

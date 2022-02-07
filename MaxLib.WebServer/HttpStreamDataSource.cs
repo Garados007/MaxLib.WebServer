@@ -12,29 +12,42 @@ namespace MaxLib.WebServer
     {
         public Stream Stream { get; }
 
+        [Obsolete]
         public bool ReadOnly { get; }
 
+        [Obsolete]
         public override bool CanAcceptData => !ReadOnly && Stream.CanWrite;
 
         public override bool CanProvideData => Stream.CanRead;
 
+        public HttpStreamDataSource(Stream stream)
+        {
+            Stream = stream ?? throw new ArgumentNullException(nameof(stream));
+            if (!stream.CanSeek)
+                throw new ArgumentException(
+                    "stream is expected to be seekable. use HttpChunkedStream instead",
+                    nameof(stream)
+                );
+        }
+
+        [Obsolete]
         public HttpStreamDataSource(Stream stream, bool readOnly = true)
+            : this(stream)
         {
             ReadOnly = readOnly;
-            Stream = stream ?? throw new ArgumentNullException(nameof(stream));
         }
 
         public override void Dispose()
-            => Stream?.Dispose();
+            => Stream.Dispose();
 
         public override long? Length()
-            => Stream?.Length;
+            => Stream.Length;
 
         protected override async Task<long> WriteStreamInternal(Stream stream, long start, long? stop)
         {
-            await Task.CompletedTask.ConfigureAwait(false);
-            // Stream.Position = start;
-            using (var skip = new SkipableStream(Stream, start))
+            await Task.CompletedTask;
+            Stream.Position = start;
+            using (var skip = new SkipableStream(Stream, 0))
             {
                 try
                 {
@@ -49,6 +62,7 @@ namespace MaxLib.WebServer
             }
         }
 
+        [Obsolete]
         protected override async Task<long> ReadStreamInternal(Stream stream, long? length)
         {
             await Task.CompletedTask.ConfigureAwait(false);
