@@ -3,6 +3,8 @@ using System.Net;
 using System.Net.Sockets;
 using System.Threading.Tasks;
 
+#nullable enable
+
 namespace MaxLib.WebServer.Testing
 {
     public class TestWebServer : Server

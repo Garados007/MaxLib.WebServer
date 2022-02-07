@@ -2,6 +2,8 @@ using System;
 using System.Collections.Generic;
 using System.Threading.Tasks;
 
+#nullable enable
+
 namespace MaxLib.WebServer.Sessions
 {
     public class MemorySessionService : SessionServiceBase
@@ -11,6 +13,7 @@ namespace MaxLib.WebServer.Sessions
 
         protected override ValueTask<Session> Get(string key)
         {
+            _ = key ?? throw new ArgumentNullException(nameof(key));
             if (!Sessions.TryGetValue(key, out Session value))
                 Sessions.Add(key, value = new Session());
             value.LastUsed = DateTime.UtcNow;

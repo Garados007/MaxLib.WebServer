@@ -6,6 +6,8 @@ using System.Security.Authentication;
 using System.Threading;
 using System.Threading.Tasks;
 
+#nullable enable
+
 namespace MaxLib.WebServer.SSL
 {
     public class SecureWebServer : Server
@@ -13,8 +15,8 @@ namespace MaxLib.WebServer.SSL
         public SecureWebServerSettings SecureSettings => (SecureWebServerSettings)Settings;
 
         //Secure Server
-        protected TcpListener SecureListener;
-        protected Thread SecureServerThread;
+        protected TcpListener? SecureListener;
+        protected Thread? SecureServerThread;
 
         public SecureWebServer(SecureWebServerSettings settings) : base(settings)
         {
@@ -54,17 +56,17 @@ namespace MaxLib.WebServer.SSL
                 int step = 0;
                 for (; step < 10; step++)
                 {
-                    if (!SecureListener.Pending()) break;
+                    if (!SecureListener!.Pending()) break;
                     SecureClientConnected(SecureListener.AcceptTcpClient());
                 }
                 //wait
-                if (SecureListener.Pending()) 
+                if (SecureListener!.Pending()) 
                     continue;
                 var time = watch.ElapsedMilliseconds % 20;
                 Thread.Sleep(20 - (int)time);
             }
             watch.Stop();
-            SecureListener.Stop();
+            SecureListener!.Stop();
             WebServerLog.Add(ServerLogType.Information, GetType(), "StartUp", "Secure Server succesfuly stopped");
         }
 

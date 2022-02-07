@@ -5,6 +5,8 @@ using System.Linq;
 using System.Threading.Tasks;
 using MaxLib.IO;
 
+#nullable enable
+
 namespace MaxLib.WebServer.Chunked
 {
     public class ChunkedSender : Services.HttpSender
@@ -30,6 +32,8 @@ namespace MaxLib.WebServer.Chunked
         {
             var header = task.Response;
             var stream = task.NetworkStream;
+            if (stream is null)
+                return;
             var writer = new StreamWriter(stream);
             await writer.WriteAsync(header.HttpProtocol).ConfigureAwait(false);
             await writer.WriteAsync(" ").ConfigureAwait(false);
@@ -65,7 +69,7 @@ namespace MaxLib.WebServer.Chunked
             //send data
             try
             {
-                if (!(task.Document.Information.ContainsKey("Only Header") && (bool)task.Document.Information["Only Header"]))
+                if (!(task.Document.Information.ContainsKey("Only Header") && (bool)task.Document.Information["Only Header"]!))
                 {
                     foreach (var s in task.Document.DataSources)
                         await SendChunk(writer, stream, s).ConfigureAwait(false);
@@ -88,8 +92,12 @@ namespace MaxLib.WebServer.Chunked
                 foreach (var s in lazySource.GetAllSources())
                     await SendChunk(writer, stream, s).ConfigureAwait(false);
             else if (source is Remote.MarshalSource ms && ms.IsLazy)
-                foreach (var s in ms.GetAllSources())
-                    await SendChunk(writer, stream, s).ConfigureAwait(false);
+            {
+                var lazySources = ms.GetAllSources();
+                if (lazySources != null)
+                    foreach (var s in lazySources)
+                        await SendChunk(writer, stream, s).ConfigureAwait(false);
+            }
             else if (source is HttpChunkedStream)
             {
                 await stream.FlushAsync().ConfigureAwait(false);

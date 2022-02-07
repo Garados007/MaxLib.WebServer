@@ -174,9 +174,11 @@ namespace MaxLib.WebServer
             h["Content-Range"] = ranges[0].ToString(baseStream.Length);
             streams.Add(new HttpStreamDataSource(baseStream)
             {
+#pragma warning disable CS0618
                 RangeStart = ranges[0].From,
                 RangeEnd = ranges[0].To,
                 TransferCompleteData = false
+#pragma warning restore CS0618
             });
         }
 
@@ -202,13 +204,17 @@ namespace MaxLib.WebServer
                 sb.AppendLine();
                 streams.Add(new HttpStringDataSource(sb.ToString())
                 {
+#pragma warning disable CS0618
                     TransferCompleteData = true
+#pragma warning restore CS0618
                 });
                 streams.Add(new HttpStreamDataSource(baseStream)
                 {
+#pragma warning disable CS0618
                     RangeStart = r.From,
                     RangeEnd = r.To,
                     TransferCompleteData = false
+#pragma warning restore CS0618
                 });
                 sb.Clear();
             }
@@ -217,7 +223,9 @@ namespace MaxLib.WebServer
             sb.Append("--");
             streams.Add(new HttpStringDataSource(sb.ToString())
             {
+#pragma warning disable CS0618
                 TransferCompleteData = true
+#pragma warning restore CS0618
             });
         }
 
@@ -271,6 +279,7 @@ namespace MaxLib.WebServer
             }
         }
 
+        [Obsolete]
         protected override Task<long> ReadStreamInternal(Stream stream, long? length)
             => throw new NotSupportedException();
     }

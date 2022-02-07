@@ -5,6 +5,8 @@ using System.Net.Sockets;
 using System.Security.Authentication;
 using System.Threading.Tasks;
 
+#nullable enable 
+
 namespace MaxLib.WebServer.SSL
 {
     public class DualSecureWebServer : Server
@@ -18,7 +20,9 @@ namespace MaxLib.WebServer.SSL
 
         protected override async Task ClientStartListen(HttpConnection connection)
         {
-            if (connection.NetworkStream == null && DualSettings.Certificate != null)
+            if (connection.NetworkStream == null && DualSettings.Certificate != null
+                && connection.NetworkClient != null
+            )
             {
                 var peaker = new StreamPeaker(connection.NetworkClient.GetStream());
                 var mark = peaker.FirstByte;

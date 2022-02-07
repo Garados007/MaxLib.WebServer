@@ -1,28 +1,34 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
 using System.IO;
 using System.Reflection;
 using System.Threading.Tasks;
+
+#nullable enable
 
 namespace MaxLib.WebServer.Api.Rest
 {
     public class RestActionEndpoint : RestEndpoint
     {
-        public Func<Dictionary<string, object>, Task<HttpDataSource>> HandleRequest { get; set; }
+        public Func<Dictionary<string, object?>, Task<HttpDataSource?>> HandleRequest { get; set; }
 
-        public RestActionEndpoint(Func<Dictionary<string, object>, Task<HttpDataSource>> handleRequest)
+        public RestActionEndpoint(Func<Dictionary<string, object?>, Task<HttpDataSource?>> handleRequest)
             => HandleRequest = handleRequest;
 
-        public override Task<HttpDataSource> GetSource(Dictionary<string, object> args)
+        public override Task<HttpDataSource?> GetSource(Dictionary<string, object?> args)
         {
             _ = args ?? throw new ArgumentNullException(nameof(args));
-            return HandleRequest?.Invoke(args);
+            var task = HandleRequest?.Invoke(args);
+            if (task == null)
+                return Task.FromResult<HttpDataSource?>(null);
+            else return task;
         }
 
-        public static RestActionEndpoint Create(Func<Dictionary<string, object>, Task<HttpDataSource>> handler)
+        public static RestActionEndpoint Create(Func<Dictionary<string, object?>, Task<HttpDataSource?>> handler)
             => new RestActionEndpoint(handler);
 
-        public static RestActionEndpoint Create(Func<Dictionary<string, object>, Task<Stream>> handler)
+        public static RestActionEndpoint Create(Func<Dictionary<string, object?>, Task<Stream>> handler)
             => new RestActionEndpoint(async args =>
             {
                 var result = await handler(args).ConfigureAwait(false);
@@ -31,7 +37,7 @@ namespace MaxLib.WebServer.Api.Rest
                 return new HttpStreamDataSource(result);
             });
 
-        public static RestActionEndpoint Create(Func<Dictionary<string, object>, Task<string>> handler)
+        public static RestActionEndpoint Create(Func<Dictionary<string, object?>, Task<string>> handler)
             => new RestActionEndpoint(async args =>
             {
                 var result = await handler(args).ConfigureAwait(false);
@@ -70,7 +76,8 @@ namespace MaxLib.WebServer.Api.Rest
         public static RestActionEndpoint Create<T>(Func<T, Task<HttpDataSource>> handler, string argName)
             => new RestActionEndpoint(async args =>
             {
-                var arg = GetValue<T>(args, argName);
+                if (!GetValue<T>(args, argName, out T arg))
+                    return null;
                 var result = await handler(arg).ConfigureAwait(false);
                 if (result == null)
                     return null;
@@ -80,7 +87,8 @@ namespace MaxLib.WebServer.Api.Rest
         public static RestActionEndpoint Create<T>(Func<T, Task<Stream>> handler, string argName)
             => new RestActionEndpoint(async args =>
             {
-                var arg = GetValue<T>(args, argName);
+                if (!GetValue<T>(args, argName, out T arg))
+                    return null;
                 var result = await handler(arg).ConfigureAwait(false);
                 if (result == null)
                     return null;
@@ -90,7 +98,8 @@ namespace MaxLib.WebServer.Api.Rest
         public static RestActionEndpoint Create<T>(Func<T, Task<string>> handler, string argName)
             => new RestActionEndpoint(async args =>
             {
-                var arg = GetValue<T>(args, argName);
+                if (!GetValue<T>(args, argName, out T arg))
+                    return null;
                 var result = await handler(arg).ConfigureAwait(false);
                 if (result == null)
                     return null;
@@ -100,8 +109,9 @@ namespace MaxLib.WebServer.Api.Rest
         public static RestActionEndpoint Create<T1, T2>(Func<T1, T2, Task<HttpDataSource>> handler, string argName1, string argName2)
             => new RestActionEndpoint(async args =>
             {
-                var arg1 = GetValue<T1>(args, argName1);
-                var arg2 = GetValue<T2>(args, argName2);
+                if (!GetValue<T1>(args, argName1, out T1 arg1) ||
+                    !GetValue<T2>(args, argName2, out T2 arg2))
+                    return null;
                 var result = await handler(arg1, arg2).ConfigureAwait(false);
                 if (result == null)
                     return null;
@@ -111,8 +121,9 @@ namespace MaxLib.WebServer.Api.Rest
         public static RestActionEndpoint Create<T1, T2>(Func<T1, T2, Task<Stream>> handler, string argName1, string argName2)
             => new RestActionEndpoint(async args =>
             {
-                var arg1 = GetValue<T1>(args, argName1);
-                var arg2 = GetValue<T2>(args, argName2);
+                if (!GetValue<T1>(args, argName1, out T1 arg1) ||
+                    !GetValue<T2>(args, argName2, out T2 arg2))
+                    return null;
                 var result = await handler(arg1, arg2).ConfigureAwait(false);
                 if (result == null)
                     return null;
@@ -122,8 +133,9 @@ namespace MaxLib.WebServer.Api.Rest
         public static RestActionEndpoint Create<T1, T2>(Func<T1, T2, Task<string>> handler, string argName1, string argName2)
             => new RestActionEndpoint(async args =>
             {
-                var arg1 = GetValue<T1>(args, argName1);
-                var arg2 = GetValue<T2>(args, argName2);
+                if (!GetValue<T1>(args, argName1, out T1 arg1) ||
+                    !GetValue<T2>(args, argName2, out T2 arg2))
+                    return null;
                 var result = await handler(arg1, arg2).ConfigureAwait(false);
                 if (result == null)
                     return null;
@@ -133,9 +145,10 @@ namespace MaxLib.WebServer.Api.Rest
         public static RestActionEndpoint Create<T1, T2, T3>(Func<T1, T2, T3, Task<HttpDataSource>> handler, string argName1, string argName2, string argName3)
             => new RestActionEndpoint(async args =>
             {
-                var arg1 = GetValue<T1>(args, argName1);
-                var arg2 = GetValue<T2>(args, argName2);
-                var arg3 = GetValue<T3>(args, argName3);
+                if (!GetValue<T1>(args, argName1, out T1 arg1) ||
+                    !GetValue<T2>(args, argName2, out T2 arg2) ||
+                    !GetValue<T3>(args, argName3, out T3 arg3))
+                    return null;
                 var result = await handler(arg1, arg2, arg3).ConfigureAwait(false);
                 if (result == null)
                     return null;
@@ -145,9 +158,10 @@ namespace MaxLib.WebServer.Api.Rest
         public static RestActionEndpoint Create<T1, T2, T3>(Func<T1, T2, T3, Task<Stream>> handler, string argName1, string argName2, string argName3)
             => new RestActionEndpoint(async args =>
             {
-                var arg1 = GetValue<T1>(args, argName1);
-                var arg2 = GetValue<T2>(args, argName2);
-                var arg3 = GetValue<T3>(args, argName3);
+                if (!GetValue<T1>(args, argName1, out T1 arg1) ||
+                    !GetValue<T2>(args, argName2, out T2 arg2) ||
+                    !GetValue<T3>(args, argName3, out T3 arg3))
+                    return null;
                 var result = await handler(arg1, arg2, arg3).ConfigureAwait(false);
                 if (result == null)
                     return null;
@@ -157,9 +171,10 @@ namespace MaxLib.WebServer.Api.Rest
         public static RestActionEndpoint Create<T1, T2, T3>(Func<T1, T2, T3, Task<string>> handler, string argName1, string argName2, string argName3)
             => new RestActionEndpoint(async args =>
             {
-                var arg1 = GetValue<T1>(args, argName1);
-                var arg2 = GetValue<T2>(args, argName2);
-                var arg3 = GetValue<T3>(args, argName3);
+                if (!GetValue<T1>(args, argName1, out T1 arg1) ||
+                    !GetValue<T2>(args, argName2, out T2 arg2) ||
+                    !GetValue<T3>(args, argName3, out T3 arg3))
+                    return null;
                 var result = await handler(arg1, arg2, arg3).ConfigureAwait(false);
                 if (result == null)
                     return null;
@@ -169,9 +184,9 @@ namespace MaxLib.WebServer.Api.Rest
         public static RestActionEndpoint Create(Delegate handler, string[] argsOrder)
             => new RestActionEndpoint(async args =>
             {
-                var use = new object[argsOrder?.Length ?? 0];
+                var use = new object?[argsOrder?.Length ?? 0];
                 for (int i = 0; i < use.Length; ++i)
-                    if (args.TryGetValue(argsOrder[i], out object value))
+                    if (args.TryGetValue(argsOrder![i], out object? value))
                         use[i] = value;
                 var result = handler.DynamicInvoke(use);
                 if (result is Task task)
@@ -192,7 +207,7 @@ namespace MaxLib.WebServer.Api.Rest
                 return new HttpStringDataSource(resText);
             });
 
-        private static bool GetTaskValue(Task task, out object value)
+        private static bool GetTaskValue(Task task, out object? value)
         {
             // thx to: https://stackoverflow.com/a/52500763/12469007
             value = default;
@@ -206,11 +221,18 @@ namespace MaxLib.WebServer.Api.Rest
             return true;
         }
 
-        private static T GetValue<T>(Dictionary<string, object> args, string name)
+        private static bool GetValue<T>(Dictionary<string, object?> args, string name, [NotNullWhen(true)] out T value)
         {
-            if (args.TryGetValue(name, out object rawValue) && rawValue is T value)
-                return value;
-            else return default;
+            if (args.TryGetValue(name, out object? rawValue) && rawValue is T value_)
+            {
+                value = value_;
+                return true;
+            }
+            else
+            {
+                value = default!;
+                return false;
+            }
         }
     }
 }

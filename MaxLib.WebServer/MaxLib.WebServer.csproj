@@ -15,6 +15,10 @@
   </PropertyGroup>
 
   <PropertyGroup>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <PropertyGroup>
     <DocumentationFile>MaxLib.WebServer.xml</DocumentationFile>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
   </PropertyGroup>

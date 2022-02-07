@@ -1,9 +1,12 @@
 using System.IO;
+
+#nullable enable
+
 namespace MaxLib.WebServer.Properties
 {
     public static class Resources
     {
-        private static string files_ViewHtmlCss = null;
+        private static string? files_ViewHtmlCss = null;
 
         public static string Files_ViewHtmlCss
         {

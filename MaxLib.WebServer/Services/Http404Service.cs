@@ -3,6 +3,8 @@ using System.Net;
 using System.Text;
 using System.Threading.Tasks;
 
+#nullable enable
+
 namespace MaxLib.WebServer.Services
 {
     public class Http404Service : WebService
@@ -15,6 +17,8 @@ namespace MaxLib.WebServer.Services
 
         public override bool CanWorkWith(WebProgressTask task)
             => true;
+
+        private static Version Version = typeof(Http404Service).Assembly.GetName().Version;
 
         public override Task ProgressTask(WebProgressTask task)
         {
@@ -33,7 +37,7 @@ namespace MaxLib.WebServer.Services
             sb.AppendLine(WebUtility.HtmlEncode(task.Request.Post.ToString()));
             sb.Append($"</pre><p>Try to change the request to get your expected response.</p>");
             sb.Append($"<small>Created by <a href=\"https://github.com/Garados007/MaxLib.WebServer\" " +
-                $"target=\"_blank\">MaxLib.WebServer</a>: {DateTime.UtcNow:r}</small></body></html>");
+                $"target=\"_blank\">MaxLib.WebServer {Version}</a>: {DateTime.UtcNow:r}</small></body></html>");
             task.Document.DataSources.Add(new HttpStringDataSource(sb.ToString())
             {
                 MimeType = MimeType.TextHtml,

@@ -1,5 +1,8 @@
 using System;
 using System.IO;
+
+#nullable enable
+
 namespace MaxLib.WebServer.IO
 {
     /// <summary>

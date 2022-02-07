@@ -1,6 +1,8 @@
 ﻿using System;
 using System.Threading.Tasks;
 
+#nullable enable
+
 namespace MaxLib.WebServer.Api
 {
     public abstract class ApiService : WebService
@@ -8,7 +10,7 @@ namespace MaxLib.WebServer.Api
         public ApiService(params string[] endpoint) 
             : base(ServerStage.CreateDocument)
         {
-            Endpoint = endpoint ?? throw new ArgumentNullException(nameof(endpoint));
+            this.endpoint = endpoint ?? throw new ArgumentNullException(nameof(endpoint));
         }
 
         private string[] endpoint;

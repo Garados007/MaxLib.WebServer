@@ -4,6 +4,8 @@ using System.Text;
 using System.Globalization;
 using System.Threading.Tasks;
 
+#nullable enable
+
 namespace MaxLib.WebServer.Chunked
 {
     [Serializable]

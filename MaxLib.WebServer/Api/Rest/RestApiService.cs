@@ -2,6 +2,8 @@
 using System.Collections.Generic;
 using System.Threading.Tasks;
 
+#nullable enable
+
 namespace MaxLib.WebServer.Api.Rest
 {
     public class RestApiService : ApiService
@@ -12,7 +14,7 @@ namespace MaxLib.WebServer.Api.Rest
             : base(endpoint)
         { }
 
-        protected override Task<HttpDataSource> HandleRequest(WebProgressTask task, string[] location)
+        protected override async Task<HttpDataSource> HandleRequest(WebProgressTask task, string[] location)
         {
             _ = task ?? throw new ArgumentNullException(nameof(task));
             _ = location ?? throw new ArgumentNullException(nameof(location));
@@ -24,9 +26,12 @@ namespace MaxLib.WebServer.Api.Rest
                 var q = endpoint.Check(query);
                 if (q == null)
                     continue;
-                return endpoint.GetSource(q.ParsedArguments);
+                var result = await endpoint.GetSource(q.ParsedArguments)
+                    .ConfigureAwait(false);
+                if (result != null)
+                    return result;
             }
-            return Task.FromResult(NoEndpoint(task, query));
+            return NoEndpoint(task, query);
         }
 
         protected virtual RestQueryArgs GetQueryArgs(WebProgressTask task, string[] location)

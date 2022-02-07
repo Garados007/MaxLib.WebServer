@@ -2,6 +2,8 @@
 using System.Linq;
 using System.Threading.Tasks;
 
+#nullable enable
+
 namespace MaxLib.WebServer.Chunked
 {
     public class ChunkedResponseCreator : WebService
@@ -31,7 +33,7 @@ namespace MaxLib.WebServer.Chunked
             response.FieldContentType = task.Document.PrimaryMime;
             response.SetActualDate();
             response.HttpProtocol = request.HttpProtocol;
-            response.SetHeader(new[]
+            response.SetHeader(new (string, string?)[]
             {
                 ("Connection", "keep-alive"),
                 ("X-UA-Compatible", "IE=Edge"),

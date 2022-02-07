@@ -4,6 +4,8 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
+#nullable enable
+
 namespace MaxLib.WebServer.Api.Rest
 {
     public class RestEndpoint
@@ -33,7 +35,7 @@ namespace MaxLib.WebServer.Api.Rest
             return this;
         }
 
-        public virtual RestQueryArgs Check(RestQueryArgs args)
+        public virtual RestQueryArgs? Check(RestQueryArgs args)
         {
             _ = args ?? throw new ArgumentNullException(nameof(args));
             var realArgs = new RestQueryArgs(args.Host, args.Location, args.GetArgs, args.Post, args.Session);
@@ -42,7 +44,7 @@ namespace MaxLib.WebServer.Api.Rest
             else return null;
         }
 
-        public virtual Task<HttpDataSource> GetSource(Dictionary<string, object> args)
+        public virtual Task<HttpDataSource?> GetSource(Dictionary<string, object?> args)
         {
             _ = args ?? throw new ArgumentNullException(nameof(args));
             var sb = new StringBuilder();
@@ -50,7 +52,7 @@ namespace MaxLib.WebServer.Api.Rest
             {
                 sb.AppendLine($"{kvp.Key}: {kvp.Value}");
             }
-            return Task.FromResult<HttpDataSource>(new HttpStringDataSource(sb.ToString())); 
+            return Task.FromResult<HttpDataSource?>(new HttpStringDataSource(sb.ToString())); 
         }
     }
 }

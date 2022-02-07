@@ -63,7 +63,9 @@ namespace MaxLib.WebServer
         /// <param name="stream">the stream to write the data into</param>
         /// <returns>the effective number of bytes written to the stream</returns>
         public async Task<long> WriteStream(Stream stream)
+#pragma warning disable CS0618
             => await WriteStream(stream ?? throw new ArgumentNullException(nameof(stream)), RangeStart, RangeEnd).ConfigureAwait(false);
+#pragma warning restore CS0618
 
         /// <summary>
         /// Read the data of <paramref name="stream"/> and replace its own data with it.

@@ -1,5 +1,7 @@
 ﻿using System;
 
+#nullable enable
+
 namespace MaxLib.WebServer.Api.Rest
 {
     public abstract class ApiLocationRule : ApiRule

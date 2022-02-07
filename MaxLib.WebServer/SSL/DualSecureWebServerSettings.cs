@@ -1,10 +1,12 @@
 ﻿using System.Security.Cryptography.X509Certificates;
 
+#nullable enable
+
 namespace MaxLib.WebServer.SSL
 {
     public class DualSecureWebServerSettings : WebServerSettings
     {
-        public X509Certificate Certificate { get; set; }
+        public X509Certificate? Certificate { get; set; }
 
         public DualSecureWebServerSettings(string settingFolderPath)
             : base(settingFolderPath)

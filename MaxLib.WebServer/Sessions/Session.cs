@@ -1,6 +1,10 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Diagnostics.CodeAnalysis;
+
+#nullable enable
+
 namespace MaxLib.WebServer.Sessions
 {
     public class Session : IDictionary<string, object>
@@ -68,7 +72,7 @@ namespace MaxLib.WebServer.Sessions
         IEnumerator IEnumerable.GetEnumerator()
             => GetEnumerator();
         
-        public bool TryGetValue<T>(string key, out T value)
+        public bool TryGetValue<T>(string key, [NotNullWhen(true)] out T value)
         {
             if (TryGetValue(key, out object rawValue) && rawValue is T realValue)
             {
@@ -77,7 +81,7 @@ namespace MaxLib.WebServer.Sessions
             }
             else
             {
-                value = default;
+                value = default!; // dirty
                 return false;
             }
         }

@@ -3,6 +3,8 @@ using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 
+#nullable enable
+
 namespace MaxLib.WebServer.Services
 {
     /// <summary>
@@ -92,6 +94,8 @@ namespace MaxLib.WebServer.Services
 
             var header = task.Response;
             var stream = task.NetworkStream;
+            if (stream == null)
+                return;
             var writer = new StreamWriter(stream);
             await writer.WriteAsync(header.HttpProtocol).ConfigureAwait(false);
             await writer.WriteAsync(" ").ConfigureAwait(false);
@@ -123,7 +127,7 @@ namespace MaxLib.WebServer.Services
                 return;
             }
             //Daten senden
-            if (!(task.Document.Information.ContainsKey("Only Header") && (bool)task.Document.Information["Only Header"]))
+            if (!(task.Document.Information.ContainsKey("Only Header") && (bool)task.Document.Information["Only Header"]!))
                 for (int i = 0; i < task.Document.DataSources.Count; ++i)
                 {
                     await task.Document.DataSources[i].WriteStream(stream).ConfigureAwait(false);

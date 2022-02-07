@@ -5,6 +5,8 @@ using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 
+#nullable enable
+
 namespace MaxLib.WebServer.Lazy
 {
     [Serializable]
@@ -19,7 +21,7 @@ namespace MaxLib.WebServer.Lazy
         public LazyEventHandler Handler { get; private set; }
 
         readonly LazyTask task;
-        HttpDataSource[] list;
+        HttpDataSource[]? list;
 
         public IEnumerable<HttpDataSource> GetAllSources()
         {

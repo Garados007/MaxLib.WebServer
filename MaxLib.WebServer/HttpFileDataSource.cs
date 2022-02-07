@@ -26,7 +26,9 @@ namespace MaxLib.WebServer
                     var fi = new FileInfo(value);
                     if (!fi.Directory.Exists) fi.Directory.Create();
                     File = new FileStream(value, FileMode.OpenOrCreate,
-                        ReadOnly ? FileAccess.Read : FileAccess.ReadWrite, 
+#pragma warning disable CS0612
+                        ReadOnly ? FileAccess.Read : FileAccess.ReadWrite,
+#pragma warning restore CS0612
                         FileShare.ReadWrite);
                 }
                 path = value;

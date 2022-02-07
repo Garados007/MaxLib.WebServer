@@ -2,6 +2,8 @@
 using System.IO;
 using System.Threading.Tasks;
 
+#nullable enable
+
 namespace MaxLib.WebServer.Remote
 {
     [Serializable]
@@ -62,7 +64,7 @@ namespace MaxLib.WebServer.Remote
 
         public override bool CanProvideData => Container.CanProvideData();
 
-        public Collections.MarshalEnumerable<HttpDataSource> GetAllSources()
+        public Collections.MarshalEnumerable<HttpDataSource>? GetAllSources()
             => Container.Sources();
     }
 }
