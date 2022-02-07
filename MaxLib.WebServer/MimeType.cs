@@ -176,7 +176,7 @@ namespace MaxLib.WebServer
 
         /// <summary>
         /// Searches for a mime type for a given file extension. This requires that the mime
-        /// cache is loaded with <see cref="LoadMimeTypesForExtensions(bool)"/>.
+        /// cache is loaded with <see cref="LoadMimeTypesForExtensions(bool,string?)"/>.
         /// </summary>
         /// <param name="extension">the file extension</param>
         /// <returns>the found mime type</returns>
