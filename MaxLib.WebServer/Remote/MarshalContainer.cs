@@ -28,52 +28,10 @@ namespace MaxLib.WebServer.Remote
             Origin.Dispose();
         }
 
-        public Task<long> WriteStream(Stream stream, long start, long? stop)
+        public Task<long> WriteStream(Stream stream)
         {
             _ = Origin ?? throw new InvalidOperationException("Origin is not set");
-            return Origin.WriteStream(stream, start, stop);
-        }
-
-        [Obsolete]
-        public long? RangeEnd()
-        {
-            _ = Origin ?? throw new InvalidOperationException("Origin is not set");
-            return Origin.RangeEnd;
-        }
-
-        [Obsolete]
-        public void RangeEnd(long? value)
-        {
-            _ = Origin ?? throw new InvalidOperationException("Origin is not set");
-            Origin.RangeEnd = value;
-        }
-
-        [Obsolete]
-        public long RangeStart()
-        {
-            _ = Origin ?? throw new InvalidOperationException("Origin is not set");
-            return Origin.RangeStart;
-        }
-
-        [Obsolete]
-        public void RangeStart(long value)
-        {
-            _ = Origin ?? throw new InvalidOperationException("Origin is not set");
-            Origin.RangeStart = value;
-        }
-
-        [Obsolete]
-        public bool TransferCompleteData()
-        {
-            _ = Origin ?? throw new InvalidOperationException("Origin is not set");
-            return Origin.TransferCompleteData;
-        }
-
-        [Obsolete]
-        public void TransferCompleteData(bool value)
-        {
-            _ = Origin ?? throw new InvalidOperationException("Origin is not set");
-            Origin.TransferCompleteData = value;
+            return Origin.WriteStream(stream);
         }
 
         public string MimeType()

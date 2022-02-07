@@ -50,56 +50,14 @@ namespace MaxLib.WebServer.Lazy
                     s.Dispose();
         }
 
-        protected override async Task<long> WriteStreamInternal(Stream stream, long start, long? stop)
+        protected override async Task<long> WriteStreamInternal(Stream stream)
         {
-            using (var skip = new SkipableStream(stream, start))
+            long total = 0;
+            foreach (var s in GetAllSources())
             {
-                long total = 0;
-                foreach (var s in GetAllSources())
-                {
-                    if (stop != null && total >= stop.Value)
-                        return total;
-                    var end = stop == null ? null : (long?)(stop.Value - total);
-                    var size = s.Length();
-                    if (size == null)
-                    {
-                        total += await s.WriteStream(skip, 0, end).ConfigureAwait(false);
-                    }
-                    else
-                    {
-                        if (size.Value < skip.SkipBytes)
-                        {
-                            skip.Skip(size.Value);
-                            continue;
-                        }
-                        var leftSkip = skip.SkipBytes;
-                        skip.Skip(skip.SkipBytes);
-                        total += await s.WriteStream(skip, leftSkip, end).ConfigureAwait(false);
-                    }
-                }
-                return total;
+                total += await s.WriteStream(stream).ConfigureAwait(false);
             }
-        }
-        
-        [Obsolete]
-        public override long RangeStart
-        {
-            get => 0;
-            set => throw new NotSupportedException();
-        }
-
-        [Obsolete]
-        public override long? RangeEnd
-        {
-            get => null;
-            set => throw new NotSupportedException();
-        }
-
-        [Obsolete]
-        public override bool TransferCompleteData
-        {
-            get => true;
-            set => throw new NotSupportedException();
+            return total;
         }
     }
 }

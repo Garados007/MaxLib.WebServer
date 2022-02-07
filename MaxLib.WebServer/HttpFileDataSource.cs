@@ -1,69 +1,29 @@
-﻿using MaxLib.IO;
-using System;
+﻿using System;
 using System.IO;
-using System.Threading.Tasks;
 
 #nullable enable
 
 namespace MaxLib.WebServer
 {
     [Serializable]
-    public class HttpFileDataSource : HttpDataSource
+    public class HttpFileDataSource : HttpStreamDataSource
     {
-        public FileStream? File { get; private set; }
+        public FileStream File => (FileStream)Stream;
 
-        private string? path = null;
-        public virtual string? Path
-        {
-            get => path;
-            set
-            {
-                if (path == value) return;
-                if (File != null) File.Dispose();
-                if (value == null) File = null;
-                else
-                {
-                    var fi = new FileInfo(value);
-                    if (!fi.Directory.Exists) fi.Directory.Create();
-                    File = new FileStream(value, FileMode.OpenOrCreate, FileAccess.Read,
-                        FileShare.ReadWrite);
-                }
-                path = value;
-            }
-        }
+        public virtual string Path { get; }
 
-        public HttpFileDataSource(string? path)
+        public HttpFileDataSource(string path)
+            : base(GetStream(path))
         {
             Path = path;
         }
 
-        public override void Dispose()
+        private static FileStream GetStream(string path)
         {
-            Path = null;
-        }
-
-        public override long? Length()
-            => File?.Length;
-
-        protected override async Task<long> WriteStreamInternal(Stream stream, long start, long? stop)
-        {
-            await Task.CompletedTask.ConfigureAwait(false);
-            if (File == null)
-                return 0;
-            File.Position = start;
-            using (var skip = new SkipableStream(File, 0))
-            {
-                try
-                {
-                    return skip.WriteToStream(stream,
-                        stop == null ? null : (long?)(stop.Value - start));
-                }
-                catch (IOException)
-                {
-                    WebServerLog.Add(ServerLogType.Information, GetType(), "Send", "Connection closed by remote Host");
-                    return File.Position - start;
-                }
-            }
+            _ = path ?? throw new ArgumentNullException(nameof(path));
+            if (!System.IO.File.Exists(path))
+                throw new FileNotFoundException("required file not found", path);
+            return new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
         }
     }
 }

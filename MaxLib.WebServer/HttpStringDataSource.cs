@@ -45,19 +45,17 @@ namespace MaxLib.WebServer
         public override long? Length()
             => Encoder.GetByteCount(Data);
 
-        protected override async Task<long> WriteStreamInternal(Stream stream, long start, long? stop)
+        protected override async Task<long> WriteStreamInternal(Stream stream)
         {
             await Task.CompletedTask.ConfigureAwait(false);
-            using (var m = new MemoryStream(Encoder.GetBytes(Data)))
-            using (var skip = new SkipableStream(m, start))
+            using var m = new MemoryStream(Encoder.GetBytes(Data));
+            try { await m.CopyToAsync(stream).ConfigureAwait(false); }
+            catch (IOException)
             {
-                try { return skip.WriteToStream(stream, stop); }
-                catch (IOException)
-                {
-                    WebServerLog.Add(ServerLogType.Information, GetType(), "Send", "Connection closed by remote Host");
-                    return m.Position;
-                }
+                WebServerLog.Add(ServerLogType.Information, GetType(), "Send", "Connection closed by remote Host");
+                return m.Position;
             }
+            return m.Length;
         }
     }
 }

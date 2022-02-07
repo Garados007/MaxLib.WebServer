@@ -25,29 +25,8 @@ namespace MaxLib.WebServer.Remote
         public override void Dispose()
             => Container.Dispose();
 
-        protected override Task<long> WriteStreamInternal(Stream stream, long start, long? stop)
-            => Container.WriteStream(stream, start, stop);
-
-        [Obsolete]
-        public override long? RangeEnd
-        {
-            get => Container.RangeEnd();
-            set => Container.RangeEnd(value);
-        }
-
-        [Obsolete]
-        public override long RangeStart
-        {
-            get => Container.RangeStart();
-            set => Container.RangeStart(value);
-        }
-
-        [Obsolete]
-        public override bool TransferCompleteData
-        {
-            get => Container.TransferCompleteData();
-            set => Container.TransferCompleteData(value);
-        }
+        protected override Task<long> WriteStreamInternal(Stream stream)
+            => Container.WriteStream(stream);
 
         public override string MimeType
         {

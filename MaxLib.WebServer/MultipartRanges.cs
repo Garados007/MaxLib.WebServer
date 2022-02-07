@@ -167,14 +167,11 @@ namespace MaxLib.WebServer
             response.StatusCode = HttpStateCode.PartialContent;
             var h = response.HeaderParameter;
             h["Content-Range"] = ranges[0].ToString(baseStream.Length);
-            streams.Add(new HttpStreamDataSource(baseStream)
-            {
-#pragma warning disable CS0618
-                RangeStart = ranges[0].From,
-                RangeEnd = ranges[0].To,
-                TransferCompleteData = false
-#pragma warning restore CS0618
-            });
+            streams.Add(new HttpPartialSource(
+                new HttpStreamDataSource(baseStream),
+                ranges[0].From,
+                ranges[0].To - ranges[0].From
+            ));
         }
 
         void MultiPart()
@@ -197,31 +194,18 @@ namespace MaxLib.WebServer
                 sb.Append("Content-Range: ");
                 sb.AppendLine(r.ToString(baseStream.Length));
                 sb.AppendLine();
-                streams.Add(new HttpStringDataSource(sb.ToString())
-                {
-#pragma warning disable CS0618
-                    TransferCompleteData = true
-#pragma warning restore CS0618
-                });
-                streams.Add(new HttpStreamDataSource(baseStream)
-                {
-#pragma warning disable CS0618
-                    RangeStart = r.From,
-                    RangeEnd = r.To,
-                    TransferCompleteData = false
-#pragma warning restore CS0618
-                });
+                streams.Add(new HttpStringDataSource(sb.ToString()));
+                streams.Add(new HttpPartialSource(
+                    new HttpStreamDataSource(baseStream),
+                    r.From,
+                    r.To - r.From
+                ));
                 sb.Clear();
             }
             sb.Append("--");
             sb.Append(boundary);
             sb.Append("--");
-            streams.Add(new HttpStringDataSource(sb.ToString())
-            {
-#pragma warning disable CS0618
-                TransferCompleteData = true
-#pragma warning restore CS0618
-            });
+            streams.Add(new HttpStringDataSource(sb.ToString()));
         }
 
         public override long? Length()
@@ -243,35 +227,14 @@ namespace MaxLib.WebServer
             foreach (var s in streams) s.Dispose();
         }
 
-        protected override async Task<long> WriteStreamInternal(Stream stream, long start, long? stop)
+        protected override async Task<long> WriteStreamInternal(Stream stream)
         {
-            using (var skip = new SkipableStream(stream, start))
+            long total = 0;
+            foreach (var s in streams)
             {
-                long total = 0;
-                foreach (var s in streams)
-                {
-                    if (stop != null && total >= stop.Value)
-                        return total;
-                    var end = stop == null ? null : (long?)(stop.Value - total);
-                    var size = s.Length();
-                    if (size == null)
-                    {
-                        total += await s.WriteStream(skip, 0, end).ConfigureAwait(false);
-                    }
-                    else
-                    {
-                        if (size.Value < skip.SkipBytes)
-                        {
-                            skip.Skip(size.Value);
-                            continue;
-                        }
-                        var leftSkip = skip.SkipBytes;
-                        skip.Skip(skip.SkipBytes);
-                        total += await s.WriteStream(skip, leftSkip, end).ConfigureAwait(false);
-                    }
-                }
-                return total;
+                total += await s.WriteStream(stream).ConfigureAwait(false);
             }
+            return total;
         }
     }
 }
