@@ -5,7 +5,7 @@ using System.Threading.Tasks;
 
 namespace MaxLib.WebServer
 {
-    public abstract class WebService
+    public abstract class WebService : IDisposable
     {
         public ServerStage Stage { get; private set; }
 
@@ -17,6 +17,10 @@ namespace MaxLib.WebServer
         public abstract Task ProgressTask(WebProgressTask task);
 
         public abstract bool CanWorkWith(WebProgressTask task);
+
+        public virtual void Dispose()
+        {
+        }
 
         public event EventHandler? PriorityChanged;
 

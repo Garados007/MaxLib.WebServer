@@ -8,7 +8,7 @@ using System.Linq;
 
 namespace MaxLib.WebServer
 {
-    public class WebServiceGroup
+    public class WebServiceGroup : IDisposable
     {
         public ServerStage Stage { get; private set; }
 
@@ -91,27 +91,57 @@ namespace MaxLib.WebServer
             foreach (var service in services)
             {
                 if (task.Connection?.NetworkClient != null && !task.Connection.NetworkClient.Connected) return;
-                if (service.CanWorkWith(task))
+                if (service is WebService2 service2)
                 {
-                    if (task.Connection?.NetworkClient != null && !task.Connection.NetworkClient.Connected) return;
-                    try
+                    if (service2.CanWorkWith(task, out object? data))
                     {
-                        await service.ProgressTask(task).ConfigureAwait(false);
+                        if (task.Connection?.NetworkClient != null && !task.Connection.NetworkClient.Connected) return;
+                        try
+                        {
+                            await service2.ProgressTask(task, data).ConfigureAwait(false);
+                        }
+                        catch (HttpException e)
+                        {
+                            task.Response.StatusCode = e.StateCode;
+                            if (e.DataSource != null)
+                                task.Document.DataSources.Add(e.DataSource);
+                        }
+                        task.Document[Stage] = true;
+                        if (se) 
+                            return;
+                        set = true;
                     }
-                    catch (HttpException e)
+                }
+                else 
+                {
+                    if (service.CanWorkWith(task))
                     {
-                        task.Response.StatusCode = e.StateCode;
-                        if (e.DataSource != null)
-                            task.Document.DataSources.Add(e.DataSource);
+                        if (task.Connection?.NetworkClient != null && !task.Connection.NetworkClient.Connected) return;
+                        try
+                        {
+                            await service.ProgressTask(task).ConfigureAwait(false);
+                        }
+                        catch (HttpException e)
+                        {
+                            task.Response.StatusCode = e.StateCode;
+                            if (e.DataSource != null)
+                                task.Document.DataSources.Add(e.DataSource);
+                        }
+                        task.Document[Stage] = true;
+                        if (se) 
+                            return;
+                        set = true;
                     }
-                    task.Document[Stage] = true;
-                    if (se) 
-                        return;
-                    set = true;
                 }
             }
             if (!set) 
                 task.Document[Stage] = false;
+        }
+
+        public void Dispose()
+        {
+            foreach (var service in Services)
+                service.Dispose();
         }
     }
 }
