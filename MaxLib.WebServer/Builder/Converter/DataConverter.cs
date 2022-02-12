@@ -16,7 +16,15 @@ namespace MaxLib.WebServer.Builder.Converter
             if (typeof(System.IO.Stream).IsAssignableFrom(data))
                 return value => new HttpStreamDataSource((System.IO.Stream)value);
             if (typeof(System.IO.FileInfo).IsAssignableFrom(data))
-                return value => new HttpFileDataSource(((System.IO.FileInfo)value).FullName);
+                return value => 
+                {
+                    var info = (System.IO.FileInfo)value;
+                    var mime = MimeType.GetMimeTypeForExtension(info.Extension);
+                    return new HttpFileDataSource(((System.IO.FileInfo)value).FullName)
+                    {
+                        MimeType = mime ?? MimeType.ApplicationOctetStream,
+                    };
+                };
             
             // unknown return type
             return null;
