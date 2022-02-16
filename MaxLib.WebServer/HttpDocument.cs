@@ -11,9 +11,12 @@ namespace MaxLib.WebServer
     {
         public List<HttpDataSource> DataSources { get; } = new List<HttpDataSource>();
 
+        private string? primaryMime;
+
         public string? PrimaryMime
         {
-            get { return DataSources.Count == 0 ? null : DataSources[0].MimeType; }
+            get { return primaryMime ?? (DataSources.Count == 0 ? null : DataSources[0].MimeType); }
+            set => primaryMime = value;
         }
 
         public string? PrimaryEncoding { get; set; } = null;

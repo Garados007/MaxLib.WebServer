@@ -80,13 +80,9 @@ namespace MaxLib.WebServer.Builder.Tools
                 Tools.IConverter converter;
                 if (convAttr != null)
                 {
-                    if (!typeof(Tools.IConverter).IsAssignableFrom(convAttr.Converter))
+                    if (convAttr.Instance == null)
                         return null;
-                    var constructed = convAttr.Converter.GetConstructor(Type.EmptyTypes)?
-                        .Invoke(Array.Empty<object>());
-                    if (constructed == null)
-                        return null;
-                    converter = (Tools.IConverter)constructed;
+                    converter = convAttr.Instance;
                 }
                 else converter = systemConverter;
                 var convFunc = converter.GetConverter(paramAttr.Type, parameter.ParameterType);
@@ -116,7 +112,18 @@ namespace MaxLib.WebServer.Builder.Tools
                 converter = (Tools.IDataConverter)constructed;
             }
             else converter = dataConverter;
-            return GenerateResult(converter, method.ReturnType);
+            
+            var resultMethod = GenerateResult(converter, method.ReturnType);
+            var mime = method.ReturnParameter.GetCustomAttribute<MimeAttribute>();
+            if (mime != null && resultMethod != null)
+            {
+                return async (t, v) => 
+                {
+                    await resultMethod(t, v);
+                    t.Document.PrimaryMime = mime.Mime;
+                };
+            }
+            return resultMethod;
         }
 
         public static Func<WebProgressTask, object?, Task>? GenerateResult(IDataConverter converter, Type type)
@@ -180,7 +187,16 @@ namespace MaxLib.WebServer.Builder.Tools
             return (task, value) => 
             {
                 if (value != null)
-                    task.Document.DataSources.Add(conv(value));
+                {
+                    var source = conv(value);
+                    if (source != null)
+                        task.Document.DataSources.Add(source);
+                    else
+                    {
+                        task.Document.DataSources.Add(new HttpStringDataSource("Cannot create data"));
+                        task.Response.StatusCode = HttpStateCode.InternalServerError;
+                    }
+                }
             };
         }
     }
