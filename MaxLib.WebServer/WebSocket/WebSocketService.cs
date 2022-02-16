@@ -32,8 +32,9 @@ namespace MaxLib.WebServer.WebSocket
                 (task.Request.GetHeader("Connection")?.ToLower().Contains("upgrade") ?? false);
         }
 
-        public void Dispose()
+        public override void Dispose()
         {
+            base.Dispose();
             foreach (var endpoint in Endpoints)
                 endpoint.Dispose();
         }
