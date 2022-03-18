@@ -49,7 +49,7 @@ namespace MaxLib.WebServer.Builder.Tools
             if (ignore != null || method.IsAbstract || method.IsGenericMethod || !method.IsPublic)
                 return null;
             
-            if (method.DeclaringType == typeof(object))
+            if (method.DeclaringType == typeof(object) || method.DeclaringType == typeof(Service))
                 return null;
             
             var rules = method.GetCustomAttributes<Tools.RuleAttributeBase>().ToList();

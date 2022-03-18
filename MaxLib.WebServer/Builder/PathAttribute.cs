@@ -46,8 +46,7 @@ namespace MaxLib.WebServer.Builder
         public override bool CanWorkWith(WebProgressTask task, Dictionary<string, object?> vars)
         {
             var url = task.Request.Location.DocumentPathTiles;
-            int i = 0;
-            for (; i < parts.Count && i < url.Length; ++i)
+            for (int i = 0; i < parts.Count && i < url.Length; ++i)
             {
                 var (match, isVar) = parts[i];
                 if (isVar)
@@ -60,7 +59,7 @@ namespace MaxLib.WebServer.Builder
                         return false;
                 }
             }
-            return Prefix || i == url.Length;
+            return Prefix || url.Length == parts.Count;
         }
     }
 }
