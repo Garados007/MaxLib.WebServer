@@ -35,7 +35,9 @@ namespace MaxLib.WebServer.Builder.Runtime
         {
             if (data is null)
                 return Task.CompletedTask;
+            using var watch = task.Monitor.Watch(MethodClass, $"Execute {Method.Name}()");
             var result = Method.Invoke(MethodClass, data);
+            GC.KeepAlive(watch);
             return Result(task, result);
         }
 
@@ -43,6 +45,7 @@ namespace MaxLib.WebServer.Builder.Runtime
 
         public override bool CanWorkWith(WebProgressTask task, out object?[]? data)
         {
+            using var watch = task.Monitor.Watch(MethodClass, $"Check {Method.Name}()");
             data = new object[Parameters.Count];
             Dictionary<string, object?> vars;
             if (task.Document.Information.TryGetValue(InfoKey, out object? infoKeyObj) &&
@@ -52,17 +55,22 @@ namespace MaxLib.WebServer.Builder.Runtime
             else vars = new Dictionary<string, object?>();
             // verify rules
             foreach (var rule in Rules)
+            {
+                watch.Log("verify rule {0}", rule);
                 if (!rule.CanWorkWith(task, vars))
                     return false;
+            }
             // execute parameter
             for (int i = 0; i < Parameters.Count; ++i)
             {
+                watch.Log("execute parameter {0}", Parameters[i]);
                 var res = Parameters[i].GetValue(task, vars);
                 if (!res.HasValue)
                     return false;
                 data[i] = res.Value;
             }
             // method is ready to call
+            GC.KeepAlive(watch);
             return true;
         }
 

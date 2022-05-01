@@ -37,6 +37,8 @@ namespace MaxLib.WebServer.Builder.Runtime
             (typeof(Post.MultipartFormData), x => x.Request.Post.Data is Post.MultipartFormData data ? new Result<object?>(data) : new Result<object?>()),
             (typeof(Post.UnknownPostData), x => x.Request.Post.Data is Post.UnknownPostData data ? new Result<object?>(data) : new Result<object?>()),
             (typeof(Post.UrlEncodedData), x => x.Request.Post.Data is Post.UrlEncodedData data ? new Result<object?>(data) : new Result<object?>()),
+            (typeof(Monitoring.Monitor), x => new Result<object?>(x.Monitor)),
+            (typeof(Monitoring.IWatch), x => new Result<object?>(x.Monitor.Current)),
             (typeof(System.Net.IPEndPoint), x => x.Connection?.NetworkClient?.Client.RemoteEndPoint is System.Net.IPEndPoint data ? new Result<object?>(data) : new Result<object?>()),
             (typeof(System.Net.IPAddress), x => x.Connection?.NetworkClient?.Client.RemoteEndPoint is System.Net.IPEndPoint data ? new Result<object?>(data.Address) : new Result<object?>()),
         };

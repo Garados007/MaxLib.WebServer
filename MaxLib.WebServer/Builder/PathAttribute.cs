@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Text;
 
 namespace MaxLib.WebServer.Builder
 {
@@ -41,6 +42,21 @@ namespace MaxLib.WebServer.Builder
                     this.parts.Add((part.Substring(1, part.Length - 2), true));
                 else this.parts.Add((part, false));
             }
+        }
+
+        public override string ToString()
+        {
+            var sb = new StringBuilder();
+            sb.Append("Path: ");
+            foreach (var (part, mode) in parts)
+            {
+                if (mode)
+                    sb.AppendFormat("/{{{0}}}", part);
+                else sb.AppendFormat("/{0}", part);
+            }
+            if (Prefix)
+                sb.Append("/*");
+            return sb.ToString();
         }
 
         public override bool CanWorkWith(WebProgressTask task, Dictionary<string, object?> vars)

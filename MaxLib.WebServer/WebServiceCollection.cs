@@ -83,7 +83,8 @@ namespace MaxLib.WebServer
         {
             if (data is null)
                 return Task.CompletedTask;
-            return data.ProgressTask(task);
+            using (task.Monitor.Watch(data.Service, "ProgressTask()"))
+                return data.ProgressTask(task);
         }
 
         /// <summary>
@@ -106,6 +107,7 @@ namespace MaxLib.WebServer
             }
             foreach (var service in Services)
             {
+                using var watch = task.Monitor.Watch(service, "CanWorkWith()");
                 if (service is WebService2 service2)
                 {
                     if (service2.CanWorkWith(task, out object? data_))
@@ -122,6 +124,7 @@ namespace MaxLib.WebServer
                         return true;
                     }
                 }
+                GC.KeepAlive(watch);
             }
             data = null;
             return false;

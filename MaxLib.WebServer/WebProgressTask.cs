@@ -33,9 +33,18 @@ namespace MaxLib.WebServer
 
         public HttpResponseHeader Response { get; } = new HttpResponseHeader();
 
+        private static readonly Monitoring.Monitor disabledMonitor = new Monitoring.Monitor(false);
+        public Monitoring.Monitor Monitor { get; private set; } = disabledMonitor;
+
         public void Dispose()
         {
             Document?.Dispose();
+        }
+
+        public void EnableMonitoring()
+        {
+            if (!Monitor.Enabled)
+                Monitor = new Monitoring.Monitor(true);
         }
 
         internal Func<Task>? SwitchProtocolHandler { get; private set; } = null;

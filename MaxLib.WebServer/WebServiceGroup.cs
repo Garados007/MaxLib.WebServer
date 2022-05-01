@@ -93,11 +93,14 @@ namespace MaxLib.WebServer
                 if (task.Connection?.NetworkClient != null && !task.Connection.NetworkClient.Connected) return;
                 if (service is WebService2 service2)
                 {
+                    var watch = task.Monitor.Watch(service, "CanWorkWith()");
                     if (service2.CanWorkWith(task, out object? data))
                     {
+                        watch.Dispose();
                         if (task.Connection?.NetworkClient != null && !task.Connection.NetworkClient.Connected) return;
                         try
                         {
+                            watch = task.Monitor.Watch(service, "ProgressTask()");
                             await service2.ProgressTask(task, data).ConfigureAwait(false);
                         }
                         catch (HttpException e)
@@ -106,19 +109,27 @@ namespace MaxLib.WebServer
                             if (e.DataSource != null)
                                 task.Document.DataSources.Add(e.DataSource);
                         }
+                        finally
+                        {
+                            watch.Dispose();
+                        }
                         task.Document[Stage] = true;
                         if (se) 
                             return;
                         set = true;
                     }
+                    else watch.Dispose();
                 }
                 else 
                 {
+                    var watch = task.Monitor.Watch(service, "CanWorkWith()");
                     if (service.CanWorkWith(task))
                     {
+                        watch.Dispose();
                         if (task.Connection?.NetworkClient != null && !task.Connection.NetworkClient.Connected) return;
                         try
                         {
+                            watch = task.Monitor.Watch(service, "ProgressTask()");
                             await service.ProgressTask(task).ConfigureAwait(false);
                         }
                         catch (HttpException e)
@@ -127,11 +138,16 @@ namespace MaxLib.WebServer
                             if (e.DataSource != null)
                                 task.Document.DataSources.Add(e.DataSource);
                         }
+                        finally
+                        {
+                            watch.Dispose();
+                        }
                         task.Document[Stage] = true;
                         if (se) 
                             return;
                         set = true;
                     }
+                    else watch.Dispose();
                 }
             }
             if (!set) 

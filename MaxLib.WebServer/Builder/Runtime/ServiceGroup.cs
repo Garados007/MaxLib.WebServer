@@ -27,11 +27,13 @@ namespace MaxLib.WebServer.Builder.Runtime
 
             foreach (var rule in Rules)
             {
+                task.Monitor.Current.Log("check rule {0}", rule);
                 if (!rule.CanWorkWith(task, vars))
                     return false;
             }
 
             task.Document[MethodService.InfoKey] = vars;
+            task.Monitor.Current.Log("rule success");
             return true;
         }
     }

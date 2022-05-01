@@ -223,8 +223,14 @@ namespace MaxLib.WebServer
                 //Warten
                 if (Listener.Pending()) 
                     continue;
-                var time = watch.ElapsedMilliseconds % 20;
-                Thread.Sleep(20 - (int)time);
+                var delay = Settings.ConnectionDelay;
+                if (delay > TimeSpan.Zero)
+                {
+                    var time = delay - watch.Elapsed;
+                    if (time <= TimeSpan.Zero)
+                        time = delay;
+                    Thread.Sleep(time);
+                }
             }
             watch.Stop();
             Listener.Stop();
@@ -284,7 +290,25 @@ namespace MaxLib.WebServer
                     return;
                 }
 
-                await ExecuteTaskChain(task).ConfigureAwait(false);
+                var start = task.Monitor.Enabled ? DateTime.UtcNow : DateTime.MinValue;
+
+                try
+                {
+                    await ExecuteTaskChain(task).ConfigureAwait(false);
+                }
+                catch (Exception e)
+                {
+                    task.Monitor.Current.Log("Unhandled exception: {0}", e);
+                    WebServerLog.Add(ServerLogType.Error, GetType(), "runtime exception", $"unhandled exception: {e}");
+                    throw;
+                }
+                finally
+                {
+
+                    if (Settings.MonitoringOutputDirectory is string monitorOut && task.Monitor.Enabled)
+                        await task.Monitor.Save(monitorOut, start, task); 
+
+                }
 
                 if (task.SwitchProtocolHandler != null)
                 {
@@ -322,6 +346,7 @@ namespace MaxLib.WebServer
             if (task == null) return;
             while (true)
             {
+                using var watch = task.Monitor.Watch(this, $"Web Service Group: {task.CurrentStage}");
                 await WebServiceGroups[task.CurrentStage].Execute(task).ConfigureAwait(false);
                 if (task.CurrentStage == terminationState) 
                     break;
@@ -342,7 +367,7 @@ namespace MaxLib.WebServer
                 }
                 catch (InvalidOperationException)
                 { return null; }
-            return new WebProgressTask
+            var task = new WebProgressTask
             {
                 CurrentStage = ServerStage.FIRST_STAGE,
                 NextStage = (ServerStage)((int)ServerStage.FIRST_STAGE + 1),
@@ -350,6 +375,9 @@ namespace MaxLib.WebServer
                 Connection = connection,
                 NetworkStream = stream,
             };
+            if (Settings.MonitoringOutputDirectory != null)
+                task.EnableMonitoring();
+            return task;
         }
 
         /// <summary>
