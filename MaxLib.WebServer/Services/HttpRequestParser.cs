@@ -52,6 +52,22 @@ namespace MaxLib.WebServer.Services
         public TimeSpan MaxConnectionDelay { get; set; } = TimeSpan.FromSeconds(5);
 
         /// <summary>
+        /// The maximum length the request method, url and http type combined are allowed to be. If
+        /// this value exceeds this limit the parsing will be canceled and a <see
+        /// cref="HttpStateCode.RequestUrlTooLong" /> will be returned. Set this a negative value to
+        /// disable this behavior. Default is 1 MB (1 000 000 byte). <br/>
+        /// </summary>
+        public long MaxUrlLength { get; set; } = 1_000_000; // 1 MB
+
+        /// <summary>
+        /// The maximum length all header combined are allowed to be. If the requested header exceed
+        /// this limit the parsing will be canceled and a <see
+        /// cref="HttpStateCode.RequestHeaderFieldsTooLarge" /> will be returned. Set this to a
+        /// negative value to disable this behavior. Default is 1 MB (1 000 000 byte).
+        /// </summary>
+        public long MaxHeaderLength { get; set; } = 1_000_000; // 1 MB
+
+        /// <summary>
         /// This <see cref="WebService" /> reads the request and put their data in the current
         /// <see cref="WebProgressTask" />.
         /// </summary>
@@ -151,10 +167,17 @@ namespace MaxLib.WebServer.Services
             return true;
         }
 
-        protected virtual async ValueTask<string?> ReadLine(WebProgressTask task, NetworkReader reader)
+        protected virtual async ValueTask<string?> ReadLine(WebProgressTask task,
+            NetworkReader reader, long limit, HttpStateCode exceedState
+        )
         {
             string? line;
-            try { line = await reader.ReadLineAsync().ConfigureAwait(false); }
+            try { line = await reader.ReadLineAsync(limit).ConfigureAwait(false); }
+            catch (IO.ReadLineOverflowException e)
+            {
+                e.State = exceedState;
+                throw;
+            }
             catch
             {
                 WebServerLog.Add(ServerLogType.Error, GetType(), "Header", "Connection closed by remote host");
@@ -250,7 +273,8 @@ namespace MaxLib.WebServer.Services
                     return;
                 
                 // read first header line
-                var line = await ReadLine(task, reader).ConfigureAwait(false);
+                var line = await ReadLine(task, reader, MaxUrlLength, HttpStateCode.RequestUrlTooLong)
+                    .ConfigureAwait(false);
                 if (line == null)
                     return;
                 debugBuilder?.AppendLine(line);
@@ -258,11 +282,19 @@ namespace MaxLib.WebServer.Services
                     return;
                 
                 // read all other header lines
-                while (!string.IsNullOrWhiteSpace(line = await ReadLine(task, reader)))
+                var limit = MaxHeaderLength;
+                while (!string.IsNullOrWhiteSpace(line = await ReadLine(task, reader, limit, HttpStateCode.RequestHeaderFieldsTooLarge)))
                 {
                     debugBuilder?.AppendLine(line);
                     if (!ParseOtherHeaderLine(task, line))
                         return;
+                    if (limit >= 0)
+                    {
+                        limit -= line.Length;
+                        if (limit < 0)
+                            throw new IO.ReadLineOverflowException(HttpStateCode.RequestHeaderFieldsTooLarge);
+                    }
+
                 }
                 debugBuilder?.AppendLine();
 
@@ -271,6 +303,11 @@ namespace MaxLib.WebServer.Services
                     return;
                 
                 await DebugConnection(task).ConfigureAwait(false);
+            }
+            catch (IO.ReadLineOverflowException e)
+            {
+                task.Response.StatusCode = e.State;
+                task.NextStage = ServerStage.CreateResponse;
             }
             finally
             {

@@ -293,7 +293,7 @@
         /// 430 - Die Maximallänge eines Headerfelds oder des Gesamtheaders wurde 
         /// überschritten.
         /// </summary>
-        RequestHeaderFieldsTooLarge = 430,
+        RequestHeaderFieldsTooLarge = 431,
         /// <summary>
         /// 500 - Dies ist ein „Sammel-Statuscode“ für unerwartete Serverfehler.
         /// </summary>

@@ -341,6 +341,77 @@ namespace MaxLib.WebServer.IO
             return sb.ToString();
         }
 
+        /// <summary>
+        /// Read a single line from the network stream with the specified maximum length. If the 
+        /// the line exceeds this limit a <see cref="ReadLineOverflowException" /> is thrown. Set 
+        /// the limit to a negative value to disable this limit.
+        /// </summary>
+        /// <param name="limit">the maximum length this line is allowed to be</param>
+        /// <param name="cancellationToken">cancel token</param>
+        /// <returns>the readed text</returns>
+        /// <exception cref="ReadLineOverflowException" />
+        public async ValueTask<string?> ReadLineAsync(
+            long limit,
+            CancellationToken cancellationToken = default
+        )
+        {
+            if (limit < 0)
+                return await ReadLineAsync(cancellationToken);
+
+            ThrowIfDisposed();
+            StringBuilder? sb = null;
+
+            if (await RefillCharBufferAsync(cancellationToken).ConfigureAwait(false) == 0)
+                return null;
+
+            do
+            {
+                int i = charBufferOffset;
+                do
+                {
+                    char ch = charBuffer[i];
+                    if (ch == '\r' || ch == '\n')
+                    {
+                        string s;
+                        if (sb != null)
+                        {
+                            sb.Append(charBuffer, charBufferOffset, i - charBufferOffset);
+                            s = sb.ToString();
+                        }
+                        else
+                        {
+                            s = new string(charBuffer, charBufferOffset, i - charBufferOffset);
+                        }
+                        if (s.Length > limit)
+                            throw new ReadLineOverflowException();
+                        charBufferCount -= i + 1 - charBufferOffset;
+                        charBufferOffset = i + 1;
+                        if (ch == '\r')
+                        {
+                            if (await RefillCharBufferAsync(cancellationToken).ConfigureAwait(false) > 0)
+                            {
+                                if (charBuffer[charBufferOffset] == '\n')
+                                {
+                                    charBufferOffset++;
+                                }
+                            }
+                        }
+                        return s;
+                    }
+                    i++;
+                }
+                while (i < charBufferOffset + charBufferCount);
+
+                sb ??= new StringBuilder(charBufferCount + 80);
+                sb.Append(charBuffer, charBufferOffset, charBufferCount);
+                charBufferCount = 0;
+                if (sb.Length > limit)
+                    throw new ReadLineOverflowException();
+            }
+            while (await RefillCharBufferAsync(cancellationToken).ConfigureAwait(false) > 0);
+            return sb.ToString();
+        }
+
         public async ValueTask<string?> ReadLineAsync(CancellationToken cancellationToken = default)
         {
             ThrowIfDisposed();
