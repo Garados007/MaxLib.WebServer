@@ -15,7 +15,7 @@ namespace MaxLib.WebServer
         static long joinGap = 0x40; //1kB
         /// <summary>
         /// If two ranges has a gap smaller then <see cref="JoinGap"/> than this two ranges
-        /// are merged and transfered in one block. A maximum amount of <see cref="JoinGap"/>
+        /// are merged and transferred in one block. A maximum amount of <see cref="JoinGap"/>
         /// bytes need to send extra.
         /// </summary>
         public static long JoinGap
@@ -28,6 +28,7 @@ namespace MaxLib.WebServer
             }
         }
 
+        [Obsolete]
         public override bool CanAcceptData => false;
 
         public override bool CanProvideData => true;
@@ -56,13 +57,14 @@ namespace MaxLib.WebServer
         readonly HttpResponseHeader response;
         List<Range> ranges = new List<Range>();
 
-        [Obsolete("Use MultipartRanges(Stream, HttpRequestHeader, HttpResponseHeader, string) instead. This will be removed in a future release.")]
-        public MultipartRanges(Stream stream, HttpDocument document, string? mime)
-            : this(stream, document.RequestHeader, document.ResponseHeader, mime)
-        {
-
-        }
-
+        /// <summary>
+        /// Creates a new <see cref="MultipartRanges"/> data source that can deliver parts
+        /// of the given stream.
+        /// </summary>
+        /// <param name="stream">the stream with the full data. This streams needs to be seekable.</param>
+        /// <param name="task">the progress task to work on</param>
+        /// <param name="mime">the optional mime type of this data source</param>
+        /// <exception cref="ArgumentNullException" />
         public MultipartRanges(Stream stream, WebProgressTask task, string? mime)
             : this(
                 stream,
@@ -74,6 +76,15 @@ namespace MaxLib.WebServer
 
         }
 
+        /// <summary>
+        /// Creates a new <see cref="MultipartRanges"/> data source that can deliver parts
+        /// of the given stream.
+        /// </summary>
+        /// <param name="stream">the stream with the full data. This streams needs to be seekable.</param>
+        /// <param name="request">the request header</param>
+        /// <param name="response">the response header</param>
+        /// <param name="mime">the optional mime type of this data source</param>
+        /// <exception cref="ArgumentNullException" />
         public MultipartRanges(Stream stream, HttpRequestHeader request, 
             HttpResponseHeader response, string? mime)
         {
@@ -85,7 +96,7 @@ namespace MaxLib.WebServer
             response.HeaderParameter["Accept-Ranges"] = "bytes";
             if (request.HeaderParameter.ContainsKey("Range"))
             {
-                ParseRanges(response.HeaderParameter["Range"]);
+                ParseRanges(request.HeaderParameter["Range"]);
                 var valid = ranges.Count > 0;
                 foreach (var r in ranges)
                     if (r.From < 0 || r.From >= baseStream.Length || r.To < 0 || r.To >= baseStream.Length)
@@ -102,10 +113,7 @@ namespace MaxLib.WebServer
             }
             else
             {
-                streams.Add(new HttpStreamDataSource(stream)
-                {
-                    TransferCompleteData = true
-                });
+                streams.Add(new HttpStreamDataSource(stream));
             }
         }
 
@@ -113,9 +121,9 @@ namespace MaxLib.WebServer
         {
             code = code.Trim();
             if (!code.StartsWith("bytes")) return;
-            code = code.Substring(5).TrimStart();
+            code = code[5..].TrimStart();
             if (!code.StartsWith("=")) return;
-            code = code.Substring(1).TrimStart();
+            code = code[1..].TrimStart();
             foreach (var part in code.Split(','))
             {
                 var t = part.Split('-');
@@ -166,9 +174,11 @@ namespace MaxLib.WebServer
             h["Content-Range"] = ranges[0].ToString(baseStream.Length);
             streams.Add(new HttpStreamDataSource(baseStream)
             {
+#pragma warning disable CS0618
                 RangeStart = ranges[0].From,
                 RangeEnd = ranges[0].To,
                 TransferCompleteData = false
+#pragma warning restore CS0618
             });
         }
 
@@ -194,13 +204,17 @@ namespace MaxLib.WebServer
                 sb.AppendLine();
                 streams.Add(new HttpStringDataSource(sb.ToString())
                 {
+#pragma warning disable CS0618
                     TransferCompleteData = true
+#pragma warning restore CS0618
                 });
                 streams.Add(new HttpStreamDataSource(baseStream)
                 {
+#pragma warning disable CS0618
                     RangeStart = r.From,
                     RangeEnd = r.To,
                     TransferCompleteData = false
+#pragma warning restore CS0618
                 });
                 sb.Clear();
             }
@@ -209,7 +223,9 @@ namespace MaxLib.WebServer
             sb.Append("--");
             streams.Add(new HttpStringDataSource(sb.ToString())
             {
+#pragma warning disable CS0618
                 TransferCompleteData = true
+#pragma warning restore CS0618
             });
         }
 
@@ -245,7 +261,7 @@ namespace MaxLib.WebServer
                     var size = s.Length();
                     if (size == null)
                     {
-                        total += await s.WriteStream(skip, 0, end);
+                        total += await s.WriteStream(skip, 0, end).ConfigureAwait(false);
                     }
                     else
                     {
@@ -256,13 +272,14 @@ namespace MaxLib.WebServer
                         }
                         var leftSkip = skip.SkipBytes;
                         skip.Skip(skip.SkipBytes);
-                        total += await s.WriteStream(skip, leftSkip, end);
+                        total += await s.WriteStream(skip, leftSkip, end).ConfigureAwait(false);
                     }
                 }
                 return total;
             }
         }
 
+        [Obsolete]
         protected override Task<long> ReadStreamInternal(Stream stream, long? length)
             => throw new NotSupportedException();
     }

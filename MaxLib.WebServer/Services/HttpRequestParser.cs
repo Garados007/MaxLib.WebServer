@@ -22,7 +22,7 @@ namespace MaxLib.WebServer.Services
         /// the request time, the full HTTP header and full POST content.
         /// <br />
         /// If either this or <see cref="DebugLogConnectionFile" /> is set then
-        /// this parser will handle all requests syncronously (only one request
+        /// this parser will handle all requests synchronously (only one request
         /// is at the same time parsing). 
         /// <br />
         /// Do not use this in production!
@@ -36,7 +36,7 @@ namespace MaxLib.WebServer.Services
         /// the requested host and url path.
         /// <br />
         /// If either this or <see cref="DebugWriteRequestFile" /> is set then
-        /// this parser will handle all requests syncronously (only one request
+        /// this parser will handle all requests synchronously (only one request
         /// is at the same time parsing). 
         /// <br />
         /// Do not use this in production!
@@ -44,12 +44,28 @@ namespace MaxLib.WebServer.Services
         public string? DebugLogConnectionFile { get; set; } = null;
 
         /// <summary>
-        /// Sometimes the data is not avaible at instant. This can happen with slow
+        /// Sometimes the data is not available at instant. This can happen with slow
         /// connections. Therefore this instance will wait a maximum time until
         /// the first data is available. Negative or zero time values will disable
-        /// this behaviour.
+        /// this behavior.
         /// </summary>
         public TimeSpan MaxConnectionDelay { get; set; } = TimeSpan.FromSeconds(5);
+
+        /// <summary>
+        /// The maximum length the request method, url and http type combined are allowed to be. If
+        /// this value exceeds this limit the parsing will be canceled and a <see
+        /// cref="HttpStateCode.RequestUrlTooLong" /> will be returned. Set this a negative value to
+        /// disable this behavior. Default is 1 MB (1 000 000 byte). <br/>
+        /// </summary>
+        public long MaxUrlLength { get; set; } = 1_000_000; // 1 MB
+
+        /// <summary>
+        /// The maximum length all header combined are allowed to be. If the requested header exceed
+        /// this limit the parsing will be canceled and a <see
+        /// cref="HttpStateCode.RequestHeaderFieldsTooLarge" /> will be returned. Set this to a
+        /// negative value to disable this behavior. Default is 1 MB (1 000 000 byte).
+        /// </summary>
+        public long MaxHeaderLength { get; set; } = 1_000_000; // 1 MB
 
         /// <summary>
         /// This <see cref="WebService" /> reads the request and put their data in the current
@@ -71,7 +87,7 @@ namespace MaxLib.WebServer.Services
                 return null;
             
             // enter locked debug zone
-            await debugSemaphore.WaitAsync();
+            await debugSemaphore.WaitAsync().ConfigureAwait(false);
 
             if (DebugWriteRequestFile != null)
             {
@@ -94,7 +110,7 @@ namespace MaxLib.WebServer.Services
             {
                 debugBuilder.AppendLine();
                 debugBuilder.AppendLine();
-                await File.AppendAllTextAsync(DebugWriteRequestFile, debugBuilder.ToString());
+                await File.AppendAllTextAsync(DebugWriteRequestFile, debugBuilder.ToString()).ConfigureAwait(false);
             }
 
             // release locked debug zone
@@ -114,7 +130,7 @@ namespace MaxLib.WebServer.Services
             sb.AppendLine("    " + host + task.Request.Location.DocumentPath);
             sb.AppendLine();
             
-            await File.AppendAllTextAsync(DebugLogConnectionFile, sb.ToString());
+            await File.AppendAllTextAsync(DebugLogConnectionFile, sb.ToString()).ConfigureAwait(false);
         }
 
         protected virtual async ValueTask<bool> WaitForData(WebProgressTask task)
@@ -128,7 +144,7 @@ namespace MaxLib.WebServer.Services
                     while (maxDelay > TimeSpan.Zero && !ns.DataAvailable)
                     {
                         var slice = maxSlice < maxDelay ? maxSlice : maxDelay;
-                        await Task.Delay(slice);
+                        await Task.Delay(slice).ConfigureAwait(false);
                         maxDelay -= slice;
                     }
                     if (!ns.DataAvailable)
@@ -151,10 +167,17 @@ namespace MaxLib.WebServer.Services
             return true;
         }
 
-        protected virtual async ValueTask<string?> ReadLine(WebProgressTask task, NetworkReader reader)
+        protected virtual async ValueTask<string?> ReadLine(WebProgressTask task,
+            NetworkReader reader, long limit, HttpStateCode exceedState
+        )
         {
             string? line;
-            try { line = await reader.ReadLineAsync(); }
+            try { line = await reader.ReadLineAsync(limit).ConfigureAwait(false); }
+            catch (IO.ReadLineOverflowException e)
+            {
+                e.State = exceedState;
+                throw;
+            }
             catch
             {
                 WebServerLog.Add(ServerLogType.Error, GetType(), "Header", "Connection closed by remote host");
@@ -208,30 +231,29 @@ namespace MaxLib.WebServer.Services
             return true;
         }
 
-        protected virtual async ValueTask<bool> LoadContent(WebProgressTask task, NetworkReader reader, StringBuilder? debugBuilder)
+        protected virtual ValueTask<bool> LoadContent(WebProgressTask task, NetworkReader reader)
         {
             if (!task.Request.HeaderParameter.TryGetValue("Content-Length", out string strLength))
-                return true;
+                return new ValueTask<bool>(true);
             
             if (!int.TryParse(strLength, out int length) || length < 0)
             {
                 WebServerLog.Add(ServerLogType.Error, GetType(), "Header", "Bad Request, invalid content length");
                 task.Response.StatusCode = HttpStateCode.BadRequest;
                 task.NextStage = ServerStage.CreateResponse;
-                return false;
+                return new ValueTask<bool>(false);
             }
 
-            var buffer = await reader.ReadMemoryAsync(length);
-            debugBuilder?.Append(Encoding.UTF8.GetChars(buffer.ToArray()));
-            debugBuilder?.AppendLine();
+            var content = new IO.ContentStream(reader, length);
 
             task.Request.Post.SetPost(
-                buffer,
+                task,
+                content,
                 task.Request.HeaderParameter.TryGetValue("Content-Type", out string contentType)
                     ? contentType : null
             );
 
-            return true;
+            return new ValueTask<bool>(true);
         }
 
         public override async Task ProgressTask(WebProgressTask task)
@@ -244,14 +266,15 @@ namespace MaxLib.WebServer.Services
 
             try
             {
-                debugBuilder = await DebugStartRequest();
+                debugBuilder = await DebugStartRequest().ConfigureAwait(false);
 
                 // wait until some data is received.
                 if (!await WaitForData(task))
                     return;
                 
                 // read first header line
-                var line = await ReadLine(task, reader);
+                var line = await ReadLine(task, reader, MaxUrlLength, HttpStateCode.RequestUrlTooLong)
+                    .ConfigureAwait(false);
                 if (line == null)
                     return;
                 debugBuilder?.AppendLine(line);
@@ -259,23 +282,36 @@ namespace MaxLib.WebServer.Services
                     return;
                 
                 // read all other header lines
-                while (!string.IsNullOrWhiteSpace(line = await ReadLine(task, reader)))
+                var limit = MaxHeaderLength;
+                while (!string.IsNullOrWhiteSpace(line = await ReadLine(task, reader, limit, HttpStateCode.RequestHeaderFieldsTooLarge)))
                 {
                     debugBuilder?.AppendLine(line);
                     if (!ParseOtherHeaderLine(task, line))
                         return;
+                    if (limit >= 0)
+                    {
+                        limit -= line.Length;
+                        if (limit < 0)
+                            throw new IO.ReadLineOverflowException(HttpStateCode.RequestHeaderFieldsTooLarge);
+                    }
+
                 }
                 debugBuilder?.AppendLine();
 
                 // read content if possible
-                if (!await LoadContent(task, reader, debugBuilder))
+                if (!await LoadContent(task, reader))
                     return;
                 
-                await DebugConnection(task);
+                await DebugConnection(task).ConfigureAwait(false);
+            }
+            catch (IO.ReadLineOverflowException e)
+            {
+                task.Response.StatusCode = e.State;
+                task.NextStage = ServerStage.CreateResponse;
             }
             finally
             {
-                await DebugFinishRequest(debugBuilder);
+                await DebugFinishRequest(debugBuilder).ConfigureAwait(false);
             }
         }
     }

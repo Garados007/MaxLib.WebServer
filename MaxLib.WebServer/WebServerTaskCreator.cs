@@ -30,7 +30,7 @@ namespace MaxLib.WebServer
         public async Task Start(Server server)
         {
             Task.Server = server;
-            await server.ExecuteTaskChain(Task, TerminationStage);
+            await server.ExecuteTaskChain(Task, TerminationStage).ConfigureAwait(false);
             Task.Server = null;
         }
 
@@ -48,15 +48,13 @@ namespace MaxLib.WebServer
             else Task.Request.HeaderParameter.Add(key, value);
         }
 
-        [Obsolete]
-        public void SetPost(string post, string mime)
+        public void SetPost(WebProgressTask task, ReadOnlyMemory<byte> post, string mime)
         {
-            Task.Request.Post.SetPost(post, mime);
-        }
-
-        public void SetPost(ReadOnlyMemory<byte> post, string mime)
-        {
-            Task.Request.Post.SetPost(post, mime);
+            Task.Request.Post.SetPost(
+                task,
+                new IO.ContentStream(new IO.NetworkReader(new IO.SpanStream(post)), post.Length), 
+                mime
+            );
         }
 
         public void SetAccept(string[]? acceptTypes = null, string[]? encoding = null)

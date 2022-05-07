@@ -1,5 +1,8 @@
 using System;
 using System.IO;
+
+#nullable enable
+
 namespace MaxLib.WebServer.IO
 {
     /// <summary>
@@ -34,7 +37,7 @@ namespace MaxLib.WebServer.IO
 
 
         /// <summary>
-        /// This streams wraps a single <see cref="ReadOnlyMemory<byte>" />
+        /// This streams wraps a single <see cref="ReadOnlyMemory{T}" />
         /// and give stream access to it.
         /// <br />
         /// This wrapper is readonly

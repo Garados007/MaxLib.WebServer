@@ -5,6 +5,8 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
+#nullable enable
+
 namespace MaxLib.WebServer.Testing
 {
     public class TestTask : WebServerTaskCreator
@@ -73,17 +75,17 @@ namespace MaxLib.WebServer.Testing
         public List<HttpDataSource> GetDataSources()
             => Task.Document.DataSources;
 
-        public object GetInfoObject(object key)
-            => Task.Document.Information.TryGetValue(key, out object value) ? value : default;
+        public object? GetInfoObject(object? key)
+            => Task.Document.Information.TryGetValue(key, out object? value) ? value : default;
 
         public HttpStateCode GetStatusCode()
             => Task.Response.StatusCode;
 
-        public string GetRequestHeader(string key)
-            => Task.Request.HeaderParameter.TryGetValue(key, out string value) ? value : default;
+        public string? GetRequestHeader(string key)
+            => Task.Request.HeaderParameter.TryGetValue(key, out string? value) ? value : default;
 
-        public string GetResponseHeader(string key)
-            => Task.Response.HeaderParameter.TryGetValue(key, out string value) ? value : default;
+        public string? GetResponseHeader(string key)
+            => Task.Response.HeaderParameter.TryGetValue(key, out string? value) ? value : default;
 
         public IEnumerable<(string, HttpCookie.Cookie)> GetAddedCookies()
             => Task.Request.Cookie.AddedCookies

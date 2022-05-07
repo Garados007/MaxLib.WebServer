@@ -1,6 +1,8 @@
 ﻿using System;
 using System.Threading.Tasks;
 
+#nullable enable
+
 namespace MaxLib.WebServer.Services
 {
     /// <summary>
@@ -19,15 +21,14 @@ namespace MaxLib.WebServer.Services
 
             switch (task.Request.ProtocolMethod)
             {
-                case HttpProtocollMethod.Head:
+                case HttpProtocolMethod.Head:
                     task.Document.Information["Only Header"] = true;
                     break;
-                case HttpProtocollMethod.Options:
+                case HttpProtocolMethod.Options:
                     {
                         var source = new HttpStringDataSource("GET\r\nPOST\r\nHEAD\r\nOPTIONS\r\nTRACE")
                         {
                             MimeType = MimeType.TextPlain,
-                            TransferCompleteData = true
                         };
                         task.Document.DataSources.Add(source);
                         task.NextStage = ServerStage.CreateResponse;
@@ -35,7 +36,7 @@ namespace MaxLib.WebServer.Services
                     break;
             }
 
-            await Task.CompletedTask;
+            await Task.CompletedTask.ConfigureAwait(false);
         }
 
         public override bool CanWorkWith(WebProgressTask task)
@@ -44,8 +45,8 @@ namespace MaxLib.WebServer.Services
 
             switch (task.Request.ProtocolMethod)
             {
-                case HttpProtocollMethod.Head: return true;
-                case HttpProtocollMethod.Options: return true;
+                case HttpProtocolMethod.Head: return true;
+                case HttpProtocolMethod.Options: return true;
                 default: return false;
             }
         }

@@ -1,6 +1,8 @@
 ﻿using MaxLib.Ini;
 using System.Security.Cryptography.X509Certificates;
 
+#nullable enable
+
 namespace MaxLib.WebServer.SSL
 {
     public class SecureWebServerSettings : WebServerSettings
@@ -8,7 +10,7 @@ namespace MaxLib.WebServer.SSL
         public int SecurePort { get; private set; }
         public bool EnableUnsafePort { get; set; } = true;
 
-        public X509Certificate Certificate { get; set; }
+        public X509Certificate? Certificate { get; set; }
 
         public SecureWebServerSettings(string settingFolderPath)
             : base(settingFolderPath)

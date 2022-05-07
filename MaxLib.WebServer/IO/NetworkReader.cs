@@ -36,18 +36,18 @@ namespace MaxLib.WebServer.IO
         Decoder decoder;
         readonly bool leaveOpen;
         /// <summary>
-        /// The read buffer contains buffered bytes that is readed by this instance but not
+        /// The read buffer contains buffered bytes that is read by this instance but not
         /// from the user.
         /// </summary>
         readonly Memory<byte> readBuffer;
         // readonly byte[] readBuffer;
         /// <summary>
-        /// The position inside the <see cref="readBuffer" /> at which unreaded user bytes
+        /// The position inside the <see cref="readBuffer" /> at which unread user bytes
         /// starts.
         /// </summary>
         int readBufferOffset;
         /// <summary>
-        /// The number of buffered bytes in <see cref="readBuffer" /> that is already readed
+        /// The number of buffered bytes in <see cref="readBuffer" /> that is already read
         /// but not from the user accessed.
         /// </summary>
         int readBufferCount;
@@ -55,7 +55,7 @@ namespace MaxLib.WebServer.IO
         /// The char buffer contains buffered chars that are already parsed from its byte
         /// representation. This chars are not consumed by the user right now. 
         /// <br />
-        /// This char buffer contains normaly a small portion of <see cref="readBuffer" />
+        /// This char buffer contains normally a small portion of <see cref="readBuffer" />
         /// decoded as chars. The ReadChar and ReadLine methods will consume first its
         /// chars from this buffer. The binary read methods will just discard the whole
         /// char buffer.
@@ -64,11 +64,11 @@ namespace MaxLib.WebServer.IO
         /// </summary>
         readonly char[] charBuffer;
         /// <summary>
-        /// The offset in <see cref="charBuffer" /> at which unreaded chars starts.
+        /// The offset in <see cref="charBuffer" /> at which unread chars starts.
         /// </summary>
         int charBufferOffset;
         /// <summary>
-        /// The number of unreaded chars in <see cref="charBuffer" />.
+        /// The number of unread chars in <see cref="charBuffer" />.
         /// </summary>
         int charBufferCount;
         bool disposed = false;
@@ -105,7 +105,7 @@ namespace MaxLib.WebServer.IO
 
         protected void RefillBuffer(int expectLength = 0)
         {
-            // This is to fix a speed penality with memory streams:
+            // This is to fix a speed penalty with memory streams:
             // An async read with Memory<> is 100 times fast than a sync one.
             // Maybe this is a bug with my installation or something else.
 
@@ -130,12 +130,12 @@ namespace MaxLib.WebServer.IO
             var span = readBuffer.Span;
             do
             {
-                int readed = BaseStream.Read(
+                int read = BaseStream.Read(
                     span[(readBufferOffset + readBufferCount) .. ]
                 );
-                if (readed == 0)
+                if (read == 0)
                     return;
-                readBufferCount += readed;
+                readBufferCount += read;
             }
             while (readBufferCount < expectLength);
 
@@ -159,13 +159,13 @@ namespace MaxLib.WebServer.IO
             // read until we have enough bytes to read a character
             do
             {
-                int readed = await BaseStream.ReadAsync(
+                int read = await BaseStream.ReadAsync(
                     readBuffer[(readBufferOffset + readBufferCount) .. ],
                     cancellationToken
                 ).ConfigureAwait(false);
-                if (readed == 0)
+                if (read == 0)
                     return;
-                readBufferCount += readed;
+                readBufferCount += read;
             }
             while (readBufferCount < expectLength);
         }
@@ -242,7 +242,7 @@ namespace MaxLib.WebServer.IO
         {
             disposed = true;
             if (!leaveOpen)
-                await BaseStream.DisposeAsync();
+                await BaseStream.DisposeAsync().ConfigureAwait(false);
         }
 
         public char? PeekChar()
@@ -338,6 +338,77 @@ namespace MaxLib.WebServer.IO
                 charBufferCount = 0;
             }
             while (RefillCharBuffer() > 0);
+            return sb.ToString();
+        }
+
+        /// <summary>
+        /// Read a single line from the network stream with the specified maximum length. If the 
+        /// the line exceeds this limit a <see cref="ReadLineOverflowException" /> is thrown. Set 
+        /// the limit to a negative value to disable this limit.
+        /// </summary>
+        /// <param name="limit">the maximum length this line is allowed to be</param>
+        /// <param name="cancellationToken">cancel token</param>
+        /// <returns>the readed text</returns>
+        /// <exception cref="ReadLineOverflowException" />
+        public async ValueTask<string?> ReadLineAsync(
+            long limit,
+            CancellationToken cancellationToken = default
+        )
+        {
+            if (limit < 0)
+                return await ReadLineAsync(cancellationToken);
+
+            ThrowIfDisposed();
+            StringBuilder? sb = null;
+
+            if (await RefillCharBufferAsync(cancellationToken).ConfigureAwait(false) == 0)
+                return null;
+
+            do
+            {
+                int i = charBufferOffset;
+                do
+                {
+                    char ch = charBuffer[i];
+                    if (ch == '\r' || ch == '\n')
+                    {
+                        string s;
+                        if (sb != null)
+                        {
+                            sb.Append(charBuffer, charBufferOffset, i - charBufferOffset);
+                            s = sb.ToString();
+                        }
+                        else
+                        {
+                            s = new string(charBuffer, charBufferOffset, i - charBufferOffset);
+                        }
+                        if (s.Length > limit)
+                            throw new ReadLineOverflowException();
+                        charBufferCount -= i + 1 - charBufferOffset;
+                        charBufferOffset = i + 1;
+                        if (ch == '\r')
+                        {
+                            if (await RefillCharBufferAsync(cancellationToken).ConfigureAwait(false) > 0)
+                            {
+                                if (charBuffer[charBufferOffset] == '\n')
+                                {
+                                    charBufferOffset++;
+                                }
+                            }
+                        }
+                        return s;
+                    }
+                    i++;
+                }
+                while (i < charBufferOffset + charBufferCount);
+
+                sb ??= new StringBuilder(charBufferCount + 80);
+                sb.Append(charBuffer, charBufferOffset, charBufferCount);
+                charBufferCount = 0;
+                if (sb.Length > limit)
+                    throw new ReadLineOverflowException();
+            }
+            while (await RefillCharBufferAsync(cancellationToken).ConfigureAwait(false) > 0);
             return sb.ToString();
         }
 
@@ -455,7 +526,7 @@ namespace MaxLib.WebServer.IO
             if (count <= length)
                 return length;
             
-            return length + await BaseStream.ReadAsync(buffer, offset + length, count - length, cancellationToken);
+            return length + await BaseStream.ReadAsync(buffer, offset + length, count - length, cancellationToken).ConfigureAwait(false);
         }
     
         public async ValueTask<int> ReadAsync(Memory<byte> buffer, 
@@ -481,7 +552,7 @@ namespace MaxLib.WebServer.IO
             if (buffer.Length == 0)
                 return length;
             
-            return length + await BaseStream.ReadAsync(buffer, cancellationToken);
+            return length + await BaseStream.ReadAsync(buffer, cancellationToken).ConfigureAwait(false);
         }
 
         public async ValueTask<byte[]> ReadBytesAsync(int count, 
@@ -492,20 +563,20 @@ namespace MaxLib.WebServer.IO
                 throw new ArgumentOutOfRangeException(nameof(count));
             
             var buffer = new byte[count];
-            var readed = 0;
-            while (readed < count)
+            var read = 0;
+            while (read < count)
             {
-                var r = await ReadAsync(buffer, readed, count - readed, cancellationToken);
+                var r = await ReadAsync(buffer, read, count - read, cancellationToken).ConfigureAwait(false);
                 if (r == 0)
                     break;
 
-                readed += r;
+                read += r;
             }
 
-            if (readed != count)
+            if (read != count)
             {
-                var copy = new byte[readed];
-                Buffer.BlockCopy(buffer, 0, copy, 0, readed);
+                var copy = new byte[read];
+                Buffer.BlockCopy(buffer, 0, copy, 0, read);
                 buffer = copy;
             }
 
@@ -516,8 +587,8 @@ namespace MaxLib.WebServer.IO
             CancellationToken cancellationToken = default)
         {
             var buffer = new Memory<byte>(new byte[count]);
-            var readed = await ReadAsync(buffer, cancellationToken);
-            return buffer[0 .. readed];
+            var read = await ReadAsync(buffer, cancellationToken).ConfigureAwait(false);
+            return buffer[0 .. read];
         }
 
         public async ValueTask<int> ReadAsync(Stream buffer, int count, 
@@ -536,22 +607,31 @@ namespace MaxLib.WebServer.IO
             var bytes = new byte[blockSize];
             while (count > 0)
             {
-                int readed = await ReadAsync(bytes, 0, Math.Min(count, blockSize), cancellationToken);
-                if (readed == 0)
+                int read = await ReadAsync(bytes, 0, Math.Min(count, blockSize), cancellationToken).ConfigureAwait(false);
+                if (read == 0)
                     break;
-                await buffer.WriteAsync(bytes, 0, readed, cancellationToken);
-                count -= readed;
+                await buffer.WriteAsync(bytes, 0, read, cancellationToken).ConfigureAwait(false);
+                count -= read;
             }
             
             return originalCount - count;
         }
 
-        public ReadOnlyMemory<byte> ReadUntil(
-            ReadOnlySpan<byte> marking
+        public ReadOnlyMemory<byte> ReadUntil(ReadOnlySpan<byte> marking)
+        {
+            using var m = new MemoryStream();
+            ReadUntil(marking, m);
+            return m.ToArray();
+        }
+
+        public long ReadUntil(
+            ReadOnlySpan<byte> marking,
+            Stream target
         )
         {
             if (marking.Length == 0)
-                return ReadOnlyMemory<byte>.Empty;
+                return 0;
+            long fullRead = 0;
 
             if (marking.Length * 2 > readBuffer.Length)
                 throw new ArgumentException("marking is to large to fit the read buffer", nameof(marking));
@@ -560,9 +640,6 @@ namespace MaxLib.WebServer.IO
             if (charBufferOffset > 0)
                 MoveByteBufferFromCharBuffer(0, charBufferOffset);
             charBufferCount = charBufferOffset = lastBytesUsed = 0;
-
-            // initialize a buffer where we can write completed data into
-            using var stream = new MemoryStream();
 
             // loop until we found the signature
             int length;
@@ -574,7 +651,8 @@ namespace MaxLib.WebServer.IO
                 {
                     // there wasn't enough bytes at the end to fit the marking.
                     // we just read the rest and thats it
-                    stream.Write(readBuffer.Span.Slice(readBufferOffset, readBufferCount));
+                    target.Write(readBuffer.Span.Slice(readBufferOffset, readBufferCount));
+                    fullRead += readBufferCount;
                     readBufferOffset += readBufferCount;
                     readBufferCount = 0;
                     break;
@@ -590,26 +668,41 @@ namespace MaxLib.WebServer.IO
                 }
                 while (i < readBufferOffset + readBufferCount);
                 // add the data until the pattern to the stream
-                stream.Write(readBuffer.Span[readBufferOffset .. i]);
+                target.Write(readBuffer.Span[readBufferOffset .. i]);
                 // move the index to the end
                 length = i - readBufferOffset;
                 readBufferOffset = i;
                 readBufferCount -= length;
+                fullRead += length;
                 // break if the length is 0
             }
             while (length > 0);
 
-            // now extract the data from the buffer and return
-            return stream.ToArray();
+            return fullRead;
         }
 
+        
         public async ValueTask<ReadOnlyMemory<byte>> ReadUntilAsync(
             ReadOnlyMemory<byte> marking,
             CancellationToken cancellationToken = default
         )
         {
+            using var m = new MemoryStream();
+            await ReadUntilAsync(marking, m, cancellationToken).ConfigureAwait(false);
+            return m.ToArray();
+        }
+
+
+        public async ValueTask<long> ReadUntilAsync(
+            ReadOnlyMemory<byte> marking,
+            Stream target,
+            CancellationToken cancellationToken = default
+        )
+        {
             if (marking.Length == 0)
-                return marking;
+                return 0;
+            
+            long fullRead = 0;
 
             if (marking.Length * 2 > readBuffer.Length)
                 throw new ArgumentException("marking is to large to fit the read buffer", nameof(marking));
@@ -619,20 +712,18 @@ namespace MaxLib.WebServer.IO
                 MoveByteBufferFromCharBuffer(0, charBufferOffset);
             charBufferCount = charBufferOffset = lastBytesUsed = 0;
 
-            // initialize a buffer where we can write completed data into
-            using var stream = new MemoryStream();
-
             // loop until we found the signature
             int length;
             do
             {
                 // ensure we have enough bytes in buffer
-                await RefillBufferAsync(cancellationToken, marking.Length);
+                await RefillBufferAsync(cancellationToken, marking.Length).ConfigureAwait(false);
                 if (readBufferCount < marking.Length)
                 {
                     // there wasn't enough bytes at the end to fit the marking.
                     // we just read the rest and thats it
-                    stream.Write(readBuffer.Span.Slice(readBufferOffset, readBufferCount));
+                    target.Write(readBuffer.Span.Slice(readBufferOffset, readBufferCount));
+                    fullRead += readBufferCount;
                     readBufferOffset += readBufferCount;
                     readBufferCount = 0;
                     break;
@@ -648,17 +739,17 @@ namespace MaxLib.WebServer.IO
                 }
                 while (i < readBufferOffset + readBufferCount);
                 // add the data until the pattern to the stream
-                stream.Write(readBuffer.Span[readBufferOffset .. i]);
+                target.Write(readBuffer.Span[readBufferOffset .. i]);
                 // move the index to the end
                 length = i - readBufferOffset;
                 readBufferOffset = i;
                 readBufferCount -= length;
+                fullRead += length;
                 // break if the length is 0
             }
             while (length > 0);
 
-            // now extract the data from the buffer and return
-            return stream.ToArray();
+            return fullRead;
         }
     }
 }

@@ -1,6 +1,8 @@
 ﻿using System;
 using System.Threading.Tasks;
 
+#nullable enable
+
 namespace MaxLib.WebServer.Api
 {
     public abstract class ApiService : WebService
@@ -8,7 +10,7 @@ namespace MaxLib.WebServer.Api
         public ApiService(params string[] endpoint) 
             : base(ServerStage.CreateDocument)
         {
-            Endpoint = endpoint ?? throw new ArgumentNullException(nameof(endpoint));
+            this.endpoint = endpoint ?? throw new ArgumentNullException(nameof(endpoint));
         }
 
         private string[] endpoint;
@@ -34,7 +36,7 @@ namespace MaxLib.WebServer.Api
             var tiles = task.Request.Location.DocumentPathTiles;
             var location = new string[tiles.Length - endpoint.Length];
             Array.Copy(tiles, endpoint.Length, location, 0, location.Length);
-            var data = await HandleRequest(task, location);
+            var data = await HandleRequest(task, location).ConfigureAwait(false);
             if (data != null)
                 task.Document.DataSources.Add(data);
             else task.Response.StatusCode = HttpStateCode.InternalServerError;

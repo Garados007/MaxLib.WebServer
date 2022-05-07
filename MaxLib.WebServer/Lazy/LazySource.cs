@@ -5,6 +5,8 @@ using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 
+#nullable enable
+
 namespace MaxLib.WebServer.Lazy
 {
     [Serializable]
@@ -19,7 +21,7 @@ namespace MaxLib.WebServer.Lazy
         public LazyEventHandler Handler { get; private set; }
 
         readonly LazyTask task;
-        HttpDataSource[] list;
+        HttpDataSource[]? list;
 
         public IEnumerable<HttpDataSource> GetAllSources()
         {
@@ -61,7 +63,7 @@ namespace MaxLib.WebServer.Lazy
                     var size = s.Length();
                     if (size == null)
                     {
-                        total += await s.WriteStream(skip, 0, end);
+                        total += await s.WriteStream(skip, 0, end).ConfigureAwait(false);
                     }
                     else
                     {
@@ -72,34 +74,39 @@ namespace MaxLib.WebServer.Lazy
                         }
                         var leftSkip = skip.SkipBytes;
                         skip.Skip(skip.SkipBytes);
-                        total += await s.WriteStream(skip, leftSkip, end);
+                        total += await s.WriteStream(skip, leftSkip, end).ConfigureAwait(false);
                     }
                 }
                 return total;
             }
         }
 
+        [Obsolete]
         protected override Task<long> ReadStreamInternal(Stream stream, long? length)
             => throw new NotSupportedException();
 
+        [Obsolete]
         public override long RangeStart
         {
             get => 0;
             set => throw new NotSupportedException();
         }
 
+        [Obsolete]
         public override long? RangeEnd
         {
             get => null;
             set => throw new NotSupportedException();
         }
 
+        [Obsolete]
         public override bool TransferCompleteData
         {
             get => true;
             set => throw new NotSupportedException();
         }
 
+        [Obsolete]
         public override bool CanAcceptData => false;
 
         public override bool CanProvideData => true;

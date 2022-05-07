@@ -31,26 +31,26 @@ namespace MaxLib.WebServer.Test.IO
         public async Task TestPeek()
         {
             var reader = new NetworkReader(baseStream);
-            Assert.AreEqual<char?>('\u2661', await reader.PeekCharAsync());
-            Assert.AreEqual<char?>('\u2661', await reader.PeekCharAsync());
-            Assert.AreEqual<char?>('\u2661', await reader.ReadCharAsync());
+            Assert.AreEqual<char?>('\u2661', await reader.PeekCharAsync().ConfigureAwait(false));
+            Assert.AreEqual<char?>('\u2661', await reader.PeekCharAsync().ConfigureAwait(false));
+            Assert.AreEqual<char?>('\u2661', await reader.ReadCharAsync().ConfigureAwait(false));
         }
 
         [TestMethod]
         public async Task TestReadLine()
         {
             var reader = new NetworkReader(baseStream);
-            Assert.AreEqual<string>("\u2661", await reader.ReadLineAsync());
-            Assert.AreEqual<string>("foo", await reader.ReadLineAsync());
+            Assert.AreEqual<string>("\u2661", await reader.ReadLineAsync().ConfigureAwait(false));
+            Assert.AreEqual<string>("foo", await reader.ReadLineAsync().ConfigureAwait(false));
         }
 
         [TestMethod]
         public async Task TestReadBytes()
         {
             var reader = new NetworkReader(baseStream);
-            await reader.ReadLineAsync();
-            await reader.ReadLineAsync();
-            var buffer = await reader.ReadBytesAsync(8);
+            await reader.ReadLineAsync().ConfigureAwait(false);
+            await reader.ReadLineAsync().ConfigureAwait(false);
+            var buffer = await reader.ReadBytesAsync(8).ConfigureAwait(false);
             Assert.AreEqual(
                 BitConverter.ToString(new byte[]{ 0, 1, 2, 3, 4, 5, 6, 7 }), 
                 BitConverter.ToString(buffer)
@@ -61,7 +61,7 @@ namespace MaxLib.WebServer.Test.IO
         public async Task TestPeekAndReadBytes()
         {
             var reader = new NetworkReader(baseStream);
-            Assert.AreEqual<char?>('\u2661', await reader.PeekCharAsync());
+            Assert.AreEqual<char?>('\u2661', await reader.PeekCharAsync().ConfigureAwait(false));
             Assert.AreEqual(
                 BitConverter.ToString(new byte[] { 0xe2, 0x99, 0xa1, 0x0d, 0x0a }),
                 BitConverter.ToString(await reader.ReadBytesAsync(5))
@@ -72,7 +72,7 @@ namespace MaxLib.WebServer.Test.IO
         public async Task TestPeekAndBreake()
         {
             var reader = new NetworkReader(baseStream);
-            Assert.AreEqual<char?>('\u2661', await reader.PeekCharAsync());
+            Assert.AreEqual<char?>('\u2661', await reader.PeekCharAsync().ConfigureAwait(false));
             Assert.AreEqual(
                 BitConverter.ToString(new byte[] { 0xe2 }),
                 BitConverter.ToString(await reader.ReadBytesAsync(1))
@@ -93,7 +93,7 @@ namespace MaxLib.WebServer.Test.IO
                 BitConverter.ToString(await reader.ReadBytesAsync(1))
             );
             // read an undefined char
-            Assert.AreEqual(65533, (int)(await reader.ReadCharAsync()));
+            Assert.AreEqual(65533, (int)(await reader.ReadCharAsync().ConfigureAwait(false)));
         }
 
         [TestMethod]
@@ -101,9 +101,9 @@ namespace MaxLib.WebServer.Test.IO
         {
             var baseStream = new MemoryStream(new byte[] { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9 });
             var reader = new NetworkReader(baseStream);
-            var readed = await reader.ReadUntilAsync(new byte[] { 4, 5, 6 });
+            var readed = await reader.ReadUntilAsync(new byte[] { 4, 5, 6 }).ConfigureAwait(false);
             Assert.AreEqual("00-01-02-03", BitConverter.ToString(readed.ToArray()));
-            Assert.AreEqual("04-05-06-07-08-09", BitConverter.ToString(await reader.ReadBytesAsync(6)));
+            Assert.AreEqual("04-05-06-07-08-09", BitConverter.ToString(await reader.ReadBytesAsync(6).ConfigureAwait(false)));
         }
     }
 }

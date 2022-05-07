@@ -11,18 +11,15 @@ namespace MaxLib.WebServer
     {
         public List<HttpDataSource> DataSources { get; } = new List<HttpDataSource>();
 
+        private string? primaryMime;
+
         public string? PrimaryMime
         {
-            get { return DataSources.Count == 0 ? null : DataSources[0].MimeType; }
+            get { return primaryMime ?? (DataSources.Count == 0 ? null : DataSources[0].MimeType); }
+            set => primaryMime = value;
         }
 
         public string? PrimaryEncoding { get; set; } = null;
-
-        [Obsolete("Use WebProgressTask.Request. this will be removed in a future release.")]
-        public HttpRequestHeader RequestHeader { get; set; } = new HttpRequestHeader();
-
-        [Obsolete("Use WebProgressTask.Response. this will be removed in a future release.")]
-        public HttpResponseHeader ResponseHeader { get; set; } = new HttpResponseHeader();
 
         public Dictionary<object?, object?> Information { get; } = new Dictionary<object?, object?>();
 

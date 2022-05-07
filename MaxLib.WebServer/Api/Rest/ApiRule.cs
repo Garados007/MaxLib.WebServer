@@ -1,4 +1,6 @@
-﻿namespace MaxLib.WebServer.Api.Rest
+﻿#nullable enable
+
+namespace MaxLib.WebServer.Api.Rest
 {
     public abstract class ApiRule
     {

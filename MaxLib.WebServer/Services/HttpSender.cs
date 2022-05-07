@@ -3,6 +3,8 @@ using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
 
+#nullable enable
+
 namespace MaxLib.WebServer.Services
 {
     /// <summary>
@@ -92,26 +94,28 @@ namespace MaxLib.WebServer.Services
 
             var header = task.Response;
             var stream = task.NetworkStream;
+            if (stream == null)
+                return;
             var writer = new StreamWriter(stream);
-            await writer.WriteAsync(header.HttpProtocol);
-            await writer.WriteAsync(" ");
-            await writer.WriteAsync(((int)header.StatusCode).ToString());
-            await writer.WriteAsync(" ");
-            await writer.WriteLineAsync(StatusCodeText(header.StatusCode));
+            await writer.WriteAsync(header.HttpProtocol).ConfigureAwait(false);
+            await writer.WriteAsync(" ").ConfigureAwait(false);
+            await writer.WriteAsync(((int)header.StatusCode).ToString()).ConfigureAwait(false);
+            await writer.WriteAsync(" ").ConfigureAwait(false);
+            await writer.WriteLineAsync(StatusCodeText(header.StatusCode)).ConfigureAwait(false);
             for (int i = 0; i < header.HeaderParameter.Count; ++i) //Parameter
             {
                 var e = header.HeaderParameter.ElementAt(i);
-                await writer.WriteAsync(e.Key);
-                await writer.WriteAsync(": ");
-                await writer.WriteLineAsync(e.Value);
+                await writer.WriteAsync(e.Key).ConfigureAwait(false);
+                await writer.WriteAsync(": ").ConfigureAwait(false);
+                await writer.WriteLineAsync(e.Value).ConfigureAwait(false);
             }
             foreach (var cookie in task.Request.Cookie.AddedCookies) //Cookies
             {
-                await writer.WriteAsync("Set-Cookie: ");
-                await writer.WriteLineAsync(cookie.Value.ToString());
+                await writer.WriteAsync("Set-Cookie: ").ConfigureAwait(false);
+                await writer.WriteLineAsync(cookie.Value.ToString()).ConfigureAwait(false);
             }
-            await writer.WriteLineAsync();
-            try { await writer.FlushAsync(); }
+            await writer.WriteLineAsync().ConfigureAwait(false);
+            try { await writer.FlushAsync().ConfigureAwait(false); }
             catch (ObjectDisposedException)
             {
                 WebServerLog.Add(ServerLogType.Error, GetType(), "Send", "Connection closed by remote host.");
@@ -123,12 +127,12 @@ namespace MaxLib.WebServer.Services
                 return;
             }
             //Daten senden
-            if (!(task.Document.Information.ContainsKey("Only Header") && (bool)task.Document.Information["Only Header"]))
+            if (!(task.Document.Information.ContainsKey("Only Header") && (bool)task.Document.Information["Only Header"]!))
                 for (int i = 0; i < task.Document.DataSources.Count; ++i)
                 {
-                    await task.Document.DataSources[i].WriteStream(stream);
+                    await task.Document.DataSources[i].WriteStream(stream).ConfigureAwait(false);
                 }
-            try { await stream.FlushAsync(); }
+            try { await stream.FlushAsync().ConfigureAwait(false); }
             catch (IOException)
             {
                 WebServerLog.Add(ServerLogType.Error, GetType(), "Send", "Connection closed by remote host.");

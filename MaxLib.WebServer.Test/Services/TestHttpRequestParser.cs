@@ -34,10 +34,10 @@ namespace MaxLib.WebServer.Test.Services
             sb.AppendLine();
             using (var output = test.SetStream(sb.ToString()))
             {
-                await new HttpRequestParser().ProgressTask(test.Task);
-                Assert.AreEqual(HttpProtocollMethod.Get, test.Request.ProtocolMethod);
+                await new HttpRequestParser().ProgressTask(test.Task).ConfigureAwait(false);
+                Assert.AreEqual(HttpProtocolMethod.Get, test.Request.ProtocolMethod);
                 Assert.AreEqual("/test.html", test.Request.Location.DocumentPath);
-                Assert.AreEqual(HttpProtocollDefinition.HttpVersion1_1, test.Request.HttpProtocol);
+                Assert.AreEqual(HttpProtocolDefinition.HttpVersion1_1, test.Request.HttpProtocol);
                 Assert.AreEqual("testdomain.local", test.GetRequestHeader("Host"));
             }
         }
@@ -55,10 +55,10 @@ namespace MaxLib.WebServer.Test.Services
             sb.Append(content);
             using (var output = test.SetStream(sb.ToString()))
             {
-                await new HttpRequestParser().ProgressTask(test.Task);
-                Assert.AreEqual(HttpProtocollMethod.Post, test.Request.ProtocolMethod);
+                await new HttpRequestParser().ProgressTask(test.Task).ConfigureAwait(false);
+                Assert.AreEqual(HttpProtocolMethod.Post, test.Request.ProtocolMethod);
                 Assert.AreEqual("/test.html", test.Request.Location.DocumentPath);
-                Assert.AreEqual(HttpProtocollDefinition.HttpVersion1_1, test.Request.HttpProtocol);
+                Assert.AreEqual(HttpProtocolDefinition.HttpVersion1_1, test.Request.HttpProtocol);
                 Assert.AreEqual("testdomain.local", test.GetRequestHeader("Host"));
                 Assert.AreEqual(content.Length.ToString(), test.GetRequestHeader("Content-Length"));
                 Assert.AreEqual(MimeType.ApplicationXWwwFromUrlencoded, test.GetRequestHeader("Content-Type"));
@@ -89,10 +89,10 @@ namespace MaxLib.WebServer.Test.Services
             sb.Append(content);
             using (var output = test.SetStream(sb.ToString()))
             {
-                await new HttpRequestParser().ProgressTask(test.Task);
-                Assert.AreEqual(HttpProtocollMethod.Post, test.Request.ProtocolMethod);
+                await new HttpRequestParser().ProgressTask(test.Task).ConfigureAwait(false);
+                Assert.AreEqual(HttpProtocolMethod.Post, test.Request.ProtocolMethod);
                 Assert.AreEqual("/test.html", test.Request.Location.DocumentPath);
-                Assert.AreEqual(HttpProtocollDefinition.HttpVersion1_1, test.Request.HttpProtocol);
+                Assert.AreEqual(HttpProtocolDefinition.HttpVersion1_1, test.Request.HttpProtocol);
                 Assert.AreEqual("testdomain.local", test.GetRequestHeader("Host"));
                 Assert.AreEqual(content.Length.ToString(), test.GetRequestHeader("Content-Length"));
                 Assert.AreEqual("multipart/form-data; boundary=---1234", test.GetRequestHeader("Content-Type"));
@@ -102,8 +102,10 @@ namespace MaxLib.WebServer.Test.Services
                 Assert.AreEqual(1, data.Entries.Count);
                 Assert.AreEqual(1, data.Entries[0].Header.Count);
                 Assert.AreEqual("text/plain", data.Entries[0].Header["Content-Type"]);
+                Assert.IsNull(data.Entries[0].TempFile);
+                Assert.IsTrue(data.Entries[0].Content.HasValue);
                 Assert.AreEqual("Hello World",
-                    Encoding.UTF8.GetString(data.Entries[0].Content.ToArray())
+                    Encoding.UTF8.GetString(data.Entries[0].Content.Value.ToArray())
                 );
             }
         }

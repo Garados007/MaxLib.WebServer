@@ -14,14 +14,28 @@
     <RepositoryUrl>https://github.com/Garados007/MaxLib.WebServer</RepositoryUrl>
   </PropertyGroup>
 
+  <PropertyGroup>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <DocumentationFile>MaxLib.WebServer.xml</DocumentationFile>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+  </PropertyGroup>
+
   <ItemGroup>
     <PackageReference Include="MaxLib.Common" Version="1.1.0" />
     <PackageReference Include="MaxLib.Ini" Version="1.1.1" />
+    <PackageReference Include="System.Text.Json" Version="6.0.2" />
   </ItemGroup>
 
   <ItemGroup>
     <Content Remove="Resources\*.*" />
     <EmbeddedResource Include="Resources\*.*" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="..\.editorconfig" Link=".editorconfig" />
   </ItemGroup>
 
 </Project>

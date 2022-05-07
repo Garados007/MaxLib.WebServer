@@ -5,7 +5,7 @@ using System.Threading.Tasks;
 
 namespace MaxLib.WebServer
 {
-    public abstract class WebService
+    public abstract class WebService : IDisposable
     {
         public ServerStage Stage { get; private set; }
 
@@ -18,10 +18,11 @@ namespace MaxLib.WebServer
 
         public abstract bool CanWorkWith(WebProgressTask task);
 
-        public event EventHandler? PriorityChanged;
+        public virtual void Dispose()
+        {
+        }
 
-        [Obsolete("Use PriorityChanged instead")]
-        public event EventHandler? ImportanceChanged;
+        public event EventHandler? PriorityChanged;
 
         WebServicePriority priority = WebServicePriority.Normal;
         public WebServicePriority Priority
@@ -30,16 +31,8 @@ namespace MaxLib.WebServer
             protected set 
             {
                 priority = value;
-                ImportanceChanged?.Invoke(this, EventArgs.Empty);
                 PriorityChanged?.Invoke(this, EventArgs.Empty);
             }
-        }
-
-        [Obsolete("Use Priority instead")]
-        public WebProgressImportance Importance
-        {
-            get => (WebProgressImportance)Priority;
-            protected set => Priority = (WebServicePriority)value;
         }
     }
 }

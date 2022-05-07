@@ -1,5 +1,6 @@
 ﻿using System.Net;
 using System;
+using System.Threading.Tasks;
 
 #nullable enable
 
@@ -28,15 +29,40 @@ namespace MaxLib.WebServer
 
         public Sessions.Session? Session { get; set; }
 
-#pragma warning disable CS0618
-        public HttpRequestHeader Request => Document.RequestHeader;
+        public HttpRequestHeader Request { get; } = new HttpRequestHeader();
 
-        public HttpResponseHeader Response => Document.ResponseHeader;
-#pragma warning restore CS0618
+        public HttpResponseHeader Response { get; } = new HttpResponseHeader();
+
+        private static readonly Monitoring.Monitor disabledMonitor = new Monitoring.Monitor(false);
+        public Monitoring.Monitor Monitor { get; private set; } = disabledMonitor;
 
         public void Dispose()
         {
             Document?.Dispose();
+        }
+
+        public void EnableMonitoring()
+        {
+            if (!Monitor.Enabled)
+                Monitor = new Monitoring.Monitor(true);
+        }
+
+        internal Func<Task>? SwitchProtocolHandler { get; private set; } = null;
+
+        /// <summary>
+        /// A call to this method notify the web server that this connection will switch protocols 
+        /// after all steps are finished. The web server will remove this connection from its 
+        /// watch list and call <paramref name="handler"/> after its finished.
+        /// <br />
+        /// You as the caller are responsible to safely cleanup the connection it is no more
+        /// used.
+        /// </summary>
+        /// <param name="handler">
+        /// This handler will be called after the server has no more control of this connection.
+        /// </param>
+        public void SwitchProtocols(Func<Task> handler)
+        {
+            SwitchProtocolHandler = handler;
         }
     }
 }

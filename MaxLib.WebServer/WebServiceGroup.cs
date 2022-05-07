@@ -1,12 +1,14 @@
 ﻿using MaxLib.Collections;
 using System;
+using System.Collections.Generic;
 using System.Threading.Tasks;
+using System.Linq;
 
 #nullable enable
 
 namespace MaxLib.WebServer
 {
-    public class WebServiceGroup
+    public class WebServiceGroup : IDisposable
     {
         public ServerStage Stage { get; private set; }
 
@@ -76,6 +78,11 @@ namespace MaxLib.WebServer
             return (T)Services.Find((ws) => ws is T);
         }
 
+        public IEnumerable<T> GetAll<T>() where T : WebService
+        {
+            return Services.Where(x => x is T).Cast<T>();
+        }
+
         public virtual async Task Execute(WebProgressTask task)
         {
             var se = SingleExecution;
@@ -84,18 +91,73 @@ namespace MaxLib.WebServer
             foreach (var service in services)
             {
                 if (task.Connection?.NetworkClient != null && !task.Connection.NetworkClient.Connected) return;
-                if (service.CanWorkWith(task))
+                if (service is WebService2 service2)
                 {
-                    if (task.Connection?.NetworkClient != null && !task.Connection.NetworkClient.Connected) return;
-                    await service.ProgressTask(task);
-                    task.Document[Stage] = true;
-                    if (se) 
-                        return;
-                    set = true;
+                    var watch = task.Monitor.Watch(service, "CanWorkWith()");
+                    if (service2.CanWorkWith(task, out object? data))
+                    {
+                        watch.Dispose();
+                        if (task.Connection?.NetworkClient != null && !task.Connection.NetworkClient.Connected) return;
+                        try
+                        {
+                            watch = task.Monitor.Watch(service, "ProgressTask()");
+                            await service2.ProgressTask(task, data).ConfigureAwait(false);
+                        }
+                        catch (HttpException e)
+                        {
+                            task.Response.StatusCode = e.StateCode;
+                            if (e.DataSource != null)
+                                task.Document.DataSources.Add(e.DataSource);
+                        }
+                        finally
+                        {
+                            watch.Dispose();
+                        }
+                        task.Document[Stage] = true;
+                        if (se) 
+                            return;
+                        set = true;
+                    }
+                    else watch.Dispose();
+                }
+                else 
+                {
+                    var watch = task.Monitor.Watch(service, "CanWorkWith()");
+                    if (service.CanWorkWith(task))
+                    {
+                        watch.Dispose();
+                        if (task.Connection?.NetworkClient != null && !task.Connection.NetworkClient.Connected) return;
+                        try
+                        {
+                            watch = task.Monitor.Watch(service, "ProgressTask()");
+                            await service.ProgressTask(task).ConfigureAwait(false);
+                        }
+                        catch (HttpException e)
+                        {
+                            task.Response.StatusCode = e.StateCode;
+                            if (e.DataSource != null)
+                                task.Document.DataSources.Add(e.DataSource);
+                        }
+                        finally
+                        {
+                            watch.Dispose();
+                        }
+                        task.Document[Stage] = true;
+                        if (se) 
+                            return;
+                        set = true;
+                    }
+                    else watch.Dispose();
                 }
             }
             if (!set) 
                 task.Document[Stage] = false;
+        }
+
+        public void Dispose()
+        {
+            foreach (var service in Services)
+                service.Dispose();
         }
     }
 }

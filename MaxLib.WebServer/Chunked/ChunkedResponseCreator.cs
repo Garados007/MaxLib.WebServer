@@ -2,6 +2,8 @@
 using System.Linq;
 using System.Threading.Tasks;
 
+#nullable enable
+
 namespace MaxLib.WebServer.Chunked
 {
     public class ChunkedResponseCreator : WebService
@@ -21,7 +23,7 @@ namespace MaxLib.WebServer.Chunked
             return !OnlyWithLazy || (task.Document.DataSources.Count > 0 &&
                 task.Document.DataSources.Any((s) => s is LazySource ||
                     (s is Remote.MarshalSource ms && ms.IsLazy)
-                ));
+                )) || task.Document.DataSources.Any(s => s.Length() is null);
         }
 
         public override async Task ProgressTask(WebProgressTask task)
@@ -31,7 +33,7 @@ namespace MaxLib.WebServer.Chunked
             response.FieldContentType = task.Document.PrimaryMime;
             response.SetActualDate();
             response.HttpProtocol = request.HttpProtocol;
-            response.SetHeader(new[]
+            response.SetHeader(new (string, string?)[]
             {
                 ("Connection", "keep-alive"),
                 ("X-UA-Compatible", "IE=Edge"),
@@ -41,7 +43,7 @@ namespace MaxLib.WebServer.Chunked
                 response.HeaderParameter["Content-Type"] += "; charset=" +
                     task.Document.PrimaryEncoding;
             task.Document.Information.Add("block default response creator", true);
-            await Task.CompletedTask;
+            await Task.CompletedTask.ConfigureAwait(false);
         }
     }
 }

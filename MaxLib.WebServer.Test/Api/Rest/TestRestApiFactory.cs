@@ -16,13 +16,16 @@ namespace MaxLib.WebServer.Test.Api.Rest
         {
             fact = new ApiRuleFactory();
             args = new RestQueryArgs(
+                "localhost",
                 new[] { "foo", "bar", "0", "1" },
                 new Dictionary<string, string>
                 {
                     { "foo", "bar" },
                     { "baz", "7" },
                 },
-                new HttpPost(Encoding.UTF8.GetBytes("a=1&b=2"),
+                new HttpPost(
+                    new WebProgressTask(),
+                    Encoding.UTF8.GetBytes("a=1&b=2"),
                     MimeType.ApplicationXWwwFromUrlencoded),
                 null
                 );

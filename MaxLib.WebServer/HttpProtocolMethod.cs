@@ -1,6 +1,6 @@
 ﻿namespace MaxLib.WebServer
 {
-    public static class HttpProtocollMethod
+    public static class HttpProtocolMethod
     {
         public const string Get = "GET";
 

@@ -1,6 +1,8 @@
 ﻿using System;
 using System.Threading.Tasks;
 
+#nullable enable
+
 namespace MaxLib.WebServer.Services
 {
     [Obsolete("This service has no usage. Just remove any reference from the code.")]
@@ -46,7 +48,7 @@ namespace MaxLib.WebServer.Services
             //     header.Cookie.SetRequestCookieString(value);
             // }
 
-            await Task.CompletedTask;
+            await Task.CompletedTask.ConfigureAwait(false);
         }
 
         public override bool CanWorkWith(WebProgressTask task)

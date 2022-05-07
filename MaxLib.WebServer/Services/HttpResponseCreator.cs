@@ -2,15 +2,19 @@
 using System.Linq;
 using System.Threading.Tasks;
 
+#nullable enable
+
 namespace MaxLib.WebServer.Services
 {
     /// <summary>
-    /// WebServiceType.PreCreateResponse: Erstellt den Response-Header und füllt diesen mit den wichtigsten Daten.
+    /// This service creates the response header and fill it with the necessary data. This will
+    /// also discard any unread POST data to make the network stream reader for sending data.
     /// </summary>
     public class HttpResponseCreator : WebService
     {
         /// <summary>
-        /// WebServiceType.PreCreateResponse: Erstellt den Response-Header und füllt diesen mit den wichtigsten Daten.
+        /// This service creates the response header and fill it with the necessary data. This will
+        /// also discard any unread POST data to make the network stream reader for sending data.
         /// </summary>
         public HttpResponseCreator() : base(ServerStage.CreateResponse) { }
 
@@ -23,7 +27,7 @@ namespace MaxLib.WebServer.Services
             response.FieldContentType = task.Document.PrimaryMime;
             response.SetActualDate();
             response.HttpProtocol = request.HttpProtocol;
-            response.SetHeader(new[]
+            response.SetHeader(new (string, string?)[]
             {
                 ("Connection", "keep-alive"),
                 ("X-UA-Compatible", "IE=Edge"),
@@ -32,13 +36,15 @@ namespace MaxLib.WebServer.Services
             if (task.Document.PrimaryEncoding != null)
                 response.HeaderParameter["Content-Type"] += "; charset=" +
                     task.Document.PrimaryEncoding;
+            
+            task.Request.Post.Dispose();
 
-            await Task.CompletedTask;
+            await Task.CompletedTask.ConfigureAwait(false);
         }
 
         public override bool CanWorkWith(WebProgressTask task)
         {
-            return !task.Document.Information.ContainsKey("block default response creator");
+            return !task.Document.Information.ContainsKey($"block {nameof(HttpResponseCreator)}");
         }
     }
 }

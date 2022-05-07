@@ -2,6 +2,8 @@
 using System.IO;
 using System.Threading.Tasks;
 
+#nullable enable
+
 namespace MaxLib.WebServer.Remote
 {
     [Serializable]
@@ -26,21 +28,25 @@ namespace MaxLib.WebServer.Remote
         protected override Task<long> WriteStreamInternal(Stream stream, long start, long? stop)
             => Container.WriteStream(stream, start, stop);
 
+        [Obsolete]
         protected override Task<long> ReadStreamInternal(Stream stream, long? length)
             => Container.ReadStream(stream, length);
 
+        [Obsolete]
         public override long? RangeEnd
         {
             get => Container.RangeEnd();
             set => Container.RangeEnd(value);
         }
 
+        [Obsolete]
         public override long RangeStart
         {
             get => Container.RangeStart();
             set => Container.RangeStart(value);
         }
 
+        [Obsolete]
         public override bool TransferCompleteData
         {
             get => Container.TransferCompleteData();
@@ -53,11 +59,12 @@ namespace MaxLib.WebServer.Remote
             set => Container.MimeType(value);
         }
 
+        [Obsolete]
         public override bool CanAcceptData => Container.CanAcceptData();
 
         public override bool CanProvideData => Container.CanProvideData();
 
-        public Collections.MarshalEnumerable<HttpDataSource> GetAllSources()
+        public Collections.MarshalEnumerable<HttpDataSource>? GetAllSources()
             => Container.Sources();
     }
 }

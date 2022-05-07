@@ -1,6 +1,8 @@
 ﻿using System;
 using System.Threading.Tasks;
 
+#nullable enable
+
 namespace MaxLib.WebServer.Services
 {
     /// <summary>
@@ -34,7 +36,7 @@ namespace MaxLib.WebServer.Services
             task.Document.DataSources.Add(source);
             task.Document.PrimaryEncoding = "utf-8";
 
-            await Task.CompletedTask;
+            await Task.CompletedTask.ConfigureAwait(false);
         }
 
         public override bool CanWorkWith(WebProgressTask task)

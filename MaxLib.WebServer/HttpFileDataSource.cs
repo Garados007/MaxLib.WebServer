@@ -26,19 +26,29 @@ namespace MaxLib.WebServer
                     var fi = new FileInfo(value);
                     if (!fi.Directory.Exists) fi.Directory.Create();
                     File = new FileStream(value, FileMode.OpenOrCreate,
-                        ReadOnly ? FileAccess.Read : FileAccess.ReadWrite, 
+#pragma warning disable CS0612
+                        ReadOnly ? FileAccess.Read : FileAccess.ReadWrite,
+#pragma warning restore CS0612
                         FileShare.ReadWrite);
                 }
                 path = value;
             }
         }
 
+        [Obsolete]
         public bool ReadOnly { get; }
 
+        [Obsolete]
         public override bool CanAcceptData => !ReadOnly;
 
         public override bool CanProvideData => true;
 
+        public HttpFileDataSource(string? path)
+        {
+            Path = path;
+        }
+
+        [Obsolete]
         public HttpFileDataSource(string? path, bool readOnly = true)
         {
             ReadOnly = readOnly;
@@ -55,7 +65,7 @@ namespace MaxLib.WebServer
 
         protected override async Task<long> WriteStreamInternal(Stream stream, long start, long? stop)
         {
-            await Task.CompletedTask;
+            await Task.CompletedTask.ConfigureAwait(false);
             if (File == null)
                 return 0;
             File.Position = start;
@@ -74,9 +84,10 @@ namespace MaxLib.WebServer
             }
         }
 
+        [Obsolete]
         protected override async Task<long> ReadStreamInternal(Stream stream, long? length)
         {
-            await Task.CompletedTask;
+            await Task.CompletedTask.ConfigureAwait(false);
             if (ReadOnly)
                 throw new NotSupportedException();
             if (File == null)

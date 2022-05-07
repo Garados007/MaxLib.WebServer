@@ -33,7 +33,7 @@ namespace MaxLib.WebServer.Sessions
             string key;
             if (cookie == null)
             {
-                key = await GenerateSessionKey();
+                key = await GenerateSessionKey().ConfigureAwait(false);
                 task.Request?.Cookie.AddedCookies.Add("Session",
                     new HttpCookie.Cookie(
                         "Session",
@@ -47,7 +47,7 @@ namespace MaxLib.WebServer.Sessions
             {
                 key = cookie.Value.ValueString;
             }
-            task.Session = await Get(key);
+            task.Session = await Get(key).ConfigureAwait(false);
         }
 
         /// <summary>

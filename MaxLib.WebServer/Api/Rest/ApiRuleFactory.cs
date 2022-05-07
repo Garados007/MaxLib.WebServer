@@ -2,20 +2,43 @@
 using System.Collections.Generic;
 using System.Linq;
 
+#nullable enable
+
 namespace MaxLib.WebServer.Api.Rest
 {
     public class ApiRuleFactory
     {
+        public class HostRule : ApiRule
+        {
+            public string? Key { get; set; }
+
+            public string? Host { get; set; }
+
+            public bool EndsWith { get; set; }
+
+            public override bool Check(RestQueryArgs args)
+            {
+                _ = args ?? throw new ArgumentNullException(nameof(args));
+                var success = Host is null ? true 
+                    : EndsWith
+                        ? args.Host.EndsWith(Host, StringComparison.InvariantCultureIgnoreCase)
+                        : string.Equals(Host, args.Host, StringComparison.InvariantCultureIgnoreCase);
+                if (success && Key != null)
+                    args.ParsedArguments[Key] = args.Host;
+                return success;
+            }
+        }
+
         public class UrlConstantRule : ApiLocationRule
         {
-            public string Constant { get; set; }
+            public string? Constant { get; set; }
 
             public bool IgnoreCase { get; set; } = false;
 
             public override bool Check(RestQueryArgs args)
             {
                 _ = args ?? throw new ArgumentNullException(nameof(args));
-                if (args.Location.Length <= Index)
+                if (args.Location.Length <= Index || Constant is null)
                     return false;
                 var comparison = IgnoreCase ? StringComparison.InvariantCultureIgnoreCase : StringComparison.InvariantCulture;
                 return string.Equals(Constant, args.Location[Index], comparison);
@@ -26,9 +49,9 @@ namespace MaxLib.WebServer.Api.Rest
         {
             public delegate bool ParseArgumentHandle(string variable, out T value);
 
-            public ParseArgumentHandle ParseArgument { get; set; }
+            public ParseArgumentHandle? ParseArgument { get; set; }
 
-            public string Key { get; set; }
+            public string? Key { get; set; }
 
             public override bool Check(RestQueryArgs args)
             {
@@ -39,7 +62,8 @@ namespace MaxLib.WebServer.Api.Rest
                     return false;
                 if (!ParseArgument(args.Location[Index], out T value))
                     return false;
-                args.ParsedArguments[Key] = value;
+                if (Key != null)
+                    args.ParsedArguments[Key] = value;
                 return true;
             }
         }
@@ -58,7 +82,7 @@ namespace MaxLib.WebServer.Api.Rest
             public override bool Check(RestQueryArgs args)
             {
                 _ = args ?? throw new ArgumentNullException(nameof(args));
-                return args.GetArgs.ContainsKey(Key);
+                return Key != null && args.GetArgs.ContainsKey(Key);
             }
         }
 
@@ -66,12 +90,12 @@ namespace MaxLib.WebServer.Api.Rest
         {
             public delegate bool ParseArgumentHandle(string variable, out T value);
 
-            public ParseArgumentHandle ParseArgument { get; set; }
+            public ParseArgumentHandle? ParseArgument { get; set; }
 
             public override bool Check(RestQueryArgs args)
             {
                 _ = args ?? throw new ArgumentNullException(nameof(args));
-                if (!args.GetArgs.TryGetValue(Key, out string strValue))
+                if (Key == null || !args.GetArgs.TryGetValue(Key, out string strValue))
                     return false;
                 if (ParseArgument == null)
                     return false;
@@ -103,11 +127,11 @@ namespace MaxLib.WebServer.Api.Rest
 
         public class ConditionalRule : ApiRule
         {
-            public ApiRule Condition { get; set; }
+            public ApiRule? Condition { get; set; }
 
-            public ApiRule Success { get; set; }
+            public ApiRule? Success { get; set; }
 
-            public ApiRule Fail { get; set; }
+            public ApiRule? Fail { get; set; }
 
             public override bool Check(RestQueryArgs args)
             {
@@ -125,9 +149,9 @@ namespace MaxLib.WebServer.Api.Rest
 
         public class SessionRule : ApiRule
         {
-            public string SessionKey { get; set; }
+            public string? SessionKey { get; set; }
 
-            public string Key { get; set; }
+            public string? Key { get; set; }
 
             public override bool Check(RestQueryArgs args)
             {
@@ -141,6 +165,25 @@ namespace MaxLib.WebServer.Api.Rest
                 }
                 else return false;
             }
+        }
+
+        public HostRule Host(string host, bool endsWith = false)
+        {
+            return new HostRule
+            {
+                Host = host,
+                EndsWith = endsWith,
+            };
+        }
+
+        public HostRule Host(string key, string? host, bool endsWith = false)
+        {
+            return new HostRule
+            {
+                Key = key,
+                Host = host,
+                EndsWith = endsWith,
+            };
         }
 
         public UrlConstantRule UrlConstant(string constant, bool ignoreCase = false, int index = 0)
@@ -243,7 +286,7 @@ namespace MaxLib.WebServer.Api.Rest
             where T : ApiRule
         {
             if (rule is null)
-                return null;
+                throw new ArgumentNullException(nameof(rule));
             rule.Required = false;
             return rule;
         }
