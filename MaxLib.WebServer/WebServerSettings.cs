@@ -27,6 +27,11 @@ namespace MaxLib.WebServer
         /// </summary>
         public string? MonitoringOutputDirectory { get; set; }
 
+        /// <summary>
+        /// Specify how the monitoring output should be formated.
+        /// </summary>
+        public Monitoring.OutputFormat MonitoringOutputFormat { get; set; }
+
         TimeSpan connectionDelay = TimeSpan.FromMilliseconds(20);
         /// <summary>
         /// The time after which the server should check for new incomming connections or requests.

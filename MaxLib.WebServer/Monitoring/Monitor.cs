@@ -4,6 +4,7 @@ using System.IO;
 using System.Text;
 using System.Threading.Tasks;
 using System.Diagnostics;
+using System.Text.Json;
 
 namespace MaxLib.WebServer.Monitoring
 {
@@ -57,8 +58,33 @@ namespace MaxLib.WebServer.Monitoring
                 watch.WriteTo(writer);
         }
 
+        public void WriteTo(Utf8JsonWriter writer)
+        {
+            writer.WriteStartArray();
+            foreach (var watch in watches)
+                watch.WriteTo(writer);
+            writer.WriteEndArray();
+        }
+
+        public IEnumerable<IWatchDetails> GetDetails()
+        {
+            foreach (var watch in watches)
+            {
+                if (watch is IWatchDetails detail)
+                    yield return detail;
+            }
+        }
+
         internal async Task Save(string path, DateTime started, WebProgressTask task)
         {
+            var format = task.Server?.Settings.MonitoringOutputFormat ?? OutputFormat.TextLog;
+            var ext = format switch
+            {
+                OutputFormat.TextLog => ".log",
+                OutputFormat.Json => ".json",
+                _ => "",
+            };
+
             var callName = SanitizePath(task.Request.Location.DocumentPath);
             if (callName.Length == 0)
                 callName = "_";
@@ -68,23 +94,44 @@ namespace MaxLib.WebServer.Monitoring
             if (!Directory.Exists(dir))
                 Directory.CreateDirectory(dir);
             var inc = 1;
-            var file = $"{dir}/{date}.log";
+            var file = $"{dir}/{date}{ext}";
             while (File.Exists(file))
             {
                 inc++;
-                file = $"{dir}/{date}.{inc}.log";
+                file = $"{dir}/{date}.{inc}{ext}";
             }
 
             using var stream = new FileStream(file, FileMode.OpenOrCreate, FileAccess.Write, FileShare.Read);
-            using var writer = new StreamWriter(stream, Encoding.UTF8);
-            try { WriteTo(writer); }
-            catch (Exception e)
+            switch (format)
             {
-                WebServerLog.Add(ServerLogType.FatalError, GetType(), "write logs", e.ToString());
-                writer.WriteLine(e);
+                case OutputFormat.Json:
+                    {
+                        using var writer = new Utf8JsonWriter(stream, new JsonWriterOptions
+                        {
+                            Indented = true,
+                        });
+                        try { WriteTo(writer); }
+                        catch (Exception e)
+                        {
+                            WebServerLog.Add(ServerLogType.FatalError, GetType(), "write logs", e.ToString());
+                        }
+                        await writer.FlushAsync();
+                        writer.Flush();
+                    } break;
+                default:
+                    {
+                        using var writer = new StreamWriter(stream, Encoding.UTF8);
+                        try { WriteTo(writer); }
+                        catch (Exception e)
+                        {
+                            WebServerLog.Add(ServerLogType.FatalError, GetType(), "write logs", e.ToString());
+                            writer.WriteLine(e);
+                        }
+                        await writer.FlushAsync();
+                        writer.Flush();
+                    } break;
             }
-            await writer.FlushAsync();
-            writer.Flush();
+            
             await stream.FlushAsync();
         }
 

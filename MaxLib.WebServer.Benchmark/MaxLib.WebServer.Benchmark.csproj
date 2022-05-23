@@ -1,0 +1,31 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>netstandard2.1</TargetFramework>
+    <Nullable>enable</Nullable>
+    <PackageId>MaxLib.WebServer.Benchmark</PackageId>
+    <Authors>garados007</Authors>
+    <Company>Max Brauer</Company>
+    <PackageDescription>
+      MaxLib.Ini.Benchmark is an extension for MaxLib.WebServer that adds some Benchmarking
+      utilities to test the performance of the library and your custom code.
+    </PackageDescription>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <RepositoryUrl>https://github.com/Garados007/MaxLib.WebServer</RepositoryUrl>
+    <RootNamespace>MaxLib.WebServer</RootNamespace>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <DocumentationFile>MaxLib.WebServer.Benchmark.xml</DocumentationFile>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\MaxLib.WebServer\MaxLib.WebServer.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Include="..\.editorconfig" Link=".editorconfig" />
+  </ItemGroup>
+
+</Project>

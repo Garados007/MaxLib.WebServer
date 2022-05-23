@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using System.Text.Json;
 
 namespace MaxLib.WebServer.Monitoring
 {
@@ -8,6 +9,8 @@ namespace MaxLib.WebServer.Monitoring
         TimeSpan Elapsed { get; }
 
         void WriteTo(TextWriter writer);
+
+        void WriteTo(Utf8JsonWriter writer);
 
         void Log(string format, params object[] args);
 

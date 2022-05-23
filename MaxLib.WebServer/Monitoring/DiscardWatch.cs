@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using System.Text.Json;
 
 namespace MaxLib.WebServer.Monitoring
 {
@@ -24,6 +25,11 @@ namespace MaxLib.WebServer.Monitoring
         public void WriteTo(TextWriter writer)
         {
             throw new NotSupportedException("no logs exists to write");
+        }
+
+        public void WriteTo(Utf8JsonWriter writer)
+        {
+            writer.WriteNullValue();
         }
     }
 }

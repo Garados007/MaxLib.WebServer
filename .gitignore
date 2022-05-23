@@ -8,3 +8,6 @@ TestResults
 MaxLib.WebServer.Files
 .vs
 /MaxLib.WebServer/MaxLib.WebServer.xml
+
+# build files
+logs

@@ -8,7 +8,11 @@ namespace MaxLib.WebServer.Example
         static void Main(string[] args)
         {
             WebServerLog.LogAdded += WebServerLog_LogAdded;
-            var server = new Server(new WebServerSettings(8000, 5000));
+            var server = new Server(new WebServerSettings(8000, 5000)
+            {
+                // MonitoringOutputDirectory = "logs",
+                // MonitoringOutputFormat = Monitoring.OutputFormat.Json,
+            });
             // add services
             server.AddWebService(new HttpRequestParser());
             server.AddWebService(new HttpHeaderSpecialAction());
