@@ -101,7 +101,9 @@ namespace MaxLib.WebServer.Builder.Tools
         {
             var convAttr = method.ReturnParameter.GetCustomAttribute<DataConverterAttribute>();
             IDataConverter converter;
-            if (convAttr != null)
+            if (convAttr?.Instance != null)
+                converter = convAttr.Instance;
+            else if (convAttr != null)
             {
                 if (!typeof(Tools.IDataConverter).IsAssignableFrom(convAttr.Converter))
                     return null;

@@ -18,16 +18,16 @@ namespace MaxLib.WebServer.Builder
             bool Convert(Utf8JsonWriter writer, object value);
         }
 
-        /// <summary>
-        /// The options that should be used for the default JSON conversion. This will
-        /// be ignored if <see cref="CustomConverter" /> is set.
-        /// </summary>
-        public JsonSerializerOptions? Options { get; set; }
+        // /// <summary>
+        // /// The options that should be used for the default JSON conversion. This will
+        // /// be ignored if <see cref="CustomConverter" /> is set.
+        // /// </summary>
+        // public JsonSerializerOptions? Options { get; set; }
 
-        /// <summary>
-        /// The writer options that is used to format the JSON data.
-        /// </summary>
-        public JsonWriterOptions WriterOptions { get; set; }
+        // /// <summary>
+        // /// The writer options that is used to format the JSON data.
+        // /// </summary>
+        // public JsonWriterOptions WriterOptions { get; set; }
 
         /// <summary>
         /// The custom converter that is used to transform the JSON data to the desired format. <br/>
@@ -44,6 +44,16 @@ namespace MaxLib.WebServer.Builder
             Instance = this;
         }
 
+        /// <summary>
+        /// Creates a new converter that can convert the result into a <see cref="HttpDataSource" />.
+        /// </summary>
+        public JsonDataConverterAttribute(Type customConverter)
+            : base(typeof(JsonDataConverterAttribute), false)
+        {
+            Instance = this;
+            CustomConverter = customConverter;
+        }
+
         public Func<object, HttpDataSource?>? GetConverter(Type data)
         {
             Func<Utf8JsonWriter, object, bool>? writer = null;
@@ -52,14 +62,20 @@ namespace MaxLib.WebServer.Builder
             {
                 ICustomJsonConverter conv;
                 try { conv = (ICustomJsonConverter)Activator.CreateInstance(CustomConverter); }
-                catch { return null; }
+                catch (Exception e)
+                {
+                    WebServerLog.Add(ServerLogType.Error, GetType(), "JSON Convert", 
+                        $"Error: {e}"
+                    );
+                    return null; 
+                }
                 writer = conv.Convert;
             }
             else
             {
                 writer = (w, value) =>
                 {
-                    try { JsonSerializer.Serialize(w, value, Options); }
+                    try { JsonSerializer.Serialize(w, value, new JsonSerializerOptions()); }
                     catch { return false; }
                     return true;
                 };
@@ -71,7 +87,7 @@ namespace MaxLib.WebServer.Builder
             return value =>
             {
                 var m = new MemoryStream();
-                var w = new Utf8JsonWriter(m, WriterOptions);
+                var w = new Utf8JsonWriter(m, new JsonWriterOptions(){ Indented = true });
 
                 if (!writer(w, value))
                 {
