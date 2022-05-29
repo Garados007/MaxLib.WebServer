@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Text.Json;
+using System.Text.Json.Serialization;
 
 #nullable enable
 
@@ -13,7 +14,16 @@ namespace MaxLib.WebServer.WebSocket
         /// <summary>
         /// The name of the event to identify
         /// </summary>
+        [JsonIgnore]
         public virtual string TypeName => GetType().Name;
+
+        /// <summary>
+        /// Tells <see cref="EventFactory" /> if a new instance is generated during the
+        /// deserialization of the json data. If this property is false the current instance can be
+        /// updated.
+        /// </summary>
+        [JsonIgnore]
+        protected internal virtual bool DeserializeNew => false;
 
         /// <summary>
         /// Write the content as a JSON to <see cref="Utf8JsonWriter"/>
@@ -33,6 +43,18 @@ namespace MaxLib.WebServer.WebSocket
         /// </summary>
         /// <param name="writer">the <see cref="Utf8JsonWriter"/> to write into</param>
         protected abstract void WriteJsonContent(Utf8JsonWriter writer);
+
+        /// <summary>
+        /// Reads the value content from JSON and returns the object with updated information. If
+        /// <see cref="DeserializeNew" /> is false this will return the current object.
+        /// </summary>
+        /// <param name="json">the <see cref="JsonElement" /> to read from</param>
+        /// <returns>the updated object</returns>
+        public virtual EventBase ReadJson(JsonElement json)
+        {
+            ReadJsonContent(json);
+            return this;
+        }
 
         /// <summary>
         /// Read the value content from JSON

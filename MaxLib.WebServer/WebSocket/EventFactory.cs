@@ -40,8 +40,7 @@ namespace MaxLib.WebServer.WebSocket
             if (key == null || !registry.TryGetValue(key, out Func<EventBase>? caller))
                 throw new KeyNotFoundException($"type {{{key}}} not registered");
             var @event = caller();
-            @event.ReadJsonContent(doc.RootElement);
-            return @event;
+            return @event.ReadJson(doc.RootElement);
         }
 
         public bool TryParse(Frame frame, [NotNullWhen(true)] out EventBase? @event)
