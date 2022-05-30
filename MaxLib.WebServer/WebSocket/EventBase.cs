@@ -50,9 +50,14 @@ namespace MaxLib.WebServer.WebSocket
         /// </summary>
         /// <param name="json">the <see cref="JsonElement" /> to read from</param>
         /// <returns>the updated object</returns>
-        public virtual EventBase ReadJson(JsonElement json)
+        public virtual EventBase? ReadJson(JsonElement json)
         {
-            ReadJsonContent(json);
+            try { ReadJsonContent(json); }
+            catch (JsonException e)
+            {
+                WebServerLog.Add(ServerLogType.Error, GetType(), "read json", "error: {0}", e);
+                return null;
+            }
             return this;
         }
 
@@ -62,11 +67,16 @@ namespace MaxLib.WebServer.WebSocket
         /// <param name="json">the <see cref="JsonElement"/> to read from</param>
         public abstract void ReadJsonContent(JsonElement json);
 
-        public virtual Frame ToFrame()
+        public virtual Frame? ToFrame()
         {
             using var m = new System.IO.MemoryStream();
             using var writer = new Utf8JsonWriter(m);
-            WriteJson(writer);
+            try { WriteJson(writer); }
+            catch (JsonException e)
+            {
+                WebServerLog.Add(ServerLogType.Error, GetType(), "write json", "error: {0}", e);
+                return null;
+            }
             writer.Flush();
 
             var frame = new Frame

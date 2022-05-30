@@ -25,7 +25,9 @@ namespace MaxLib.WebServer.WebSocket
 
         protected virtual async Task SendFrame(EventBase @event)
         {
-            await SendFrame(@event.ToFrame()).ConfigureAwait(false);
+            var frame = @event.ToFrame();
+            if (frame != null)
+                await SendFrame(frame).ConfigureAwait(false);
         }
     }
 }

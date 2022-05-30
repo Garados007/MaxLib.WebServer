@@ -32,7 +32,7 @@ namespace MaxLib.WebServer.WebSocket
             registry.Add(key, () => (EventBase)constructor.Invoke(Array.Empty<object>()));
         }
 
-        public EventBase Parse(Frame frame)
+        public EventBase? Parse(Frame frame)
         {
             _ = frame ?? throw new ArgumentNullException(nameof(frame));
             var doc = JsonDocument.Parse(frame.Payload);
@@ -49,7 +49,7 @@ namespace MaxLib.WebServer.WebSocket
             try
             {
                 @event = Parse(frame);
-                return true;
+                return @event != null;
             }
             catch (Exception e)
             {
