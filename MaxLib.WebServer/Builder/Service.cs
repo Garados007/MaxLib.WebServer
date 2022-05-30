@@ -37,6 +37,15 @@ namespace MaxLib.WebServer.Builder
     public abstract class Service : IDisposable
     {
         /// <summary>
+        /// The flags that specify the errors the generator will report to the log output.
+        /// </summary>
+        public static Tools.GeneratorLogFlag LogBuildWarnings
+        {
+            get => Tools.Generator.LogBuildWarnings;
+            set => Tools.Generator.LogBuildWarnings = value;
+        }
+
+        /// <summary>
         /// Override this method if you want to include special dispose logic if you shutdown your
         /// server.
         /// </summary>
