@@ -95,7 +95,7 @@ namespace MaxLib.WebServer.Api.Rest
             public override bool Check(RestQueryArgs args)
             {
                 _ = args ?? throw new ArgumentNullException(nameof(args));
-                if (Key == null || !args.GetArgs.TryGetValue(Key, out string strValue))
+                if (Key == null || !args.GetArgs.TryGetValue(Key, out string? strValue))
                     return false;
                 if (ParseArgument == null)
                     return false;
@@ -158,7 +158,7 @@ namespace MaxLib.WebServer.Api.Rest
                 _ = args ?? throw new ArgumentNullException(nameof(args));
                 if (args.Session == null || Key == null || SessionKey == null)
                     return false;
-                if (args.Session.TryGetValue(SessionKey, out object value))
+                if (args.Session.TryGetValue(SessionKey, out object? value))
                 {
                     args.ParsedArguments[Key] = value;
                     return true;

@@ -25,7 +25,7 @@ namespace MaxLib.WebServer.Builder.Tools
                     "generate class",
                     "[{0:X4}] Type {1} ignored because it's abstract",
                     (int)code,
-                    type.FullName
+                    type
                 );
         }
 
@@ -39,7 +39,7 @@ namespace MaxLib.WebServer.Builder.Tools
                     "generate class",
                     "[{0:X4}] Type {1} ignored because it's generic",
                     (int)code,
-                    type.FullName
+                    type
                 );
         }
 
@@ -109,8 +109,8 @@ namespace MaxLib.WebServer.Builder.Tools
                     "[{0:X4}] Method {1} ignored because is was declared in {2} or {3}",
                     (int)code,
                     method,
-                    typeof(object).FullName,
-                    typeof(Service).FullName
+                    typeof(object),
+                    typeof(Service)
                 );
         }
 
@@ -187,7 +187,7 @@ namespace MaxLib.WebServer.Builder.Tools
                     "[{0:X4}] Method {1} ignored because there cannot be created an instance for the result data converter {2}",
                     (int)code,
                     method,
-                    attr.Converter.FullName
+                    attr.Converter
                 );
         }
 
@@ -309,7 +309,7 @@ namespace MaxLib.WebServer.Builder.Tools
                     LogParamNoConverterFound(method, parameter, converter);
                     return null;
                 }
-                return new Runtime.Parameter(parameter.Name, paramAttr, convFunc);
+                return new Runtime.Parameter(parameter.Name ?? "", paramAttr, convFunc);
             }
             else
             {
@@ -376,7 +376,7 @@ namespace MaxLib.WebServer.Builder.Tools
                 var applier = ApplyResult(converter, type.GetGenericArguments()[0]);
                 if (applier is null)
                     return null;
-                var getResult = type.GetProperty("Result");
+                var getResult = type.GetProperty("Result")!;
                 return async (task, value) =>
                 {
                     if (value is null)
@@ -392,7 +392,7 @@ namespace MaxLib.WebServer.Builder.Tools
                 var applier = ApplyResult(converter, type.GetGenericArguments()[0]);
                 if (applier is null)
                     return null;
-                var getResult = type.GetProperty("Result");
+                var getResult = type.GetProperty("Result")!;
                 return async (task, value) =>
                 {
                     if (value is null)

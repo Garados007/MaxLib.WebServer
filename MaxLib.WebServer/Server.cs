@@ -249,7 +249,7 @@ namespace MaxLib.WebServer
                 NetworkClient = client,
                 Ip = client.Client.RemoteEndPoint is IPEndPoint iPEndPoint
                     ? iPEndPoint.Address.ToString()
-                    : client.Client.RemoteEndPoint.ToString(),
+                    : client.Client.RemoteEndPoint?.ToString(),
             };
             AllConnections.Add(connection);
             //listen to connection
@@ -280,7 +280,7 @@ namespace MaxLib.WebServer
             if (connection.NetworkClient != null && connection.NetworkClient.Connected)
             {
                 WebServerLog.Add(ServerLogType.Information, GetType(), "Connection", "Listen to Connection {0}", 
-                    connection.NetworkClient.Client.RemoteEndPoint);
+                    connection.NetworkClient?.Client.RemoteEndPoint);
                 var task = PrepairProgressTask(connection);
                 if (task == null)
                 {
@@ -380,12 +380,20 @@ namespace MaxLib.WebServer
             return task;
         }
 
+#if NET5_0_OR_GREATER
         /// <summary>
         /// The cancellation token that is used by <see cref="RunAsync(bool, bool, bool)" />. This
         /// property is set after the call to the Run method was initiated.
         /// </summary>
+#else
+        /// <summary>
+        /// The cancellation token that is used by <see cref="RunAsync(bool, bool)" />. This
+        /// property is set after the call to the Run method was initiated.
+        /// </summary>
+#endif
         public CancellationTokenSource? RunToken { get; private set; }
 
+#if NET5_0_OR_GREATER
         /// <summary>
         /// Starts the server and waits for the completion of it. This will also populate <see
         /// cref="RunToken" />.
@@ -396,10 +404,23 @@ namespace MaxLib.WebServer
         /// <param name="cancelFromAssemblyUnload">
         /// Cancel the execution if an assembly unload was received.
         /// </param>
-        /// <param name="cancelFromConsoleInput">
+        /// /// <param name="cancelFromConsoleInput">
         /// Cancel the execution after the user pressed the letter 'q' in the terminal.
         /// </param>
         /// <returns>the execution task</returns>
+#else
+        /// <summary>
+        /// Starts the server and waits for the completion of it. This will also populate <see
+        /// cref="RunToken" />.
+        /// </summary>
+        /// <param name="cancelFromConsoleEvent">
+        /// Cancel the execution after a Ctrl+C or Ctrl+Break was received.
+        /// </param>
+        /// /// <param name="cancelFromConsoleInput">
+        /// Cancel the execution after the user pressed the letter 'q' in the terminal.
+        /// </param>
+        /// <returns>the execution task</returns>
+#endif
         public async Task RunAsync(
             bool cancelFromConsoleEvent = true,
 #if NET5_0_OR_GREATER        

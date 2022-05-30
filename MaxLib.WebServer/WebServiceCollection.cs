@@ -138,9 +138,9 @@ namespace MaxLib.WebServer
             Services.Add(item.Priority, item);
         }
 
-        private void Service_PriorityChanged(object sender, EventArgs e)
+        private void Service_PriorityChanged(object? sender, EventArgs e)
         {
-            var service = (WebService)sender;
+            var service = (WebService)sender!;
             Services.ChangePriority(service.Priority, service);
         }
 

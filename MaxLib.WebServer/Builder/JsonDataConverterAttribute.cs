@@ -56,7 +56,7 @@ namespace MaxLib.WebServer.Builder
             if (CustomConverter != null)
             {
                 ICustomJsonDataConverter conv;
-                try { conv = (ICustomJsonDataConverter)Activator.CreateInstance(CustomConverter); }
+                try { conv = (ICustomJsonDataConverter)Activator.CreateInstance(CustomConverter)!; }
                 catch (Exception e)
                 {
                     WebServerLog.Add(ServerLogType.Error, GetType(), "JSON Convert", 

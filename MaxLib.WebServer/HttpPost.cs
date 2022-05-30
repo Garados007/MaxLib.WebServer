@@ -44,7 +44,7 @@ namespace MaxLib.WebServer
             }
 
             if ((MimeType = mime) != null &&
-                DataHandler.TryGetValue(mime!, out Func<IPostData> constructor)
+                DataHandler.TryGetValue(mime!, out Func<IPostData>? constructor)
             )
                 LazyData = new Lazy<Task<IPostData>>(() =>
                 {

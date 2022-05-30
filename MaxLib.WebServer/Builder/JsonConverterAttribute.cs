@@ -74,7 +74,7 @@ namespace MaxLib.WebServer.Builder
             if (CustomConverter != null)
             {
                 ICustomJsonConverter conv;
-                try { conv = (ICustomJsonConverter)Activator.CreateInstance(CustomConverter); }
+                try { conv = (ICustomJsonConverter)Activator.CreateInstance(CustomConverter)!; }
                 catch { return null; }
 
                 return x =>

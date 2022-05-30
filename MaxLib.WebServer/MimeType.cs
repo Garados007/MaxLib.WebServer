@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Net;
+using System.Net.Http;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
@@ -185,7 +186,7 @@ namespace MaxLib.WebServer
             _ = extension ?? throw new ArgumentNullException(nameof(extension));
             if (extension.StartsWith('.'))
                 return GetMimeTypeForExtension(extension[1..]);
-            if (mimeTypes.TryGetValue(extension.ToLower(), out string mime))
+            if (mimeTypes.TryGetValue(extension.ToLower(), out string? mime))
                 return mime;
             else return null;
         }
@@ -229,8 +230,8 @@ namespace MaxLib.WebServer
             else
             {
                 WebServerLog.Add(ServerLogType.Debug, typeof(MimeType), "load mime", "Update Mime Cachce");
-                using var wc = new WebClient();
-                var reader = new StringReader(await wc.DownloadStringTaskAsync(
+                using var client = new HttpClient();
+                var reader = new StringReader(await client.GetStringAsync(
                     @"http://svn.apache.org/repos/asf/httpd/httpd/trunk/docs/conf/mime.types"
                 ));
                 var regex = new Regex(

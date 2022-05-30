@@ -39,7 +39,7 @@ namespace MaxLib.WebServer.Builder
             var post = task.Request.Post.Data;
             if (!(post is Post.UrlEncodedData data))
                 return new Result<object?>();
-            if (!data.Parameter.TryGetValue(Name ?? field, out string value))
+            if (!data.Parameter.TryGetValue(Name ?? field, out string? value))
                 return new Result<object?>();
             return new Result<object?>(value);
         }

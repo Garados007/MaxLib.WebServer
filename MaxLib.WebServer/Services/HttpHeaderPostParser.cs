@@ -27,7 +27,7 @@ namespace MaxLib.WebServer.Services
 
             var header = task.Request;
             //Accept
-            if (header.HeaderParameter.TryGetValue("Accept", out string value))
+            if (header.HeaderParameter.TryGetValue("Accept", out string? value))
             {
                 header.FieldAccept.AddRange(value.Split(
                     new[] { ',', ' ', ';' }, StringSplitOptions.RemoveEmptyEntries));

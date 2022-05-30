@@ -32,7 +32,7 @@ namespace MaxLib.WebServer
             InformationMemory = information.AsMemory();
         }
 
-        public ServerLogItem(DateTime date, ServerLogType type, Type sender, string infoType, string mask, params object[] data)
+        public ServerLogItem(DateTime date, ServerLogType type, Type sender, string infoType, string mask, params object?[] data)
             : this(date, type, sender, infoType, string.Format(mask, data))
         { }
 
@@ -41,7 +41,7 @@ namespace MaxLib.WebServer
         {
         }
 
-        public ServerLogItem(ServerLogType type, Type sender, string infoType, string mask, params object[] data)
+        public ServerLogItem(ServerLogType type, Type sender, string infoType, string mask, params object?[] data)
             : this(type, sender, infoType, string.Format(mask, data))
         { }
 

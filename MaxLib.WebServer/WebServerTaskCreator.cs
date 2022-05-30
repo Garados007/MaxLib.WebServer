@@ -59,7 +59,7 @@ namespace MaxLib.WebServer
         public void SetAccept(string[]? acceptTypes = null, string[]? encoding = null)
         {
             if (acceptTypes != null) Task.Request.FieldAccept.AddRange(acceptTypes);
-            if (encoding != null) Task.Request.FieldAcceptEncoding.AddRange(acceptTypes);
+            if (encoding != null) Task.Request.FieldAcceptEncoding.AddRange(encoding);
         }
 
         public void SetHost(string host)

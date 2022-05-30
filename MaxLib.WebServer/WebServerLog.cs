@@ -39,7 +39,7 @@ namespace MaxLib.WebServer
             Add(new ServerLogItem(type, sender, infoType, information));
         }
 
-        public static void Add(ServerLogType type, Type sender, string infoType, string mask, params object[] data)
+        public static void Add(ServerLogType type, Type sender, string infoType, string mask, params object?[] data)
         {
             Add(new ServerLogItem(type, sender, infoType, mask: mask, data: data));
         }
