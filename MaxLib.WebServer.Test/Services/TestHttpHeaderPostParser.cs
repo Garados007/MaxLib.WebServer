@@ -30,10 +30,9 @@ namespace MaxLib.WebServer.Test.Services
         {
             test.Request.HeaderParameter.Add("Accept", "text/css,*/*;q=0.1");
             await new HttpHeaderPostParser().ProgressTask(test.Task).ConfigureAwait(false);
-            Assert.AreEqual(3, test.Request.FieldAccept.Count);
+            Assert.AreEqual(2, test.Request.FieldAccept.Count);
             Assert.AreEqual("text/css", test.Request.FieldAccept[0]);
-            Assert.AreEqual("*/*", test.Request.FieldAccept[1]);
-            Assert.AreEqual("q=0.1", test.Request.FieldAccept[2]);
+            Assert.AreEqual("*/*;q=0.1", test.Request.FieldAccept[1]);
         }
 
         [TestMethod]
