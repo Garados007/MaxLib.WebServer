@@ -12,7 +12,7 @@ namespace MaxLib.WebServer.Example
             // add services
             server.AddWebService(new HttpRequestParser());
             server.AddWebService(new HttpHeaderSpecialAction());
-            server.AddWebService(new StandardDocumentLoader() { Document = "Hello World!" });
+            server.AddWebService(new Http404Service());
             server.AddWebService(new HttpResponseCreator());
             server.AddWebService(new HttpSender());
             // start server
