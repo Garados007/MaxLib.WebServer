@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 
 namespace MaxLib.WebServer.Api.Rest
 {
+    [Obsolete("The ApiService and the RestApiService classes are no longer maintained and will be removed in a future update. Use the Builder system instead.")]
     public class RestApiService : ApiService
     {
         public List<RestEndpoint> RestEndpoints { get; } = new List<RestEndpoint>();

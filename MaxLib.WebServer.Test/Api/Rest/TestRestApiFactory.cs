@@ -2,9 +2,11 @@
 using MaxLib.WebServer.Api.Rest;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using System.Collections.Generic;
+using System;
 
 namespace MaxLib.WebServer.Test.Api.Rest
 {
+    [Obsolete]
     [TestClass]
     public class TestRestApiFactory
     {

@@ -67,11 +67,10 @@ namespace MaxLib.WebServer
 
         /// <summary>
         /// Initialize the server with a basic set of web services. These are: <see
-        /// cref="Services.HttpRequestParser" />, <see cref="Services.HttpHeaderPostParser" />, <see
-        /// cref="Services.HttpHeaderSpecialAction" />, <see cref="Services.Http404Service" />, <see
-        /// cref="Services.HttpResponseCreator" /> and <see cref="Services.HttpSender" />. <br/>
-        /// With these you have basic functionality and a working web server that can deliver 404
-        /// answers for every request.
+        /// cref="Services.HttpRequestParser" />, <see cref="Services.HttpHeaderSpecialAction" />,
+        /// <see cref="Services.Http404Service" />, <see cref="Services.HttpResponseCreator" /> and
+        /// <see cref="Services.HttpSender" />. <br/> With these you have basic functionality and a
+        /// working web server that can deliver 404 answers for every request.
         /// </summary>
         public virtual void InitialDefault()
         {

@@ -6,6 +6,7 @@ using System.Threading.Tasks;
 
 namespace MaxLib.WebServer.Test.Api.Rest
 {
+    [Obsolete]
     [TestClass]
     public class TestRestActionEndpoint
     {
