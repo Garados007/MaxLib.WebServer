@@ -7,9 +7,7 @@
     <PackageId>MaxLib.WebServer</PackageId>
     <Authors>garados007</Authors>
     <Company>Max Brauer</Company>
-    <PackageDescription>
-      MaxLib.Ini is a full web server written in C# that can easily integrated in your project.
-    </PackageDescription>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <RepositoryUrl>https://github.com/Garados007/MaxLib.WebServer</RepositoryUrl>
   </PropertyGroup>
@@ -35,6 +33,7 @@
 
   <ItemGroup>
     <None Include="..\.editorconfig" Link=".editorconfig" />
+    <None Include="..\README.md" Pack="true" PackagePath="\" />
   </ItemGroup>
 
 </Project>
