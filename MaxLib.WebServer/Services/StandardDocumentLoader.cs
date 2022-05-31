@@ -9,6 +9,7 @@ namespace MaxLib.WebServer.Services
     /// WebServiceType.PreCreateDocument: Stellt ein festdefiniertes Dokument bereit. Dies ist unabhängig vom 
     /// angeforderten Pfad.
     /// </summary>
+    [Obsolete("Define your own endpoint or use Http404Service")]
     public class StandardDocumentLoader : WebService
     {
         /// <summary>
