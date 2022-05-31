@@ -6,7 +6,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\MaxLib.WebServer\MaxLib.WebServer.csproj" />
+    <ProjectReference Include="..\..\MaxLib.WebServer\MaxLib.WebServer.csproj" />
   </ItemGroup>
 
 </Project>

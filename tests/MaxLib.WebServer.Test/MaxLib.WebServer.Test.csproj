@@ -1,6 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
-  <Import Project="..\MaxLib.WebServer\MaxLib.WebServer.csproj.include" />
+  <Import Project="..\..\MaxLib.WebServer\MaxLib.WebServer.csproj.include" />
 
   <PropertyGroup>
     <TargetFramework>netcoreapp3.1</TargetFramework>
@@ -16,7 +16,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\MaxLib.WebServer\MaxLib.WebServer.csproj" />
+    <ProjectReference Include="..\..\MaxLib.WebServer\MaxLib.WebServer.csproj" />
   </ItemGroup>
 
 </Project>
