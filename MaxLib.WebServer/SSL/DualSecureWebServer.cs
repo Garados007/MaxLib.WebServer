@@ -20,9 +20,7 @@ namespace MaxLib.WebServer.SSL
 
         protected override async Task ClientStartListen(HttpConnection connection)
         {
-            if (connection.NetworkStream == null && DualSettings.Certificate != null
-                && connection.NetworkClient != null
-            )
+            if (connection.NetworkStream == null && connection.NetworkClient != null)
             {
                 var peaker = new StreamPeaker(connection.NetworkClient.GetStream());
                 var mark = peaker.FirstByte;

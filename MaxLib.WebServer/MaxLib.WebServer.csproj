@@ -25,7 +25,6 @@
 
   <ItemGroup>
     <PackageReference Include="MaxLib.Common" Version="1.2.1" />
-    <PackageReference Include="MaxLib.Ini" Version="1.1.1" />
     <PackageReference Include="System.Text.Json" Version="6.0.2" />
   </ItemGroup>
 

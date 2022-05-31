@@ -1,5 +1,4 @@
-﻿using MaxLib.Ini;
-using System.Security.Cryptography.X509Certificates;
+﻿using System.Security.Cryptography.X509Certificates;
 
 #nullable enable
 
@@ -12,11 +11,6 @@ namespace MaxLib.WebServer.SSL
 
         public X509Certificate? Certificate { get; set; }
 
-        public SecureWebServerSettings(string settingFolderPath)
-            : base(settingFolderPath)
-        {
-        }
-
         public SecureWebServerSettings(int port, int securePort, int connectionTimeout)
             : base(port, connectionTimeout)
         {
@@ -28,14 +22,6 @@ namespace MaxLib.WebServer.SSL
         {
             SecurePort = securePort;
             EnableUnsafePort = false;
-        }
-
-        protected override void Load_Server(IniFile set)
-        {
-            base.Load_Server(set);
-            var server = set.GetGroup("Server");
-            SecurePort = server.GetInt32("SecurePort", 443);
-            EnableUnsafePort = server.GetBool("EnableUnsafePort", true);
         }
     }
 }
