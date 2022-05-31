@@ -211,7 +211,7 @@ namespace MaxLib.WebServer.Api.Rest
         {
             // thx to: https://stackoverflow.com/a/52500763/12469007
             value = default;
-            var voidTaskType = typeof(Task<>).MakeGenericType(Type.GetType("System.Threading.Tasks.VoidTaskResult"));
+            var voidTaskType = typeof(Task<>).MakeGenericType(Type.GetType("System.Threading.Tasks.VoidTaskResult")!);
             if (voidTaskType.IsAssignableFrom(task.GetType()))
                 return false;
             var property = task.GetType().GetProperty("Result", BindingFlags.Public | BindingFlags.Instance);

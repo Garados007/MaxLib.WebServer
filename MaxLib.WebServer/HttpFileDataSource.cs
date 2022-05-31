@@ -24,7 +24,7 @@ namespace MaxLib.WebServer
                 else
                 {
                     var fi = new FileInfo(value);
-                    if (!fi.Directory.Exists) fi.Directory.Create();
+                    if (!fi.Directory!.Exists) fi.Directory.Create();
                     File = new FileStream(value, FileMode.OpenOrCreate,
 #pragma warning disable CS0612
                         ReadOnly ? FileAccess.Read : FileAccess.ReadWrite,

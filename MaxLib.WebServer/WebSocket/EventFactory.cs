@@ -32,7 +32,7 @@ namespace MaxLib.WebServer.WebSocket
             registry.Add(key, () => (EventBase)constructor.Invoke(Array.Empty<object>()));
         }
 
-        public EventBase Parse(Frame frame)
+        public EventBase? Parse(Frame frame)
         {
             _ = frame ?? throw new ArgumentNullException(nameof(frame));
             var doc = JsonDocument.Parse(frame.Payload);
@@ -40,8 +40,7 @@ namespace MaxLib.WebServer.WebSocket
             if (key == null || !registry.TryGetValue(key, out Func<EventBase>? caller))
                 throw new KeyNotFoundException($"type {{{key}}} not registered");
             var @event = caller();
-            @event.ReadJsonContent(doc.RootElement);
-            return @event;
+            return @event.ReadJson(doc.RootElement);
         }
 
         public bool TryParse(Frame frame, [NotNullWhen(true)] out EventBase? @event)
@@ -50,7 +49,7 @@ namespace MaxLib.WebServer.WebSocket
             try
             {
                 @event = Parse(frame);
-                return true;
+                return @event != null;
             }
             catch (Exception e)
             {

@@ -77,7 +77,7 @@ namespace MaxLib.WebServer.Post
         {
             public string FileName { get; }
 
-            public string? MimeType => Header.TryGetValue("Content-Type", out string mime) ? mime : null;
+            public string? MimeType => Header.TryGetValue("Content-Type", out string? mime) ? mime : null;
 
             public FormDataFile(Dictionary<string, string> header, string name, string fileName)
                 : base(header, name)
@@ -112,7 +112,7 @@ namespace MaxLib.WebServer.Post
         {
             _ = header ?? throw new ArgumentNullException(nameof(header));
 
-            if (header.TryGetValue("Content-Disposition", out string disposition))
+            if (header.TryGetValue("Content-Disposition", out string? disposition))
             {
                 if (!disposition.StartsWith("form-data"))
                     return new FormEntry(header);

@@ -18,7 +18,7 @@ namespace MaxLib.WebServer.Services
         public override bool CanWorkWith(WebProgressTask task)
             => true;
 
-        private static Version Version = typeof(Http404Service).Assembly.GetName().Version;
+        private static Version Version = typeof(Http404Service).Assembly.GetName().Version ?? new Version();
 
         public override Task ProgressTask(WebProgressTask task)
         {

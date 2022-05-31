@@ -34,7 +34,7 @@ namespace MaxLib.WebServer.Builder
             Dictionary<string, object?> vars
         )
         {
-            if (!task.Request.Location.GetParameter.TryGetValue(Name ?? field, out string value))
+            if (!task.Request.Location.GetParameter.TryGetValue(Name ?? field, out string? value))
                 return new Result<object?>();
             return new Result<object?>(value);
         }

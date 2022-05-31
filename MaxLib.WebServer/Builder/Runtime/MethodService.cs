@@ -27,7 +27,7 @@ namespace MaxLib.WebServer.Builder.Runtime
             Parameters = parameters;
             Method = method;
             Result = result;
-            MethodClass = Activator.CreateInstance(method.ReflectedType);
+            MethodClass = Activator.CreateInstance(method.ReflectedType!)!;
             Priority = priority;
         }
 

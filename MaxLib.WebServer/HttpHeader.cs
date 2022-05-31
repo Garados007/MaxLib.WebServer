@@ -55,7 +55,7 @@ namespace MaxLib.WebServer
         public string? GetHeader(string key)
         {
             _ = key ?? throw new ArgumentNullException(nameof(key));
-            return HeaderParameter.TryGetValue(key, out string value) ? value : null;
+            return HeaderParameter.TryGetValue(key, out string? value) ? value : null;
         }
 
         public void SetHeader(IEnumerable<(string, string?)> headers)

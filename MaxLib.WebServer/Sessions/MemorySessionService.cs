@@ -14,7 +14,7 @@ namespace MaxLib.WebServer.Sessions
         protected override ValueTask<Session> Get(string key)
         {
             _ = key ?? throw new ArgumentNullException(nameof(key));
-            if (!Sessions.TryGetValue(key, out Session value))
+            if (!Sessions.TryGetValue(key, out Session? value))
                 Sessions.Add(key, value = new Session());
             value.LastUsed = DateTime.UtcNow;
             return new ValueTask<Session>(value);

@@ -21,9 +21,9 @@ namespace MaxLib.WebServer
 
         public string? PrimaryEncoding { get; set; } = null;
 
-        public Dictionary<object?, object?> Information { get; } = new Dictionary<object?, object?>();
+        public Dictionary<object, object?> Information { get; } = new Dictionary<object, object?>();
 
-        public object? this[object? identifer]
+        public object? this[object identifer]
         {
             get => Information[identifer];
             set => Information[identifer] = value;

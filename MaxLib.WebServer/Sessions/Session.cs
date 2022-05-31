@@ -64,17 +64,20 @@ namespace MaxLib.WebServer.Sessions
             return ((ICollection<KeyValuePair<string, object>>)Data).Remove(item);
         }
 
-        public bool TryGetValue(string key, out object value)
+        public bool TryGetValue(string key, [MaybeNullWhen(false)] out object value)
         {
             return Data.TryGetValue(key, out value);
         }
 
+        bool IDictionary<string, object>.TryGetValue(string key, out object value)
+            => TryGetValue(key, out value!);
+
         IEnumerator IEnumerable.GetEnumerator()
             => GetEnumerator();
         
-        public bool TryGetValue<T>(string key, [NotNullWhen(true)] out T value)
+        public bool TryGetValue<T>(string key, [MaybeNullWhen(false)] out T value)
         {
-            if (TryGetValue(key, out object rawValue) && rawValue is T realValue)
+            if (TryGetValue(key, out object? rawValue) && rawValue is T realValue)
             {
                 value = realValue;
                 return true;

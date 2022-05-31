@@ -35,7 +35,7 @@ namespace MaxLib.WebServer.Builder
             if (createInstance)
                 try
                 {
-                    Instance = (Tools.IDataConverter)Activator.CreateInstance(converter);
+                    Instance = (Tools.IDataConverter)Activator.CreateInstance(converter)!;
                 }
                 catch
                 {

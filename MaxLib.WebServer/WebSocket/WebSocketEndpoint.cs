@@ -60,7 +60,7 @@ namespace MaxLib.WebServer.WebSocket
             return connection;
         }
 
-        private void Connection_Closed(object sender, EventArgs eventArgs)
+        private void Connection_Closed(object? sender, EventArgs eventArgs)
         {
             if (sender is T connection)
             {

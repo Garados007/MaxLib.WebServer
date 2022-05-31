@@ -3,7 +3,7 @@
   <Import Project="MaxLib.WebServer.csproj.include" />
 
   <PropertyGroup>
-    <TargetFramework>netstandard2.1</TargetFramework>
+    <TargetFrameworks>net6.0;netstandard2.1</TargetFrameworks>
     <PackageId>MaxLib.WebServer</PackageId>
     <Authors>garados007</Authors>
     <Company>Max Brauer</Company>

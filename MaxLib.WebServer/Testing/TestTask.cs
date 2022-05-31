@@ -75,7 +75,7 @@ namespace MaxLib.WebServer.Testing
         public List<HttpDataSource> GetDataSources()
             => Task.Document.DataSources;
 
-        public object? GetInfoObject(object? key)
+        public object? GetInfoObject(object key)
             => Task.Document.Information.TryGetValue(key, out object? value) ? value : default;
 
         public HttpStateCode GetStatusCode()

@@ -110,7 +110,7 @@ namespace MaxLib.WebServer.Services
             {
                 debugBuilder.AppendLine();
                 debugBuilder.AppendLine();
-                await File.AppendAllTextAsync(DebugWriteRequestFile, debugBuilder.ToString()).ConfigureAwait(false);
+                await File.AppendAllTextAsync(DebugWriteRequestFile!, debugBuilder.ToString()).ConfigureAwait(false);
             }
 
             // release locked debug zone
@@ -125,7 +125,7 @@ namespace MaxLib.WebServer.Services
             var sb = new StringBuilder();
             sb.AppendLine($"{WebServerUtils.GetDateString(DateTime.UtcNow)} " +
                 $"{task.Connection?.NetworkClient?.Client.RemoteEndPoint}");
-            var host = task.Request.HeaderParameter.TryGetValue("Host", out string host_)
+            var host = task.Request.HeaderParameter.TryGetValue("Host", out string? host_)
                 ? host_ : "";
             sb.AppendLine("    " + host + task.Request.Location.DocumentPath);
             sb.AppendLine();
@@ -233,7 +233,7 @@ namespace MaxLib.WebServer.Services
 
         protected virtual ValueTask<bool> LoadContent(WebProgressTask task, NetworkReader reader)
         {
-            if (!task.Request.HeaderParameter.TryGetValue("Content-Length", out string strLength))
+            if (!task.Request.HeaderParameter.TryGetValue("Content-Length", out string? strLength))
                 return new ValueTask<bool>(true);
             
             if (!int.TryParse(strLength, out int length) || length < 0)
@@ -249,7 +249,7 @@ namespace MaxLib.WebServer.Services
             task.Request.Post.SetPost(
                 task,
                 content,
-                task.Request.HeaderParameter.TryGetValue("Content-Type", out string contentType)
+                task.Request.HeaderParameter.TryGetValue("Content-Type", out string? contentType)
                     ? contentType : null
             );
 

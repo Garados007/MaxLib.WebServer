@@ -50,11 +50,11 @@ namespace MaxLib.WebServer.Monitoring
             else
             {
                 var type = Caller.GetType();
-                if (!ids.TryGetValue(type, out Dictionary<object, int> typeDict))
+                if (!ids.TryGetValue(type, out Dictionary<object, int>? typeDict))
                     ids.Add(type, typeDict = new Dictionary<object, int>());
                 if (!typeDict.TryGetValue(Caller, out int id))
                     typeDict.Add(Caller, id = typeDict.Count + 1);
-                var name = type.FullName;
+                var name = type.FullName ?? "";
                 if (name.StartsWith("MaxLib.WebServer"))
                     name = $"<{type.Name}>";
 

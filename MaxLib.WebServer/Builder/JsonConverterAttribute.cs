@@ -1,6 +1,7 @@
 using System;
 using System.IO;
 using System.Text.Json;
+using MaxLib.WebServer.Builder.Converter;
 
 namespace MaxLib.WebServer.Builder
 {
@@ -9,23 +10,17 @@ namespace MaxLib.WebServer.Builder
     /// </summary>
     public class JsonConverterAttribute : ConverterAttribute, Tools.IConverter
     {
-        /// <summary>
-        /// The converter to use to implement your custom conversion method.
-        /// </summary>
-        public interface ICustomJsonConverter
-        {
-            object Convert(JsonElement value, Type target);
-        }
 
         /// <summary>
         /// The options that should be used for the default JSON conversion. This will
-        /// be ignored if <see cref="CustomConverter" /> is set.
+        /// be ignored if <see cref="CustomConverter" /> is set.<br/>
+        /// This type is expected to implement <see cref="IJsonSerializerOptions" />.
         /// </summary>
-        public JsonSerializerOptions? Options { get; set; }
+        public Type? Options { get; set; }
 
         /// <summary>
         /// The custom converter that is used to transform the JSON data to the desired format. <br/>
-        /// This type is expected to implement <see cref="JsonConverterAttribute.ICustomJsonConverter" />.
+        /// This type is expected to implement <see cref="ICustomJsonConverter" />.
         /// </summary>
         public Type? CustomConverter { get; set; }
 
@@ -79,7 +74,7 @@ namespace MaxLib.WebServer.Builder
             if (CustomConverter != null)
             {
                 ICustomJsonConverter conv;
-                try { conv = (ICustomJsonConverter)Activator.CreateInstance(CustomConverter); }
+                try { conv = (ICustomJsonConverter)Activator.CreateInstance(CustomConverter)!; }
                 catch { return null; }
 
                 return x =>
@@ -90,7 +85,20 @@ namespace MaxLib.WebServer.Builder
                     else return conv.Convert(res.Value, target);
                 };
             }
-            else return x => preParse(x)?.Deserialize(target, Options);
+            else 
+            {
+                var options = new JsonSerializerOptions
+                {
+                    WriteIndented = true,
+                };
+                if (Options != null && typeof(IJsonSerializerOptions).IsAssignableFrom(Options))
+                {
+                    var constructor = Options.GetConstructor(Type.EmptyTypes);
+                    if (constructor != null)
+                        options = ((IJsonSerializerOptions)constructor.Invoke(Array.Empty<object>())).Options;
+                }
+                return x => preParse(x)?.Deserialize(target, options);
+            }
         }
     }
 }

@@ -15,9 +15,9 @@ namespace MaxLib.WebServer.Lazy
 
         public HttpRequestHeader Header { get; }
 
-        public Dictionary<object?, object?> Information { get; }
+        public Dictionary<object, object?> Information { get; }
         
-        public object? this[object? identifer]
+        public object? this[object identifer]
         {
             get => Information[identifer];
             set => Information[identifer] = value;

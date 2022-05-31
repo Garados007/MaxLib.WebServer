@@ -83,7 +83,7 @@ namespace MaxLib.WebServer.SSL
                 NetworkClient = client,
                 Ip = client.Client.RemoteEndPoint is IPEndPoint iPEndPoint
                     ? iPEndPoint.Address.ToString()
-                    : client.Client.RemoteEndPoint.ToString(),
+                    : client.Client.RemoteEndPoint?.ToString(),
             };
             AllConnections.Add(connection);
             //listen to connection
