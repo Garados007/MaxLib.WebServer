@@ -3,7 +3,7 @@
   <Import Project="..\..\MaxLib.WebServer\MaxLib.WebServer.csproj.include" />
 
   <PropertyGroup>
-    <TargetFramework>netcoreapp3.1</TargetFramework>
+    <TargetFramework>net8.0</TargetFramework>
 
     <IsPackable>false</IsPackable>
   </PropertyGroup>

@@ -14,13 +14,13 @@ namespace MaxLib.WebServer
     public class HttpException : System.Exception
     {
         public HttpException() { }
-        public HttpException(string message) : base(message) 
+        public HttpException(string message) : base(message)
         {
             DataSource = new HttpStringDataSource(message);
         }
 
-        public HttpException(string message, System.Exception inner) : base(message, inner) 
-        { 
+        public HttpException(string message, System.Exception inner) : base(message, inner)
+        {
             DataSource = new HttpStringDataSource(message);
         }
 
@@ -39,10 +39,6 @@ namespace MaxLib.WebServer
         {
             DataSource = dataSource;
         }
-
-        protected HttpException(
-            System.Runtime.Serialization.SerializationInfo info,
-            System.Runtime.Serialization.StreamingContext context) : base(info, context) { }
 
         public HttpStateCode StateCode { get; set; } = HttpStateCode.InternalServerError;
 
