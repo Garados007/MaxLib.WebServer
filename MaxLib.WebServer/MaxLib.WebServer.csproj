@@ -3,13 +3,11 @@
   <Import Project="MaxLib.WebServer.csproj.include" />
 
   <PropertyGroup>
-    <TargetFrameworks>net6.0;netstandard2.1</TargetFrameworks>
+    <TargetFrameworks>net8.0;net6.0</TargetFrameworks>
     <PackageId>MaxLib.WebServer</PackageId>
     <Authors>garados007</Authors>
     <Company>Max Brauer</Company>
-    <PackageDescription>
-      MaxLib.Ini is a full web server written in C# that can easily integrated in your project.
-    </PackageDescription>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <RepositoryUrl>https://github.com/Garados007/MaxLib.WebServer</RepositoryUrl>
   </PropertyGroup>
@@ -24,9 +22,8 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="MaxLib.Common" Version="1.0.0" />
-    <PackageReference Include="MaxLib.Ini" Version="1.1.0" />
-    <PackageReference Include="System.Text.Json" Version="6.0.2" />
+    <PackageReference Include="MaxLib.Common" Version="1.2.1" />
+    <PackageReference Include="System.Text.Json" Version="6.0.4" />
   </ItemGroup>
 
   <ItemGroup>
@@ -36,6 +33,7 @@
 
   <ItemGroup>
     <None Include="..\.editorconfig" Link=".editorconfig" />
+    <None Include="..\README.md" Pack="true" PackagePath="\" />
   </ItemGroup>
 
 </Project>

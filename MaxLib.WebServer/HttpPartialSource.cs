@@ -39,12 +39,20 @@ namespace MaxLib.WebServer
             BaseSource = dataSource ?? throw new ArgumentNullException(nameof(dataSource));
             Start = start;
             Count = count;
+
+            // optimize this constructor if you use nested partial sources
+            if (dataSource is HttpPartialSource partial)
+            {
+                BaseSource = partial.BaseSource;
+                Start += partial.Start;
+                if (Count != null && partial.Count != null)
+                    Count = Math.Min(Count.Value, partial.Count.Value - Start);
+                else
+                {
+                    Count ??= partial.Count - Start;
+                }
+            }
         }
-
-        [Obsolete]
-        public override bool CanAcceptData => false;
-
-        public override bool CanProvideData => true;
 
         public override void Dispose()
         {
@@ -59,74 +67,90 @@ namespace MaxLib.WebServer
                 availableBaseLength == null ? Count : Math.Min(Count.Value, availableBaseLength.Value);
         }
 
-        [Obsolete]
-        protected override Task<long> ReadStreamInternal(Stream stream, long? length)
+        protected override async Task<long> WriteStreamInternal(Stream stream)
         {
-            throw new NotSupportedException();
+            // optimize if stream based
+            if (BaseSource is HttpStreamDataSource streamDataSource)
+            {
+                var window = new StreamWindow(stream, 0, Count);
+                return await streamDataSource.WriteStream(window, Start, Count);
+            }
+            else
+            {
+                var window = new StreamWindow(stream, Start, Count);
+                return await BaseSource.WriteStream(window);
+            }
         }
 
-        protected override async Task<long> WriteStreamInternal(Stream stream, long start, long? stop)
+        private class StreamWindow : Stream
         {
-            // start and stop will further restrict the limitations of this implementation.
-            // In a future release this method will be simplified.
+            public Stream Target { get; }
 
-            var firstOutputByte = Start + start;
-            var clientWindow = stop - start;
-            var localWindow = Count - start;
-            var window = localWindow == null ? clientWindow :
-                clientWindow == null ? localWindow : Math.Min(localWindow.Value, clientWindow.Value);
-            
-            // throw first bytes away
-            using var bin = new StreamBin();
-            long total = await BaseSource.WriteStream(bin, 0, firstOutputByte)
-                .ConfigureAwait(false);
-            if (total < firstOutputByte)
-                return 0;
+            public long Start { get; private set; }
 
-            // read the rest of the source. This depends if the BaseSource is something we can seek
-            // on. A future release will make the start-stop sequence obsolete therefore we no
-            // longer need these special checks.
-            if (BaseSource is HttpStreamDataSource sds && !sds.Stream.CanSeek)
-                total = await BaseSource.WriteStream(stream, 0, window)
-                    .ConfigureAwait(false);
-            else total = await BaseSource.WriteStream(stream, firstOutputByte, firstOutputByte + window);
+            public long? Count { get; private set; }
 
-            // we are finished with reading the data
-            return total;
-        }
+            public StreamWindow(Stream target, long start, long? count)
+            {
+                Target = target; 
+                Start = start;
+                Count = count;
+            }
 
-        private class StreamBin : Stream
-        {
-            public override bool CanRead => true;
+            public override bool CanRead => false;
 
-            public override bool CanSeek => true;
+            public override bool CanSeek => false;
 
             public override bool CanWrite => true;
 
-            public override long Length => 0;
+            public override long Length => throw new NotSupportedException();
 
-            public override long Position { get => 0; set {} }
+            public override long Position
+            {
+                get => throw new NotSupportedException();
+                set => throw new NotSupportedException();
+            }
 
             public override void Flush()
             {
+                Target.Flush();
             }
 
             public override int Read(byte[] buffer, int offset, int count)
             {
-                return 0;
+                throw new NotSupportedException();
             }
 
             public override long Seek(long offset, SeekOrigin origin)
             {
-                return 0;
+                throw new NotSupportedException();
             }
 
             public override void SetLength(long value)
             {
+                throw new NotSupportedException();
             }
 
             public override void Write(byte[] buffer, int offset, int count)
             {
+                // skip bytes if available
+                if (Start > 0)
+                {
+                    var skip = (int)Math.Min(Start, count);
+                    Start -= skip;
+                    offset += skip;
+                    count -= skip;
+                }
+                // trim count if necessary
+                if (Start == 0 && Count != null)
+                {
+                    var usable = (int)Math.Min(Count.Value, count);
+                    count = usable;
+                    Count = Count.Value - usable;
+                }
+                // perform write operation
+                if (count > 0)
+                    Target.Write(buffer, offset, count);
             }
         }
     }

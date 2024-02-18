@@ -16,19 +16,6 @@ namespace MaxLib.WebServer.Remote
             Origin = origin ?? throw new ArgumentNullException(nameof(origin));
         }
 
-        [Obsolete]
-        public bool CanAcceptData()
-        {
-            _ = Origin ?? throw new InvalidOperationException("Origin is not set");
-            return Origin.CanAcceptData;
-        }
-
-        public bool CanProvideData()
-        {
-            _ = Origin ?? throw new InvalidOperationException("Origin is not set");
-            return Origin.CanProvideData;
-        }
-
         public long? Length()
         {
             _ = Origin ?? throw new InvalidOperationException("Origin is not set");
@@ -41,59 +28,10 @@ namespace MaxLib.WebServer.Remote
             Origin.Dispose();
         }
 
-        public Task<long> WriteStream(Stream stream, long start, long? stop)
+        public Task<long> WriteStream(Stream stream)
         {
             _ = Origin ?? throw new InvalidOperationException("Origin is not set");
-            return Origin.WriteStream(stream, start, stop);
-        }
-
-        [Obsolete]
-        public Task<long> ReadStream(Stream stream, long? length)
-        {
-            _ = Origin ?? throw new InvalidOperationException("Origin is not set");
-            return Origin.ReadStream(stream, length);
-        }
-
-        [Obsolete]
-        public long? RangeEnd()
-        {
-            _ = Origin ?? throw new InvalidOperationException("Origin is not set");
-            return Origin.RangeEnd;
-        }
-
-        [Obsolete]
-        public void RangeEnd(long? value)
-        {
-            _ = Origin ?? throw new InvalidOperationException("Origin is not set");
-            Origin.RangeEnd = value;
-        }
-
-        [Obsolete]
-        public long RangeStart()
-        {
-            _ = Origin ?? throw new InvalidOperationException("Origin is not set");
-            return Origin.RangeStart;
-        }
-
-        [Obsolete]
-        public void RangeStart(long value)
-        {
-            _ = Origin ?? throw new InvalidOperationException("Origin is not set");
-            Origin.RangeStart = value;
-        }
-
-        [Obsolete]
-        public bool TransferCompleteData()
-        {
-            _ = Origin ?? throw new InvalidOperationException("Origin is not set");
-            return Origin.TransferCompleteData;
-        }
-
-        [Obsolete]
-        public void TransferCompleteData(bool value)
-        {
-            _ = Origin ?? throw new InvalidOperationException("Origin is not set");
-            Origin.TransferCompleteData = value;
+            return Origin.WriteStream(stream);
         }
 
         public string MimeType()

@@ -1,4 +1,5 @@
-﻿using System;
+﻿using System.Collections.ObjectModel;
+using System;
 using System.IO;
 using System.Threading.Tasks;
 
@@ -58,8 +59,10 @@ namespace MaxLib.WebServer
 
         public void SetAccept(string[]? acceptTypes = null, string[]? encoding = null)
         {
-            if (acceptTypes != null) Task.Request.FieldAccept.AddRange(acceptTypes);
-            if (encoding != null) Task.Request.FieldAcceptEncoding.AddRange(encoding);
+            if (acceptTypes != null) 
+                Task.Request.FieldAccept = new ReadOnlyCollection<string>(acceptTypes);
+            if (encoding != null) 
+                Task.Request.FieldAcceptEncoding = new ReadOnlyCollection<string>(encoding);
         }
 
         public void SetHost(string host)

@@ -14,12 +14,5 @@ namespace MaxLib.WebServer.IO
         {
             State = state;
         }
-        public ReadLineOverflowException(HttpStateCode state, string message, System.Exception inner) : base(message, inner)
-        {
-            State = state;
-        }
-        protected ReadLineOverflowException(
-            System.Runtime.Serialization.SerializationInfo info,
-            System.Runtime.Serialization.StreamingContext context) : base(info, context) { }
     }
 }

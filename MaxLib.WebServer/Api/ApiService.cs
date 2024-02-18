@@ -5,6 +5,7 @@ using System.Threading.Tasks;
 
 namespace MaxLib.WebServer.Api
 {
+    [Obsolete("The ApiService and the RestApiService classes are no longer maintained and will be removed in a future update. Use the Builder system instead.")]
     public abstract class ApiService : WebService
     {
         public ApiService(params string[] endpoint) 

@@ -1,12 +1,13 @@
 ﻿using MaxLib.WebServer.Services;
 using MaxLib.WebServer.Testing;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
+using System;
 using System.Threading.Tasks;
 
 namespace MaxLib.WebServer.Test.Services
 {
     [TestClass]
-    public class TestHttpHeaderPostParser
+    public class TestHttpRequestHeader
     {
         TestWebServer server;
         TestTask test;
@@ -15,7 +16,6 @@ namespace MaxLib.WebServer.Test.Services
         public void Init()
         {
             server = new TestWebServer();
-            server.AddWebService(new HttpHeaderPostParser());
             test = new TestTask(server)
             {
                 CurrentStage = ServerStage.ParseRequest,
@@ -24,21 +24,18 @@ namespace MaxLib.WebServer.Test.Services
         }
 
         [TestMethod]
-        public async Task TestAccept()
+        public void TestAccept()
         {
             test.Request.HeaderParameter.Add("Accept", "text/css,*/*;q=0.1");
-            await new HttpHeaderPostParser().ProgressTask(test.Task).ConfigureAwait(false);
-            Assert.AreEqual(3, test.Request.FieldAccept.Count);
+            Assert.AreEqual(2, test.Request.FieldAccept.Count);
             Assert.AreEqual("text/css", test.Request.FieldAccept[0]);
-            Assert.AreEqual("*/*", test.Request.FieldAccept[1]);
-            Assert.AreEqual("q=0.1", test.Request.FieldAccept[2]);
+            Assert.AreEqual("*/*;q=0.1", test.Request.FieldAccept[1]);
         }
 
         [TestMethod]
-        public async Task TestAcceptEncoding()
+        public void TestAcceptEncoding()
         {
             test.Request.HeaderParameter.Add("Accept-Encoding", "gzip, deflate, br");
-            await new HttpHeaderPostParser().ProgressTask(test.Task).ConfigureAwait(false);
             Assert.AreEqual(3, test.Request.FieldAcceptEncoding.Count);
             Assert.AreEqual("gzip", test.Request.FieldAcceptEncoding[0]);
             Assert.AreEqual("deflate", test.Request.FieldAcceptEncoding[1]);
@@ -46,34 +43,30 @@ namespace MaxLib.WebServer.Test.Services
         }
 
         [TestMethod]
-        public async Task TestConnection()
+        public void TestConnection()
         {
             test.Request.HeaderParameter.Add("Connection", "keep-alive");
-            await new HttpHeaderPostParser().ProgressTask(test.Task).ConfigureAwait(false);
             Assert.AreEqual(HttpConnectionType.KeepAlive, test.Request.FieldConnection);
         }
 
         [TestMethod]
-        public async Task TestConnectionClose()
+        public void TestConnectionClose()
         {
             test.Request.HeaderParameter.Add("Connection", "close");
-            await new HttpHeaderPostParser().ProgressTask(test.Task).ConfigureAwait(false);
             Assert.AreEqual(HttpConnectionType.Close, test.Request.FieldConnection);
         }
 
         [TestMethod]
-        public async Task TestHost()
+        public void TestHost()
         {
             test.Request.HeaderParameter.Add("Host", "test.domain");
-            await new HttpHeaderPostParser().ProgressTask(test.Task).ConfigureAwait(false);
             Assert.AreEqual("test.domain", test.Request.Host);
         }
 
         [TestMethod]
-        public async Task TestCookie()
+        public void TestCookie()
         {
             test.Request.HeaderParameter.Add("Cookie", "key1=value1; key2= value2;");
-            await new HttpHeaderPostParser().ProgressTask(test.Task).ConfigureAwait(false);
             Assert.AreEqual("key1=value1; key2= value2;", test.Request.Cookie.CompleteRequestCookie);
         }
     }

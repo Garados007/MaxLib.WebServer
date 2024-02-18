@@ -29,11 +29,6 @@ namespace MaxLib.WebServer
             }
         }
 
-        [Obsolete]
-        public override bool CanAcceptData => true;
-
-        public override bool CanProvideData => true;
-
         Encoding Encoder;
 
         public HttpStringDataSource(string data)
@@ -50,38 +45,17 @@ namespace MaxLib.WebServer
         public override long? Length()
             => Encoder.GetByteCount(Data);
 
-        protected override async Task<long> WriteStreamInternal(Stream stream, long start, long? stop)
+        protected override async Task<long> WriteStreamInternal(Stream stream)
         {
             await Task.CompletedTask.ConfigureAwait(false);
-            using (var m = new MemoryStream(Encoder.GetBytes(Data)))
-            using (var skip = new SkipableStream(m, start))
+            using var m = new MemoryStream(Encoder.GetBytes(Data));
+            try { await m.CopyToAsync(stream).ConfigureAwait(false); }
+            catch (IOException)
             {
-                try { return skip.WriteToStream(stream, stop); }
-                catch (IOException)
-                {
-                    WebServerLog.Add(ServerLogType.Information, GetType(), "Send", "Connection closed by remote Host");
-                    return m.Position;
-                }
+                WebServerLog.Add(ServerLogType.Information, GetType(), "Send", "Connection closed by remote Host");
+                return m.Position;
             }
-        }
-
-        [Obsolete]
-        protected override async Task<long> ReadStreamInternal(Stream stream, long? length)
-        {
-            await Task.CompletedTask.ConfigureAwait(false);
-            using (var m = new MemoryStream())
-            using (var skip = new SkipableStream(m, 0))
-            {
-                long total;
-                try { total = skip.ReadFromStream(stream, length); }
-                catch (IOException)
-                {
-                    WebServerLog.Add(ServerLogType.Information, GetType(), "Receive", "Connection closed by remote Host");
-                    return m.Position;
-                }
-                Data = Encoder.GetString(m.ToArray());
-                return total;
-            }
+            return m.Length;
         }
     }
 }

@@ -12,14 +12,6 @@ namespace MaxLib.WebServer
     {
         public Stream Stream { get; }
 
-        [Obsolete]
-        public bool ReadOnly { get; }
-
-        [Obsolete]
-        public override bool CanAcceptData => !ReadOnly && Stream.CanWrite;
-
-        public override bool CanProvideData => Stream.CanRead;
-
         public HttpStreamDataSource(Stream stream)
         {
             Stream = stream ?? throw new ArgumentNullException(nameof(stream));
@@ -30,60 +22,38 @@ namespace MaxLib.WebServer
                 );
         }
 
-        [Obsolete]
-        public HttpStreamDataSource(Stream stream, bool readOnly = true)
-            : this(stream)
-        {
-            ReadOnly = readOnly;
-        }
-
         public override void Dispose()
             => Stream.Dispose();
 
         public override long? Length()
             => Stream.Length;
 
-        protected override async Task<long> WriteStreamInternal(Stream stream, long start, long? stop)
+        protected override Task<long> WriteStreamInternal(Stream stream)
         {
-            await Task.CompletedTask;
-            Stream.Position = start;
-            using (var skip = new SkipableStream(Stream, 0))
-            {
-                try
-                {
-                    return skip.WriteToStream(stream, 
-                        stop == null ? null : (long?)(stop.Value - start));
-                }
-                catch (IOException)
-                {
-                    WebServerLog.Add(ServerLogType.Information, GetType(), "Send", "Connection closed by remote Host");
-                    return Stream.Position - start;
-                }
-            }
+            return WriteStream(stream, 0, null);
         }
 
-        [Obsolete]
-        protected override async Task<long> ReadStreamInternal(Stream stream, long? length)
+        public async Task<long> WriteStream(Stream stream, long offset, long? count)
         {
-            await Task.CompletedTask.ConfigureAwait(false);
-            if (ReadOnly)
-                throw new NotSupportedException();
-            Stream.Position = 0;
-            using (var skip = new SkipableStream(Stream, 0))
+            if (Stream.CanSeek)
+                Stream.Position = offset;
+            long total = 0;
+            Memory<byte> buffer = new byte[0x8000];
+            try
             {
-                long readed;
-                try
+                int read;
+                int job = count == null ? buffer.Length : (int)Math.Min(buffer.Length, count.Value - total);
+                while ((read = await Stream.ReadAsync(buffer[..job])) > 0)
                 {
-                    readed = skip.ReadFromStream(stream, length);
+                    await stream.WriteAsync(buffer[0..read]);
+                    total += read;
                 }
-                catch (IOException)
-                {
-                    WebServerLog.Add(ServerLogType.Information, GetType(), "Send", "Connection closed by remote Host");
-                    readed = Stream.Position;
-                }
-                Stream.SetLength(readed);
-                return readed;
             }
+            catch (IOException)
+            {
+                WebServerLog.Add(ServerLogType.Information, GetType(), "Send", "Connection closed by remote Host");
+            }
+            return total;
         }
     }
 }
