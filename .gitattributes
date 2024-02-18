@@ -1,0 +1,5 @@
+# Default setting
+* auto
+
+# Do nothing
+*.sln -text
