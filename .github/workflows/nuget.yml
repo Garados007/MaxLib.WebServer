@@ -21,14 +21,8 @@ jobs:
     - name: Install dependencies
       run: dotnet restore
 
-    - name: Publish MaxLib.WebServer NuGet
-      uses: brandedoutcast/publish-nuget@v2.5.5
-      with:
-        # Filepath of the project to be packaged, relative to root of repository
-        PROJECT_FILE_PATH: MaxLib.WebServer/MaxLib.WebServer.csproj
-        # NuGet package id, used for version detection & defaults to project name
-        PACKAGE_NAME: MaxLib.WebServer
-        # API key to authenticate with NuGet server
-        NUGET_KEY: ${{ secrets.NUGET_PUSH_KEY }}
-        # Filepath with version info, relative to root of repository & defaults to PROJECT_FILE_PATH:
-        VERSION_FILE_PATH: MaxLib.WebServer/MaxLib.WebServer.csproj.include
+    - name: Create NuGet package
+      run: dotnet pack MaxLib.WebServer/MaxLib.WebServer.csproj
+
+    - name: Publish to NuGet.org
+      run: dotnet nuget push "**/*.nupkg" --api-key ${{ secrets.NUGET_PUSH_KEY }}
