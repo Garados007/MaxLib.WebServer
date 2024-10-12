@@ -23,7 +23,7 @@
 
   <ItemGroup>
     <PackageReference Include="MaxLib.Common" Version="1.2.1" />
-    <PackageReference Include="System.Text.Json" Version="6.0.4" />
+    <PackageReference Include="System.Text.Json" Version="6.0.10" />
   </ItemGroup>
 
   <ItemGroup>
