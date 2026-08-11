@@ -163,13 +163,13 @@ namespace MaxLib.WebServer
             var ind = mime.IndexOf('/', StringComparison.Ordinal);
             if (ind == -1)
                 throw new ArgumentException("no Mime", nameof(mime));
-            var ml = mime.Remove(ind).ToLowerInvariant();
-            var mh = mime.Substring(ind + 1).ToLowerInvariant();
+            var ml = mime[..ind].ToLowerInvariant();
+            var mh = mime[(ind + 1)..].ToLowerInvariant();
             ind = pattern.IndexOf('/', StringComparison.Ordinal);
             if (ind == -1)
                 throw new ArgumentException("no Mime", nameof(pattern));
-            var pl = pattern.Remove(ind).ToLowerInvariant();
-            var ph = pattern.Substring(ind + 1).ToLowerInvariant();
+            var pl = pattern[..ind].ToLowerInvariant();
+            var ph = pattern[(ind + 1)..].ToLowerInvariant();
             return (pl == "*" || pl == ml) && (ph == "*" || ph == mh);
         }
 

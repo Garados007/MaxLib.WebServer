@@ -33,8 +33,8 @@ namespace MaxLib.WebServer.Post
                     }
                     else
                     {
-                        var key = WebServerUtils.DecodeUri(tile.Remove(ind));
-                        var value = ind + 1 == tile.Length ? "" : tile.Substring(ind + 1);
+                        var key = WebServerUtils.DecodeUri(tile[..ind]);
+                        var value = ind + 1 == tile.Length ? "" : tile[(ind + 1)..];
                         Parameter.TryAdd(key, WebServerUtils.DecodeUri(value));
                     }
                 }

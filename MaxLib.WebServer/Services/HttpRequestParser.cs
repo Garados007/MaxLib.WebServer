@@ -232,8 +232,8 @@ namespace MaxLib.WebServer.Services
                 return false;
             }
 
-            var key = line.Remove(ind).Trim();
-            var value = line.Substring(ind + 1).Trim();
+            var key = line[..ind].Trim();
+            var value = line[(ind + 1)..].Trim();
             task.Request.HeaderParameter.Add(key, value);
 
             return true;

@@ -41,7 +41,7 @@ namespace MaxLib.WebServer.Builder
             foreach (var part in parts)
             {
                 if (part.StartsWith('{') && part.EndsWith('}'))
-                    this.parts.Add((part.Substring(1, part.Length - 2), true));
+                    this.parts.Add((part[1..^1], true));
                 else this.parts.Add((part, false));
             }
         }

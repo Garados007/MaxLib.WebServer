@@ -38,8 +38,8 @@ namespace MaxLib.WebServer
                 var ind = mime.IndexOf(';', StringComparison.Ordinal);
                 if (ind >= 0)
                 {
-                    args = mime.Substring(ind + 1);
-                    mime = mime.Remove(ind);
+                    args = mime[(ind + 1)..];
+                    mime = mime[..ind];
                 }
             }
 

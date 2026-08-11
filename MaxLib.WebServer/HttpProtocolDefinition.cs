@@ -19,7 +19,7 @@ namespace MaxLib.WebServer
             if (SupportedVersions.Length == 0) return false;
             if (SupportedVersions.Contains(Version)) return true;
             var ind = Version.IndexOf('.', StringComparison.Ordinal);
-            if (ind != -1) Version = Version.Remove(ind);
+            if (ind != -1) Version = Version[..ind];
             for (int i = 0; i < SupportedVersions.Length; ++i)
                 if (SupportedVersions[i].StartsWith(Version, StringComparison.Ordinal)) return true;
             return false;
