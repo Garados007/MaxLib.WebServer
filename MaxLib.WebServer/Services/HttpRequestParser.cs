@@ -2,6 +2,7 @@ using System.Threading;
 using System.Text;
 using System.IO;
 using System;
+using System.Globalization;
 using System.Threading.Tasks;
 using MaxLib.WebServer.IO;
 using System.Net.Sockets;
@@ -93,7 +94,7 @@ namespace MaxLib.WebServer.Services
             {
                 var sb = new StringBuilder();
                 sb.AppendLine(new string('=', 100));
-                sb.AppendLine($"=   {WebServerUtils.GetDateString(DateTime.UtcNow).PadRight(95, ' ')}=");
+                sb.AppendLine(CultureInfo.InvariantCulture, $"=   {WebServerUtils.GetDateString(DateTime.UtcNow).PadRight(95, ' ')}=");
                 sb.AppendLine(new string('=', 100));
                 sb.AppendLine();
                 return sb;
@@ -123,7 +124,7 @@ namespace MaxLib.WebServer.Services
                 return;
             
             var sb = new StringBuilder();
-            sb.AppendLine($"{WebServerUtils.GetDateString(DateTime.UtcNow)} " +
+            sb.AppendLine(CultureInfo.InvariantCulture, $"{WebServerUtils.GetDateString(DateTime.UtcNow)} " +
                 $"{task.Connection?.NetworkClient?.Client.RemoteEndPoint}");
             var host = task.Request.HeaderParameter.TryGetValue("Host", out string? host_)
                 ? host_ : "";
@@ -222,7 +223,7 @@ namespace MaxLib.WebServer.Services
         {
             ArgumentNullException.ThrowIfNull(task);
             ArgumentNullException.ThrowIfNull(line);
-            var ind = line.IndexOf(':');
+            var ind = line.IndexOf(':', StringComparison.Ordinal);
             if (ind < 0)
             {
                 WebServerLog.Add(ServerLogType.Error, GetType(), "Header", "Bad Request");

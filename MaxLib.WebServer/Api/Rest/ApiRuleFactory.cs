@@ -20,10 +20,10 @@ namespace MaxLib.WebServer.Api.Rest
             public override bool Check(RestQueryArgs args)
             {
                 _ = args ?? throw new ArgumentNullException(nameof(args));
-                var success = Host is null ? true 
+                var success = Host is null ? true
                     : EndsWith
-                        ? args.Host.EndsWith(Host, StringComparison.InvariantCultureIgnoreCase)
-                        : string.Equals(Host, args.Host, StringComparison.InvariantCultureIgnoreCase);
+                        ? args.Host.EndsWith(Host, StringComparison.OrdinalIgnoreCase)
+                        : string.Equals(Host, args.Host, StringComparison.OrdinalIgnoreCase);
                 if (success && Key != null)
                     args.ParsedArguments[Key] = args.Host;
                 return success;
@@ -41,7 +41,7 @@ namespace MaxLib.WebServer.Api.Rest
                 _ = args ?? throw new ArgumentNullException(nameof(args));
                 if (args.Location.Length <= Index || Constant is null)
                     return false;
-                var comparison = IgnoreCase ? StringComparison.InvariantCultureIgnoreCase : StringComparison.InvariantCulture;
+                var comparison = IgnoreCase ? StringComparison.OrdinalIgnoreCase : StringComparison.Ordinal;
                 return string.Equals(Constant, args.Location[Index], comparison);
             }
         }

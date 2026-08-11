@@ -35,7 +35,7 @@ namespace MaxLib.WebServer
             string args = "";
             if (mime != null)
             {
-                var ind = mime.IndexOf(';');
+                var ind = mime.IndexOf(';', StringComparison.Ordinal);
                 if (ind >= 0)
                 {
                     args = mime.Substring(ind + 1);

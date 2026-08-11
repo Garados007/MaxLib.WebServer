@@ -13,7 +13,7 @@ namespace MaxLib.WebServer
 
         public HttpHeader()
         {
-            var param = new ObservableDictionary<string, string>(StringComparer.InvariantCultureIgnoreCase);
+            var param = new ObservableDictionary<string, string>(StringComparer.OrdinalIgnoreCase);
             param.CollectionChanged += (_, __) => 
             {
                 if (!lockReset)

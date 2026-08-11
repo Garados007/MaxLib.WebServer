@@ -2,6 +2,7 @@ using System.Text.RegularExpressions;
 using System.Text;
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Threading.Tasks;
 
 #nullable enable
@@ -19,12 +20,12 @@ namespace MaxLib.WebServer.Post
         {
             _ = content ?? throw new ArgumentNullException(nameof(content));
             Parameter.Clear();
-            if (content != "")
+            if (content.Length != 0)
             {
                 var tiles = content.Split('&');
                 foreach (var tile in tiles)
                 {
-                    var ind = tile.IndexOf('=');
+                    var ind = tile.IndexOf('=', StringComparison.Ordinal);
                     if (ind == -1)
                     {
                         var t = WebServerUtils.DecodeUri(tile);
@@ -72,7 +73,7 @@ namespace MaxLib.WebServer.Post
         {
             var sb = new StringBuilder();
             foreach (var (key, value) in Parameter)
-                sb.AppendLine($"{key}: {value}");
+                sb.AppendLine(CultureInfo.InvariantCulture, $"{key}: {value}");
             return sb.ToString();
         }
 

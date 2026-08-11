@@ -38,9 +38,9 @@ namespace MaxLib.WebServer
                 var sb = new StringBuilder();
                 sb.Append("bytes ");
                 sb.Append(From);
-                sb.Append("-");
+                sb.Append('-');
                 sb.Append(To);
-                sb.Append("/");
+                sb.Append('/');
                 sb.Append(total);
                 return sb.ToString();
             }
@@ -115,9 +115,9 @@ namespace MaxLib.WebServer
         void ParseRanges(string code)
         {
             code = code.Trim();
-            if (!code.StartsWith("bytes")) return;
+            if (!code.StartsWith("bytes", StringComparison.Ordinal)) return;
             code = code[5..].TrimStart();
-            if (!code.StartsWith("=")) return;
+            if (!code.StartsWith('=')) return;
             code = code[1..].TrimStart();
             foreach (var part in code.Split(','))
             {
@@ -178,7 +178,7 @@ namespace MaxLib.WebServer
         {
             var b = new byte[8];
             new Random().NextBytes(b);
-            var boundary = BitConverter.ToString(b).Replace("-", "");
+            var boundary = BitConverter.ToString(b).Replace("-", "", StringComparison.Ordinal);
             base.MimeType = WebServer.MimeType.MultipartByteranges + "; boundary=" + boundary;
             response.StatusCode = HttpStateCode.PartialContent;
             var sb = new StringBuilder();

@@ -98,12 +98,12 @@ namespace MaxLib.WebServer
             CompleteRequestCookie = cookie ?? throw new ArgumentNullException(nameof(cookie));
             AddedCookies.Clear();
             var reqCookie = new Dictionary<string, Cookie>();
-            if (CompleteRequestCookie != "")
+            if (CompleteRequestCookie.Length != 0)
             {
                 var tiles = CompleteRequestCookie.Split('&', ';');
                 foreach (var tile in tiles)
                 {
-                    var ind = tile.IndexOf('=');
+                    var ind = tile.IndexOf('=', StringComparison.Ordinal);
                     if (ind == -1)
                     {
                         var key = WebServerUtils.DecodeUri(tile.Trim());

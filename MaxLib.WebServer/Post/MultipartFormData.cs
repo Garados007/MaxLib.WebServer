@@ -3,6 +3,7 @@ using System.IO;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.Globalization;
 using System.Text.RegularExpressions;
 using MaxLib.WebServer.IO;
 using System.Threading.Tasks;
@@ -116,7 +117,7 @@ namespace MaxLib.WebServer.Post
 
             if (header.TryGetValue("Content-Disposition", out string? disposition))
             {
-                if (!disposition.StartsWith("form-data"))
+                if (!disposition.StartsWith("form-data", StringComparison.Ordinal))
                     return new FormEntry(header);
                 var nameResult = nameRegex.Match(disposition);
                 var name = nameResult.Success ? nameResult.Groups["name"].Value : null;
@@ -169,7 +170,7 @@ namespace MaxLib.WebServer.Post
                     break;
 
                 // read headers until an empty line is found
-                var dict = new Dictionary<string, string>(StringComparer.InvariantCultureIgnoreCase);
+                var dict = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
                 string? line;
                 while (!string.IsNullOrWhiteSpace(line = reader.ReadLine()))
                 {
@@ -232,18 +233,18 @@ namespace MaxLib.WebServer.Post
         public override string ToString()
         {
             var sb = new StringBuilder();
-            sb.AppendLine($"[{Entries.Count:#,#0} Entries]");
+            sb.AppendLine(CultureInfo.InvariantCulture, $"[{Entries.Count:#,#0} Entries]");
             var boundary = new string('-', 20);
             foreach (var entry in Entries)
             {
                 sb.AppendLine(boundary);
                 foreach (var (key, value) in entry.Header)
-                    sb.AppendLine($"{key}: {value}");
+                    sb.AppendLine(CultureInfo.InvariantCulture, $"{key}: {value}");
                 sb.AppendLine();
                 if (entry.Content != null)
-                    sb.AppendLine($"[{entry.Content.Value.Length:#,#0} Bytes]");
+                    sb.AppendLine(CultureInfo.InvariantCulture, $"[{entry.Content.Value.Length:#,#0} Bytes]");
                 if (entry.TempFile != null && entry.TempFile.Exists)
-                    sb.AppendLine($"[{entry.TempFile.Length:#,#0} Bytes in {entry.TempFile.FullName}]");
+                    sb.AppendLine(CultureInfo.InvariantCulture, $"[{entry.TempFile.Length:#,#0} Bytes in {entry.TempFile.FullName}]");
             }
             sb.AppendLine(boundary);
             return sb.ToString();
