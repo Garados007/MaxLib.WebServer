@@ -160,16 +160,16 @@ namespace MaxLib.WebServer
         {
             _ = mime ?? throw new ArgumentNullException(nameof(mime));
             _ = pattern ?? throw new ArgumentNullException(nameof(pattern));
-            var ind = mime.IndexOf('/');
-            if (ind == -1) 
+            var ind = mime.IndexOf('/', StringComparison.Ordinal);
+            if (ind == -1)
                 throw new ArgumentException("no Mime", nameof(mime));
-            var ml = mime.Remove(ind).ToLower();
-            var mh = mime.Substring(ind + 1).ToLower();
-            ind = pattern.IndexOf('/');
-            if (ind == -1) 
+            var ml = mime.Remove(ind).ToLowerInvariant();
+            var mh = mime.Substring(ind + 1).ToLowerInvariant();
+            ind = pattern.IndexOf('/', StringComparison.Ordinal);
+            if (ind == -1)
                 throw new ArgumentException("no Mime", nameof(pattern));
-            var pl = pattern.Remove(ind).ToLower();
-            var ph = pattern.Substring(ind + 1).ToLower();
+            var pl = pattern.Remove(ind).ToLowerInvariant();
+            var ph = pattern.Substring(ind + 1).ToLowerInvariant();
             return (pl == "*" || pl == ml) && (ph == "*" || ph == mh);
         }
 
@@ -186,7 +186,7 @@ namespace MaxLib.WebServer
             _ = extension ?? throw new ArgumentNullException(nameof(extension));
             if (extension.StartsWith('.'))
                 return GetMimeTypeForExtension(extension[1..]);
-            if (mimeTypes.TryGetValue(extension.ToLower(), out string? mime))
+            if (mimeTypes.TryGetValue(extension.ToLowerInvariant(), out string? mime))
                 return mime;
             else return null;
         }

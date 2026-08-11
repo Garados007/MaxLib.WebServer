@@ -30,7 +30,7 @@ namespace MaxLib.WebServer.WebSocket
         {
             ArgumentNullException.ThrowIfNull(task);
             return task.Request.GetHeader("Upgrade") == "websocket" &&
-                (task.Request.GetHeader("Connection")?.ToLower().Contains("upgrade") ?? false);
+                (task.Request.GetHeader("Connection")?.Contains("upgrade", StringComparison.OrdinalIgnoreCase) ?? false);
         }
 
         public override void Dispose()
@@ -55,7 +55,7 @@ namespace MaxLib.WebServer.WebSocket
             if (task.NetworkStream == null)
                 return;
 
-            var protocols = (task.Request.GetHeader("Sec-WebSocket-Protocol")?.ToLower() ?? "")
+            var protocols = (task.Request.GetHeader("Sec-WebSocket-Protocol")?.ToLowerInvariant() ?? "")
                 .Split(new char[] { ' ', ',' }, StringSplitOptions.RemoveEmptyEntries);
 
             var key = task.Request.GetHeader("Sec-WebSocket-Key");

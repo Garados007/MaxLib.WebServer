@@ -144,7 +144,7 @@ namespace MaxLib.WebServer
                     return fieldConnection.Value;
                 return (fieldConnection = new Lazy<HttpConnectionType>(
                     () => HeaderParameter.TryGetValue("Connection", out string value)
-                        && value.ToLower() == "keep-alive" ?
+                        && string.Equals(value, "keep-alive", StringComparison.OrdinalIgnoreCase) ?
                             HttpConnectionType.KeepAlive :
                             HttpConnectionType.Close
                 )).Value;

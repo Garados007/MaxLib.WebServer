@@ -17,7 +17,7 @@ namespace MaxLib.WebServer.Builder
         public override bool CanWorkWith(WebProgressTask task, Dictionary<string, object?> vars)
         {
             ArgumentNullException.ThrowIfNull(task);
-            return Method == task.Request.ProtocolMethod.ToUpperInvariant();
+            return string.Equals(Method, task.Request.ProtocolMethod, StringComparison.OrdinalIgnoreCase);
         }
     }
 }

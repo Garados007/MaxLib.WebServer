@@ -78,7 +78,7 @@ namespace MaxLib.WebServer
             for (int i = 0; i < urlTiles.Length; ++i)
                 if (ignoreCase)
                 {
-                    if (urlTiles[i].ToLower() != DocumentPathTiles[i].ToLower()) return false;
+                    if (!string.Equals(urlTiles[i], DocumentPathTiles[i], StringComparison.OrdinalIgnoreCase)) return false;
                 }
                 else
                 {
@@ -94,7 +94,7 @@ namespace MaxLib.WebServer
             for (int i = 0; i < urlTiles.Length; ++i)
                 if (ignoreCase)
                 {
-                    if (urlTiles[i].ToLower() != DocumentPathTiles[i].ToLower()) return false;
+                    if (!string.Equals(urlTiles[i], DocumentPathTiles[i], StringComparison.OrdinalIgnoreCase)) return false;
                 }
                 else
                 {
