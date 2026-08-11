@@ -3,7 +3,7 @@
   <Import Project="MaxLib.WebServer.csproj.include" />
 
   <PropertyGroup>
-    <TargetFrameworks>net8.0;net6.0</TargetFrameworks>
+    <TargetFrameworks>net10.0;net8.0</TargetFrameworks>
     <PackageId>MaxLib.WebServer</PackageId>
     <Authors>garados007</Authors>
     <Company>Max Brauer</Company>
@@ -23,7 +23,6 @@
 
   <ItemGroup>
     <PackageReference Include="MaxLib.Common" Version="1.2.1" />
-    <PackageReference Include="System.Text.Json" Version="6.0.10" />
   </ItemGroup>
 
   <ItemGroup>
