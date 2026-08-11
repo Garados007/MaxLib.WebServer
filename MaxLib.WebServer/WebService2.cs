@@ -1,4 +1,5 @@
-﻿using System.Threading.Tasks;
+﻿using System;
+using System.Threading.Tasks;
 
 #nullable enable
 
@@ -17,6 +18,7 @@ namespace MaxLib.WebServer
 
         public override Task ProgressTask(WebProgressTask task)
         {
+            ArgumentNullException.ThrowIfNull(task);
             if (!task.Document.Information.TryGetValue(this, out object? data))
                 data = null;
             return ProgressTask(task, data);
@@ -24,6 +26,7 @@ namespace MaxLib.WebServer
 
         public override bool CanWorkWith(WebProgressTask task)
         {
+            ArgumentNullException.ThrowIfNull(task);
             if (!CanWorkWith(task, out object? data))
                 return false;
             task.Document[this] = data;

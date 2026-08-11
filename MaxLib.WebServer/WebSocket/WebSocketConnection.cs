@@ -170,6 +170,7 @@ namespace MaxLib.WebServer.WebSocket
 
         protected virtual async Task SendFrame(Frame frame)
         {
+            ArgumentNullException.ThrowIfNull(frame);
             if (SendCloseSignal)
                 return;
             await lockStream.WaitAsync().ConfigureAwait(false);

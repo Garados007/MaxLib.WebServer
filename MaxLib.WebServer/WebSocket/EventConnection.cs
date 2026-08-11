@@ -1,4 +1,5 @@
-﻿using System.IO;
+﻿using System;
+using System.IO;
 using System.Threading.Tasks;
 
 #nullable enable
@@ -25,6 +26,7 @@ namespace MaxLib.WebServer.WebSocket
 
         protected virtual async Task SendFrame(EventBase @event)
         {
+            ArgumentNullException.ThrowIfNull(@event);
             var frame = @event.ToFrame();
             if (frame != null)
                 await SendFrame(frame).ConfigureAwait(false);

@@ -215,6 +215,7 @@ namespace MaxLib.WebServer.Builder.Tools
 
         public static Runtime.ServiceGroup? GenerateClass(Type type)
         {
+            ArgumentNullException.ThrowIfNull(type);
             var ignore = type.GetCustomAttribute<IgnoreAttribute>();
             if (ignore != null || type.IsAbstract || type.IsGenericType)
             {
@@ -252,6 +253,7 @@ namespace MaxLib.WebServer.Builder.Tools
 
         public static Runtime.MethodService? GenerateMethod(MethodInfo method)
         {
+            ArgumentNullException.ThrowIfNull(method);
             var ignore = method.GetCustomAttribute<IgnoreAttribute>();
             if (ignore != null || method.IsAbstract || method.IsGenericMethod || !method.IsPublic)
             {
@@ -288,6 +290,7 @@ namespace MaxLib.WebServer.Builder.Tools
 
         public static Runtime.IParameter? GenerateParameter(MethodInfo method, ParameterInfo parameter)
         {
+            ArgumentNullException.ThrowIfNull(parameter);
             var convAttr = parameter.GetCustomAttribute<ConverterAttribute>(true);
             var paramAttr = parameter.GetCustomAttribute<ParamAttributeBase>(true);
             if (paramAttr != null)
@@ -322,6 +325,7 @@ namespace MaxLib.WebServer.Builder.Tools
 
         public static Func<WebProgressTask, object?, Task>? GenerateResult(MethodInfo method)
         {
+            ArgumentNullException.ThrowIfNull(method);
             var convAttr = method.ReturnParameter.GetCustomAttribute<DataConverterAttribute>();
             IDataConverter converter;
             if (convAttr?.Instance != null)
@@ -364,6 +368,7 @@ namespace MaxLib.WebServer.Builder.Tools
 
         public static Func<WebProgressTask, object?, Task>? GenerateResult(IDataConverter converter, Type type)
         {
+            ArgumentNullException.ThrowIfNull(type);
             if (type == typeof(void))
                 return (_, __) => Task.CompletedTask;
             if (type == typeof(Task))
@@ -417,6 +422,7 @@ namespace MaxLib.WebServer.Builder.Tools
 
         public static Action<WebProgressTask, object?>? ApplyResult(IDataConverter converter, Type type)
         {
+            ArgumentNullException.ThrowIfNull(converter);
             var conv = converter.GetConverter(type);
             if (conv is null)
                 return null;

@@ -22,6 +22,7 @@ namespace MaxLib.WebServer.Chunked
 
         public override bool CanWorkWith(WebProgressTask task)
         {
+            ArgumentNullException.ThrowIfNull(task);
             return !OnlyWithLazy || (task.Document.DataSources.Count > 0 &&
                 task.Document.DataSources.Any((s) => s is LazySource ||
                     (s is Remote.MarshalSource ms && ms.IsLazy)
@@ -30,6 +31,7 @@ namespace MaxLib.WebServer.Chunked
 
         public override async Task ProgressTask(WebProgressTask task)
         {
+            ArgumentNullException.ThrowIfNull(task);
             var header = task.Response;
             var stream = task.NetworkStream;
             if (stream is null)
@@ -90,6 +92,9 @@ namespace MaxLib.WebServer.Chunked
 
         protected virtual async Task SendChunk(StreamWriter writer, Stream stream, HttpDataSource source)
         {
+            ArgumentNullException.ThrowIfNull(writer);
+            ArgumentNullException.ThrowIfNull(stream);
+            ArgumentNullException.ThrowIfNull(source);
             if (source is LazySource lazySource)
                 foreach (var s in lazySource.GetAllSources())
                     await SendChunk(writer, stream, s).ConfigureAwait(false);

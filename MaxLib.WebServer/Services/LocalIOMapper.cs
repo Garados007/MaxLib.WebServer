@@ -69,6 +69,7 @@ namespace MaxLib.WebServer.Services
 
             public override bool MapRequest(ReadOnlySpan<string> path, WebProgressTask task)
             {
+                ArgumentNullException.ThrowIfNull(task);
                 var loc = task.Request.Location;
                 if (loc.DocumentPath.EndsWith('/') || path.Length < UrlPath.Length)
                     return false;
@@ -149,6 +150,7 @@ namespace MaxLib.WebServer.Services
 
             public override bool MapRequest(ReadOnlySpan<string> path, WebProgressTask task)
             {
+                ArgumentNullException.ThrowIfNull(task);
                 var loc = task.Request.Location;
                 if (path.Length < UrlPath.Length)
                     return false;
@@ -286,6 +288,7 @@ namespace MaxLib.WebServer.Services
 
         public override bool CanWorkWith(WebProgressTask task)
         {
+            ArgumentNullException.ThrowIfNull(task);
             var path = ShortenPath(task.Request.Location.DocumentPathTiles);
             if (path == null)
                 return false;

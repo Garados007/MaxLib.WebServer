@@ -44,6 +44,7 @@ namespace MaxLib.WebServer.Services
 
         public override bool CanWorkWith(WebProgressTask task)
         {
+            ArgumentNullException.ThrowIfNull(task);
             return !task.Document.Information.ContainsKey($"block {nameof(HttpResponseCreator)}");
         }
     }

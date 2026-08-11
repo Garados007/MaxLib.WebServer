@@ -49,6 +49,7 @@ namespace MaxLib.WebServer.Post
 
         public async Task SetAsync(WebProgressTask task, IO.ContentStream content, string options)
         {
+            ArgumentNullException.ThrowIfNull(content);
             var match = charsetRegex.Match(options);
             Encoding? encoding = null;
             if (match.Success)

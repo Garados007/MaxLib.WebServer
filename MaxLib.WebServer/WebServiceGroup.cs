@@ -55,6 +55,7 @@ namespace MaxLib.WebServer
 
         public bool Remove(WebService service)
         {
+            ArgumentNullException.ThrowIfNull(service);
             if (Services.Remove(service))
             {
                 service.PriorityChanged -= Service_PriorityChanged;
@@ -85,6 +86,7 @@ namespace MaxLib.WebServer
 
         public virtual async Task Execute(WebProgressTask task)
         {
+            ArgumentNullException.ThrowIfNull(task);
             var se = SingleExecution;
             var set = false;
             var services = Services.ToArray();

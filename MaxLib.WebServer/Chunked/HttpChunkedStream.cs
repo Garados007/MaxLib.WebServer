@@ -32,6 +32,7 @@ namespace MaxLib.WebServer.Chunked
 
         protected override async Task<long> WriteStreamInternal(Stream stream)
         {
+            ArgumentNullException.ThrowIfNull(stream);
             long total = 0;
             int read;
             Memory<byte> buffer = new byte[ReadBufferLength];

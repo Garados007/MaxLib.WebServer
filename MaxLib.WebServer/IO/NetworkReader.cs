@@ -627,6 +627,7 @@ namespace MaxLib.WebServer.IO
             Stream target
         )
         {
+            ArgumentNullException.ThrowIfNull(target);
             if (marking.Length == 0)
                 return 0;
             long fullRead = 0;
@@ -697,9 +698,10 @@ namespace MaxLib.WebServer.IO
             CancellationToken cancellationToken = default
         )
         {
+            ArgumentNullException.ThrowIfNull(target);
             if (marking.Length == 0)
                 return 0;
-            
+
             long fullRead = 0;
 
             if (marking.Length * 2 > readBuffer.Length)

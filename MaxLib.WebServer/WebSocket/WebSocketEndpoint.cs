@@ -74,6 +74,7 @@ namespace MaxLib.WebServer.WebSocket
 
         public async Task RemoveConnection(T connection)
         {
+            ArgumentNullException.ThrowIfNull(connection);
             await connectionLock.WaitAsync().ConfigureAwait(false);
             connections.Remove(connection);
             connectionLock.Release();

@@ -28,7 +28,8 @@ namespace MaxLib.WebServer.WebSocket
 
         public override bool CanWorkWith(WebProgressTask task)
         {
-            return task.Request.GetHeader("Upgrade") == "websocket" && 
+            ArgumentNullException.ThrowIfNull(task);
+            return task.Request.GetHeader("Upgrade") == "websocket" &&
                 (task.Request.GetHeader("Connection")?.ToLower().Contains("upgrade") ?? false);
         }
 
@@ -50,6 +51,7 @@ namespace MaxLib.WebServer.WebSocket
 
         public override async Task ProgressTask(WebProgressTask task)
         {
+            ArgumentNullException.ThrowIfNull(task);
             if (task.NetworkStream == null)
                 return;
 

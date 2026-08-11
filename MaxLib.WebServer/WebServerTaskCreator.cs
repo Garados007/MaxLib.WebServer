@@ -29,6 +29,7 @@ namespace MaxLib.WebServer
 
         public async Task Start(Server server)
         {
+            ArgumentNullException.ThrowIfNull(server);
             Task.Server = server;
             await server.ExecuteTaskChain(Task, TerminationStage).ConfigureAwait(false);
             Task.Server = null;
@@ -95,6 +96,8 @@ namespace MaxLib.WebServer
 
             public BidirectionalStream(Stream input, Stream output)
             {
+                ArgumentNullException.ThrowIfNull(input);
+                ArgumentNullException.ThrowIfNull(output);
                 if (!input.CanRead) throw new ArgumentException("input is not readable");
                 if (!output.CanWrite) throw new ArgumentException("output is not writeable");
                 Input = input;

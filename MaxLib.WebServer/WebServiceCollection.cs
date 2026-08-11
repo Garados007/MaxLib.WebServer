@@ -82,6 +82,7 @@ namespace MaxLib.WebServer
 
         public override Task ProgressTask(WebProgressTask task, CallInfo? data)
         {
+            ArgumentNullException.ThrowIfNull(task);
             if (data is null)
                 return Task.CompletedTask;
             using (task.Monitor.Watch(data.Service, "ProgressTask()"))
@@ -101,6 +102,7 @@ namespace MaxLib.WebServer
 
         public override bool CanWorkWith(WebProgressTask task, out CallInfo? data)
         {
+            ArgumentNullException.ThrowIfNull(task);
             if (!CheckPrecondition(task))
             {
                 data = null;
@@ -133,6 +135,7 @@ namespace MaxLib.WebServer
 
         public void Add(WebService item)
         {
+            ArgumentNullException.ThrowIfNull(item);
             if (item.Stage != Stage)
                 throw new ArgumentException("invalid stage", nameof(item));
             item.PriorityChanged += Service_PriorityChanged;
@@ -164,6 +167,7 @@ namespace MaxLib.WebServer
 
         public bool Remove(WebService item)
         {
+            ArgumentNullException.ThrowIfNull(item);
             if (Services.Remove(item))
             {
                 item.PriorityChanged -= Service_PriorityChanged;

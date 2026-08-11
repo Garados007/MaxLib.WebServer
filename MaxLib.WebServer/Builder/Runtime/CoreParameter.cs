@@ -45,6 +45,7 @@ namespace MaxLib.WebServer.Builder.Runtime
 
         public static CoreParameter? GetCoreParameter(Type target)
         {
+            ArgumentNullException.ThrowIfNull(target);
             foreach (var (type, getter) in coreTypes)
                 if (target.IsAssignableFrom(type))
                     return new CoreParameter(getter);

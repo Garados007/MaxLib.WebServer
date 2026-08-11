@@ -38,6 +38,7 @@ namespace MaxLib.WebServer
 
         public async Task<long> WriteStream(Stream stream, long offset, long? count)
         {
+            ArgumentNullException.ThrowIfNull(stream);
             if (Stream.CanSeek)
                 Stream.Position = offset;
             long total = 0;

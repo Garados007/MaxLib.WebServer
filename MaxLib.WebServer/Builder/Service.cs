@@ -95,6 +95,7 @@ namespace MaxLib.WebServer.Builder
         /// </returns>
         public static WebService? Build(Assembly assembly)
         {
+            ArgumentNullException.ThrowIfNull(assembly);
             var group = new Runtime.ServiceGroup(new List<Tools.RuleAttributeBase>());
             foreach (var type in assembly.GetExportedTypes())
             {
@@ -120,6 +121,7 @@ namespace MaxLib.WebServer.Builder
         /// </returns>
         public static WebService? Build(AppDomain appDomain)
         {
+            ArgumentNullException.ThrowIfNull(appDomain);
             var group = new Runtime.ServiceGroup(new List<Tools.RuleAttributeBase>());
             foreach (var assembly in appDomain.GetAssemblies())
             {

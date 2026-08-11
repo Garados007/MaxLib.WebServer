@@ -15,6 +15,7 @@ namespace MaxLib.WebServer.Builder.Runtime
 
         public override bool CheckPrecondition(WebProgressTask task)
         {
+            ArgumentNullException.ThrowIfNull(task);
             if (!base.CheckPrecondition(task))
                 return false;
 

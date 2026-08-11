@@ -6,6 +6,7 @@ namespace MaxLib.WebServer.Builder.Converter
     {
         public Func<object?, object?>? GetConverter(Type source, Type target)
         {
+            ArgumentNullException.ThrowIfNull(target);
             // simple conversion
             if (source == target || target.IsAssignableFrom(source))
                 return value => value;

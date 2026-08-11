@@ -22,6 +22,7 @@ namespace MaxLib.WebServer.Services
 
         public override Task ProgressTask(WebProgressTask task)
         {
+            ArgumentNullException.ThrowIfNull(task);
             task.Response.StatusCode = HttpStateCode.NotFound;
             var sb = new StringBuilder();
             sb.Append("<html><head><title>404 NOT FOUND</title></head>");

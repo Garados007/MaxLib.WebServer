@@ -20,6 +20,7 @@ namespace MaxLib.WebServer.SSL
 
         protected override async Task ClientStartListen(HttpConnection connection)
         {
+            ArgumentNullException.ThrowIfNull(connection);
             if (connection.NetworkStream == null && connection.NetworkClient != null)
             {
                 var peaker = new StreamPeaker(connection.NetworkClient.GetStream());

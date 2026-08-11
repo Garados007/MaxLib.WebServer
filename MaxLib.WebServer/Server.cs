@@ -243,6 +243,7 @@ namespace MaxLib.WebServer
 
         protected virtual void ClientConnected(TcpClient client)
         {
+            ArgumentNullException.ThrowIfNull(client);
             //prepare session
             var connection = new HttpConnection()
             {
@@ -276,6 +277,7 @@ namespace MaxLib.WebServer
 
         protected virtual async Task ClientStartListen(HttpConnection connection)
         {
+            ArgumentNullException.ThrowIfNull(connection);
             connection.LastWorkTime = -1;
             if (connection.NetworkClient != null && connection.NetworkClient.Connected)
             {
@@ -359,6 +361,7 @@ namespace MaxLib.WebServer
 
         protected virtual WebProgressTask? PrepairProgressTask(HttpConnection connection)
         {
+            ArgumentNullException.ThrowIfNull(connection);
             var stream = connection.NetworkStream;
             if (stream == null)
                 try

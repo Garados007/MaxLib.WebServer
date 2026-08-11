@@ -35,6 +35,7 @@ namespace MaxLib.WebServer.Builder
         /// <param name="path">the path string</param>
         public PathAttribute(string path)
         {
+            ArgumentNullException.ThrowIfNull(path);
             var parts = path.Split('/', StringSplitOptions.RemoveEmptyEntries);
             foreach (var part in parts)
             {

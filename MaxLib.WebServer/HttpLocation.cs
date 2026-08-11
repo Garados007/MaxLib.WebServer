@@ -73,6 +73,7 @@ namespace MaxLib.WebServer
 
         public bool IsUrl(string[] urlTiles, bool ignoreCase = false)
         {
+            ArgumentNullException.ThrowIfNull(urlTiles);
             if (urlTiles.Length != DocumentPathTiles.Length) return false;
             for (int i = 0; i < urlTiles.Length; ++i)
                 if (ignoreCase)
@@ -88,6 +89,7 @@ namespace MaxLib.WebServer
 
         public bool StartsUrlWith(string[] urlTiles, bool ignoreCase = false)
         {
+            ArgumentNullException.ThrowIfNull(urlTiles);
             if (urlTiles.Length > DocumentPathTiles.Length) return false;
             for (int i = 0; i < urlTiles.Length; ++i)
                 if (ignoreCase)

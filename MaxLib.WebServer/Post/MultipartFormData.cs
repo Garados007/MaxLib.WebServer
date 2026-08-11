@@ -44,6 +44,7 @@ namespace MaxLib.WebServer.Post
 
             public void Set(FileInfo tempFile)
             {
+                ArgumentNullException.ThrowIfNull(tempFile);
                 Content = null;
                 if (TempFile != null && TempFile.FullName != tempFile.FullName)
                     try 

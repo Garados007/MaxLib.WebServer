@@ -135,7 +135,8 @@ namespace MaxLib.WebServer.Services
 
         protected virtual async ValueTask<bool> WaitForData(WebProgressTask task)
         {
-            try 
+            ArgumentNullException.ThrowIfNull(task);
+            try
             {
                 if (task.NetworkStream is NetworkStream ns && !ns.DataAvailable)
                 {
@@ -171,6 +172,8 @@ namespace MaxLib.WebServer.Services
             NetworkReader reader, long limit, HttpStateCode exceedState
         )
         {
+            ArgumentNullException.ThrowIfNull(task);
+            ArgumentNullException.ThrowIfNull(reader);
             string? line;
             try { line = await reader.ReadLineAsync(limit).ConfigureAwait(false); }
             catch (IO.ReadLineOverflowException e)
@@ -196,6 +199,8 @@ namespace MaxLib.WebServer.Services
 
         protected virtual bool ParseFirstHeaderLine(WebProgressTask task, string line)
         {
+            ArgumentNullException.ThrowIfNull(task);
+            ArgumentNullException.ThrowIfNull(line);
             WebServerLog.Add(ServerLogType.Debug, GetType(), "Header", line);
             var parts = line.Split(' ');
             if (parts.Length != 3)
@@ -215,6 +220,8 @@ namespace MaxLib.WebServer.Services
 
         protected virtual bool ParseOtherHeaderLine(WebProgressTask task, string line)
         {
+            ArgumentNullException.ThrowIfNull(task);
+            ArgumentNullException.ThrowIfNull(line);
             var ind = line.IndexOf(':');
             if (ind < 0)
             {
@@ -233,6 +240,7 @@ namespace MaxLib.WebServer.Services
 
         protected virtual ValueTask<bool> LoadContent(WebProgressTask task, NetworkReader reader)
         {
+            ArgumentNullException.ThrowIfNull(task);
             if (!task.Request.HeaderParameter.TryGetValue("Content-Length", out string? strLength))
                 return new ValueTask<bool>(true);
             

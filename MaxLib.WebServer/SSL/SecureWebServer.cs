@@ -1,4 +1,5 @@
-﻿using System.Diagnostics;
+﻿using System;
+using System.Diagnostics;
 using System.Net;
 using System.Net.Security;
 using System.Net.Sockets;
@@ -72,6 +73,7 @@ namespace MaxLib.WebServer.SSL
 
         protected virtual void SecureClientConnected(TcpClient client)
         {
+            ArgumentNullException.ThrowIfNull(client);
             if (SecureSettings.Certificate == null)
             {
                 client.Close();
