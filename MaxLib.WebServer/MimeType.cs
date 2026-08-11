@@ -233,13 +233,13 @@ namespace MaxLib.WebServer
                 using var client = new HttpClient();
                 var reader = new StringReader(await client.GetStringAsync(
                     @"http://svn.apache.org/repos/asf/httpd/httpd/trunk/docs/conf/mime.types"
-                ));
+                ).ConfigureAwait(false));
                 var regex = new Regex(
                     @"^(?<mime>[^#][^\s]*)(\s+(?<extension>\w+))+$",
                     RegexOptions.Compiled
                 );
                 string? line;
-                while ((line = reader.ReadLine()) != null)
+                while ((line = await reader.ReadLineAsync().ConfigureAwait(false)) != null)
                 {
                     var match = regex.Match(line);
                     if (!match.Success)

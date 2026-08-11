@@ -29,15 +29,15 @@ namespace MaxLib.WebServer.SSL
                 {
                     var ssl = new SslStream(peaker, false);
                     connection.NetworkStream = ssl;
-                    ssl.AuthenticateAsServer(
+                    await ssl.AuthenticateAsServerAsync(
                         serverCertificate:          DualSettings.Certificate,
                         clientCertificateRequired:  false,
                         enabledSslProtocols:        SslProtocols.None,
                         checkCertificateRevocation: true
-                        );
+                        ).ConfigureAwait(false);
                     if (!ssl.IsAuthenticated)
                     {
-                        ssl.Dispose();
+                        await ssl.DisposeAsync().ConfigureAwait(false);
                         connection.NetworkClient.Close();
                         AllConnections.Remove(connection);
                         return;

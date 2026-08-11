@@ -357,9 +357,9 @@ namespace MaxLib.WebServer.Builder.Tools
             var mime = method.ReturnParameter.GetCustomAttribute<MimeAttribute>();
             if (mime != null)
             {
-                return async (t, v) => 
+                return async (t, v) =>
                 {
-                    await resultMethod(t, v);
+                    await resultMethod(t, v).ConfigureAwait(false);
                     t.Document.PrimaryMime = mime.Mime;
                 };
             }
@@ -386,7 +386,7 @@ namespace MaxLib.WebServer.Builder.Tools
                 {
                     if (value is null)
                         return;
-                    await (Task)value;
+                    await ((Task)value).ConfigureAwait(false);
                     var result = getResult.GetValue(value);
                     applier(task, result);
                 };
@@ -402,7 +402,7 @@ namespace MaxLib.WebServer.Builder.Tools
                 {
                     if (value is null)
                         return;
-                    await (ValueTask)value;
+                    await ((ValueTask)value).ConfigureAwait(false);
                     var result = getResult.GetValue(value);
                     applier(task, result);
                 };

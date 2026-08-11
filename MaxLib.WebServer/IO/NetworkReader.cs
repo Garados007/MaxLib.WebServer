@@ -357,7 +357,7 @@ namespace MaxLib.WebServer.IO
         )
         {
             if (limit < 0)
-                return await ReadLineAsync(cancellationToken);
+                return await ReadLineAsync(cancellationToken).ConfigureAwait(false);
 
             ThrowIfDisposed();
             StringBuilder? sb = null;

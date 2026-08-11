@@ -73,12 +73,12 @@ namespace MaxLib.WebServer
             if (BaseSource is HttpStreamDataSource streamDataSource)
             {
                 using var window = new StreamWindow(stream, 0, Count);
-                return await streamDataSource.WriteStream(window, Start, Count);
+                return await streamDataSource.WriteStream(window, Start, Count).ConfigureAwait(false);
             }
             else
             {
                 using var window = new StreamWindow(stream, Start, Count);
-                return await BaseSource.WriteStream(window);
+                return await BaseSource.WriteStream(window).ConfigureAwait(false);
             }
         }
 

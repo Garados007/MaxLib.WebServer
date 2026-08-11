@@ -255,7 +255,7 @@ namespace MaxLib.WebServer
             };
             AllConnections.Add(connection);
             //listen to connection
-            _ = Task.Run(async () => await SafeClientStartListen(connection)).ConfigureAwait(false);
+            _ = Task.Run(async () => await SafeClientStartListen(connection).ConfigureAwait(false));
         }
 
         protected virtual async Task SafeClientStartListen(HttpConnection connection)
@@ -309,7 +309,7 @@ namespace MaxLib.WebServer
                 {
 
                     if (Settings.MonitoringOutputDirectory is string monitorOut && task.Monitor.Enabled)
-                        await task.Monitor.Save(monitorOut, start, task); 
+                        await task.Monitor.Save(monitorOut, start, task).ConfigureAwait(false);
 
                 }
 
@@ -489,7 +489,7 @@ namespace MaxLib.WebServer
             if (!ServerExecution)
                 Start();
 
-            try { await Task.Delay(-1, token.Token); }
+            try { await Task.Delay(-1, token.Token).ConfigureAwait(false); }
             catch (TaskCanceledException) {}
 
             Stop();

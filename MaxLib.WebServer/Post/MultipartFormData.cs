@@ -166,13 +166,13 @@ namespace MaxLib.WebServer.Post
             while (true)
             {
                 // expect boundary
-                if (reader.ReadLine() != boundary)
+                if (await reader.ReadLineAsync().ConfigureAwait(false) != boundary)
                     break;
 
                 // read headers until an empty line is found
                 var dict = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
                 string? line;
-                while (!string.IsNullOrWhiteSpace(line = reader.ReadLine()))
+                while (!string.IsNullOrWhiteSpace(line = await reader.ReadLineAsync().ConfigureAwait(false)))
                 {
                     var header = headerSplit.Match(line);
                     if (!header.Success)
@@ -208,7 +208,7 @@ namespace MaxLib.WebServer.Post
             }
 
             // there should nothing left but to be sure just discard the rest
-            content.Discard();
+            await content.DiscardAsync().ConfigureAwait(false);
         }
 
         /// <summary>

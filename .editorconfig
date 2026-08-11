@@ -64,3 +64,9 @@ dotnet_diagnostic.CA1311.severity = error
 
 # CA1305: Specify IFormatProvider
 dotnet_diagnostic.CA1305.severity = error
+
+# CA2007: Consider calling ConfigureAwait on the awaited task
+dotnet_diagnostic.CA2007.severity = error
+
+# CA1849: Call async methods when in an async method
+dotnet_diagnostic.CA1849.severity = error

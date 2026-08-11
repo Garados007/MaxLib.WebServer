@@ -82,11 +82,10 @@ namespace MaxLib.WebServer.Monitoring
             catch (Exception e)
             {
                 WebServerLog.Add(ServerLogType.FatalError, GetType(), "write logs", e.ToString());
-                writer.WriteLine(e);
+                await writer.WriteLineAsync(e.ToString()).ConfigureAwait(false);
             }
-            await writer.FlushAsync();
-            writer.Flush();
-            await stream.FlushAsync();
+            await writer.FlushAsync().ConfigureAwait(false);
+            await stream.FlushAsync().ConfigureAwait(false);
         }
 
         private static char[] allowedChars = new[] { '-', '_', '+', '(', ')', };

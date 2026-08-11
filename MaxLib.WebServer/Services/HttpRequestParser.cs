@@ -282,7 +282,7 @@ namespace MaxLib.WebServer.Services
                 debugBuilder = await DebugStartRequest().ConfigureAwait(false);
 
                 // wait until some data is received.
-                if (!await WaitForData(task))
+                if (!await WaitForData(task).ConfigureAwait(false))
                     return;
                 
                 // read first header line
@@ -296,7 +296,7 @@ namespace MaxLib.WebServer.Services
                 
                 // read all other header lines
                 var limit = MaxHeaderLength;
-                while (!string.IsNullOrWhiteSpace(line = await ReadLine(task, reader, limit, HttpStateCode.RequestHeaderFieldsTooLarge)))
+                while (!string.IsNullOrWhiteSpace(line = await ReadLine(task, reader, limit, HttpStateCode.RequestHeaderFieldsTooLarge).ConfigureAwait(false)))
                 {
                     debugBuilder?.AppendLine(line);
                     if (!ParseOtherHeaderLine(task, line))
@@ -312,7 +312,7 @@ namespace MaxLib.WebServer.Services
                 debugBuilder?.AppendLine();
 
                 // read content if possible
-                if (!await LoadContent(task, reader))
+                if (!await LoadContent(task, reader).ConfigureAwait(false))
                     return;
                 
                 await DebugConnection(task).ConfigureAwait(false);

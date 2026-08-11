@@ -95,15 +95,15 @@ namespace MaxLib.WebServer.SSL
                 //authentificate as server and establish ssl connection
                 var stream = new SslStream(client.GetStream(), false);
                 connection.NetworkStream = stream;
-                stream.AuthenticateAsServer(
-                    serverCertificate:          SecureSettings.Certificate, 
-                    clientCertificateRequired:  false, 
-                    enabledSslProtocols:        SslProtocols.None, 
+                await stream.AuthenticateAsServerAsync(
+                    serverCertificate:          SecureSettings.Certificate,
+                    clientCertificateRequired:  false,
+                    enabledSslProtocols:        SslProtocols.None,
                     checkCertificateRevocation: true
-                    );
+                    ).ConfigureAwait(false);
                 if (!stream.IsAuthenticated)
                 {
-                    stream.Dispose();
+                    await stream.DisposeAsync().ConfigureAwait(false);
                     client.Close();
                     AllConnections.Remove(connection);
                     return;

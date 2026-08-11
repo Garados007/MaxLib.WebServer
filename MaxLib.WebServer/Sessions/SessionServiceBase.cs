@@ -67,7 +67,7 @@ namespace MaxLib.WebServer.Sessions
             {
                 random.NextBytes(key);
                 var stringKey = Convert.ToBase64String(key);
-                if (await IsKeyAvailable(stringKey))
+                if (await IsKeyAvailable(stringKey).ConfigureAwait(false))
                     return stringKey;
             }
         }
