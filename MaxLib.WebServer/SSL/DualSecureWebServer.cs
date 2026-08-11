@@ -47,17 +47,18 @@ namespace MaxLib.WebServer.SSL
             await base.ClientStartListen(connection).ConfigureAwait(false);
         }
 
-        class StreamPeaker : Stream
+        internal class StreamPeaker : Stream
         {
-            public StreamPeaker(NetworkStream baseStream)
+            public StreamPeaker(Stream baseStream)
             {
                 BaseStream = baseStream ?? throw new ArgumentNullException("baseStream");
             }
 
-            public NetworkStream BaseStream { get; private set; }
+            public Stream BaseStream { get; private set; }
 
             int firstByte = -1;
-            bool FirstByteReaded = false;
+            bool firstByteRead = false;
+            bool baseStreamAtEnd = false;
 
             public override bool CanRead => true;
 
@@ -78,20 +79,38 @@ namespace MaxLib.WebServer.SSL
                 BaseStream.Flush();
             }
 
+            // 0x00 is also returned once the underlying stream has ended before sending any
+            // byte at all, so callers must not treat FirstByte alone as proof that a byte
+            // was actually received - it is only meaningful together with HasFirstByte.
             public byte FirstByte
             {
                 get
                 {
-                    if (firstByte == -1)
+                    if (firstByte == -1 && !baseStreamAtEnd)
                         GetFirstByte();
-                    return (byte)firstByte;
+                    return baseStreamAtEnd ? (byte)0 : (byte)firstByte;
+                }
+            }
+
+            public bool HasFirstByte
+            {
+                get
+                {
+                    if (firstByte == -1 && !baseStreamAtEnd)
+                        GetFirstByte();
+                    return !baseStreamAtEnd;
                 }
             }
 
             void GetFirstByte()
             {
                 var b = new byte[1];
-                BaseStream.Read(b, 0, 1);
+                var read = BaseStream.Read(b, 0, 1);
+                if (read == 0)
+                {
+                    baseStreamAtEnd = true;
+                    return;
+                }
                 firstByte = b[0];
             }
 
@@ -103,12 +122,15 @@ namespace MaxLib.WebServer.SSL
                 if (count < 0)
                     throw new ArgumentOutOfRangeException("count");
                 if (count == 0) return 0;
-                if (firstByte == -1) GetFirstByte();
-                if (!FirstByteReaded)
+                if (firstByte == -1 && !baseStreamAtEnd) GetFirstByte();
+                if (!firstByteRead)
                 {
+                    firstByteRead = true;
+                    if (baseStreamAtEnd) return 0;
                     buffer[offset] = FirstByte;
-                    FirstByteReaded = true;
-                    return BaseStream.Read(buffer, offset +1 , count - 1) + 1;
+                    if (count == 1) return 1;
+                    var read = BaseStream.Read(buffer, offset + 1, count - 1);
+                    return read + 1;
                 }
                 return BaseStream.Read(buffer, offset, count);
             }
