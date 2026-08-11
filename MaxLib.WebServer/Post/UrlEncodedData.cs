@@ -77,6 +77,7 @@ namespace MaxLib.WebServer.Post
 
         public void Dispose()
         {
+            GC.SuppressFinalize(this);
         }
     }
 }

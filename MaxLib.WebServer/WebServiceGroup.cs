@@ -158,6 +158,7 @@ namespace MaxLib.WebServer
         {
             foreach (var service in Services)
                 service.Dispose();
+            GC.SuppressFinalize(this);
         }
     }
 }

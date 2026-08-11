@@ -148,6 +148,7 @@ namespace MaxLib.WebServer.IO
 
         public override async ValueTask DisposeAsync()
         {
+            GC.SuppressFinalize(this);
             await DiscardAsync().ConfigureAwait(false);
             await base.DisposeAsync().ConfigureAwait(false);
         }

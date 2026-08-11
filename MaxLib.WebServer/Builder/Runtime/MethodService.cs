@@ -77,6 +77,7 @@ namespace MaxLib.WebServer.Builder.Runtime
         public override void Dispose()
         {
             base.Dispose();
+            GC.SuppressFinalize(this);
             if (MethodClass is IDisposable disposable)
                 disposable.Dispose();
         }

@@ -34,10 +34,12 @@ namespace MaxLib.WebServer.WebSocket
         {
             NetworkStream.Dispose();
             lockStream.Dispose();
+            GC.SuppressFinalize(this);
         }
 
         public virtual async ValueTask DisposeAsync()
         {
+            GC.SuppressFinalize(this);
             await NetworkStream.DisposeAsync().ConfigureAwait(false);
             lockStream.Dispose();
         }

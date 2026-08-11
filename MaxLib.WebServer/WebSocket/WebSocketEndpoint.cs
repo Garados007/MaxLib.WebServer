@@ -37,10 +37,12 @@ namespace MaxLib.WebServer.WebSocket
                 connection.Dispose();
             connections.Clear();
             connectionLock.Dispose();
+            GC.SuppressFinalize(this);
         }
 
         public async ValueTask DisposeAsync()
         {
+            GC.SuppressFinalize(this);
             await connectionLock.WaitAsync().ConfigureAwait(false);
             foreach (var connection in connections)
                 await connection.DisposeAsync().ConfigureAwait(false);

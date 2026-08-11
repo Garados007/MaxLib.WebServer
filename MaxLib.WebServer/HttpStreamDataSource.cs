@@ -23,7 +23,10 @@ namespace MaxLib.WebServer
         }
 
         public override void Dispose()
-            => Stream.Dispose();
+        {
+            Stream.Dispose();
+            GC.SuppressFinalize(this);
+        }
 
         public override long? Length()
             => Stream.Length;

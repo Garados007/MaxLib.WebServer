@@ -232,6 +232,7 @@ namespace MaxLib.WebServer.IO
 
         public void Dispose()
         {
+            GC.SuppressFinalize(this);
             disposed = true;
             if (!leaveOpen)
                 BaseStream.Dispose();
@@ -239,6 +240,7 @@ namespace MaxLib.WebServer.IO
 
         public async ValueTask DisposeAsync()
         {
+            GC.SuppressFinalize(this);
             disposed = true;
             if (!leaveOpen)
                 await BaseStream.DisposeAsync().ConfigureAwait(false);

@@ -39,6 +39,7 @@ namespace MaxLib.WebServer
         public void Dispose()
         {
             Document?.Dispose();
+            GC.SuppressFinalize(this);
         }
 
         public void EnableMonitoring()

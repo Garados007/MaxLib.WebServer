@@ -45,6 +45,7 @@ namespace MaxLib.WebServer.Lazy
 
         public override void Dispose()
         {
+            GC.SuppressFinalize(this);
             if (list != null)
                 foreach (var s in list)
                     s.Dispose();

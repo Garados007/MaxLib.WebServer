@@ -494,6 +494,7 @@ namespace MaxLib.WebServer
         /// </summary>
         public void Dispose()
         {
+            GC.SuppressFinalize(this);
             if (RunToken != null && !RunToken.IsCancellationRequested)
                 RunToken.Cancel();
             if (ServerExecution)

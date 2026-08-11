@@ -71,6 +71,7 @@ namespace MaxLib.WebServer
         public override void Dispose()
         {
             base.Dispose();
+            GC.SuppressFinalize(this);
             foreach (var service in Services)
                 service.Dispose();
         }

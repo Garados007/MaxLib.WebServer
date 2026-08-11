@@ -225,6 +225,7 @@ namespace MaxLib.WebServer
         {
             baseStream.Dispose();
             foreach (var s in streams) s.Dispose();
+            GC.SuppressFinalize(this);
         }
 
         protected override async Task<long> WriteStreamInternal(Stream stream)

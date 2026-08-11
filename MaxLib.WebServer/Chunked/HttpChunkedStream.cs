@@ -27,6 +27,7 @@ namespace MaxLib.WebServer.Chunked
         public override void Dispose()
         {
             BaseStream.Dispose();
+            GC.SuppressFinalize(this);
         }
 
         protected override async Task<long> WriteStreamInternal(Stream stream)

@@ -59,6 +59,7 @@ namespace MaxLib.WebServer.Post
 
             public virtual void Dispose()
             {
+                GC.SuppressFinalize(this);
             }
         }
 
@@ -248,6 +249,7 @@ namespace MaxLib.WebServer.Post
         public void Dispose()
         {
             Entries.ForEach(x => x.Dispose());
+            GC.SuppressFinalize(this);
         }
     }
 }

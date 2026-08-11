@@ -40,6 +40,7 @@ namespace MaxLib.WebServer
 
         public override void Dispose()
         {
+            GC.SuppressFinalize(this);
         }
 
         public override long? Length()

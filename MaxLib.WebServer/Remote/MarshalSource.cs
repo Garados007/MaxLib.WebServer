@@ -23,7 +23,10 @@ namespace MaxLib.WebServer.Remote
             => Container.Length();
 
         public override void Dispose()
-            => Container.Dispose();
+        {
+            Container.Dispose();
+            GC.SuppressFinalize(this);
+        }
 
         protected override Task<long> WriteStreamInternal(Stream stream)
             => Container.WriteStream(stream);

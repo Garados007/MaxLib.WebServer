@@ -35,12 +35,14 @@ namespace MaxLib.WebServer.WebSocket
         public override void Dispose()
         {
             base.Dispose();
+            GC.SuppressFinalize(this);
             foreach (var endpoint in Endpoints)
                 endpoint.Dispose();
         }
 
         public async ValueTask DisposeAsync()
         {
+            GC.SuppressFinalize(this);
             await Task.WhenAll(
                 Endpoints.Select(async x => await x.DisposeAsync().ConfigureAwait(false))
             ).ConfigureAwait(false);

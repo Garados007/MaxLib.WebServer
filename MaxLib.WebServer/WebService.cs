@@ -20,6 +20,7 @@ namespace MaxLib.WebServer
 
         public virtual void Dispose()
         {
+            GC.SuppressFinalize(this);
         }
 
         public event EventHandler? PriorityChanged;

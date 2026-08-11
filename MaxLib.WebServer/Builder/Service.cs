@@ -51,6 +51,7 @@ namespace MaxLib.WebServer.Builder
         /// </summary>
         public virtual void Dispose()
         {
+            GC.SuppressFinalize(this);
         }
 
         /// <summary>

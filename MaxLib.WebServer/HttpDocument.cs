@@ -31,6 +31,7 @@ namespace MaxLib.WebServer
 
         public void Dispose()
         {
+            GC.SuppressFinalize(this);
             foreach (var ds in DataSources.ToArray()) ds.Dispose();
             DataSources.Clear();
             foreach (var kvp in Information.ToArray())

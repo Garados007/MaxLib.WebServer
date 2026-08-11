@@ -89,6 +89,7 @@ namespace MaxLib.WebServer
 
         public void Dispose()
         {
+            GC.SuppressFinalize(this);
             if (LazyData != null && LazyData.IsValueCreated)
             {
                 Task.Run(async () =>
