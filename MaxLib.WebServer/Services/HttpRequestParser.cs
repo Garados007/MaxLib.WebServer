@@ -244,6 +244,7 @@ namespace MaxLib.WebServer.Services
                 return new ValueTask<bool>(false);
             }
 
+#pragma warning disable CA2000 // ownership transfers via SetPost into HttpPost.Content, disposed by HttpPost.Dispose()
             var content = new IO.ContentStream(reader, length);
 
             task.Request.Post.SetPost(
@@ -252,6 +253,7 @@ namespace MaxLib.WebServer.Services
                 task.Request.HeaderParameter.TryGetValue("Content-Type", out string? contentType)
                     ? contentType : null
             );
+#pragma warning restore CA2000
 
             return new ValueTask<bool>(true);
         }
@@ -261,7 +263,9 @@ namespace MaxLib.WebServer.Services
             _ = task ?? throw new ArgumentNullException(nameof(task));
             _ = task.NetworkStream ?? throw new ArgumentNullException(nameof(task));
 
+#pragma warning disable CA2000 // must not dispose: reader is captured by a lazily-read ContentStream and consumed after this method returns; also wraps the live connection stream
             var reader = new NetworkReader(task.NetworkStream);
+#pragma warning restore CA2000
             StringBuilder? debugBuilder = null;
 
             try

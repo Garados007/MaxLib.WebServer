@@ -48,14 +48,16 @@ namespace MaxLib.WebServer
             else Task.Request.HeaderParameter.Add(key, value);
         }
 
+#pragma warning disable CA2000 // ownership transfers via SetPost into HttpPost.Content, disposed by HttpPost.Dispose()
         public void SetPost(WebProgressTask task, ReadOnlyMemory<byte> post, string mime)
         {
             Task.Request.Post.SetPost(
                 task,
-                new IO.ContentStream(new IO.NetworkReader(new IO.SpanStream(post)), post.Length), 
+                new IO.ContentStream(new IO.NetworkReader(new IO.SpanStream(post)), post.Length),
                 mime
             );
         }
+#pragma warning restore CA2000
 
         public void SetAccept(string[]? acceptTypes = null, string[]? encoding = null)
         {

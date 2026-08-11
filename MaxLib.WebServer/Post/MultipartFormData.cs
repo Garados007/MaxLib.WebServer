@@ -187,9 +187,11 @@ namespace MaxLib.WebServer.Post
                 if (storeInTemp)
                 {
                     var name = Path.GetTempFileName();
+#pragma warning disable CA2000 // already disposed via the using declaration below; the analyzer is confused by the `StorageMapper?.Invoke(task, file) ?? file` fallback
                     using var file = new FileStream(name, FileMode.OpenOrCreate, FileAccess.Write,
                         FileShare.None
                     );
+#pragma warning restore CA2000
                     using var stream = StorageMapper?.Invoke(task, file) ?? file;
                     await reader.ReadUntilAsync(rawBoundary, stream).ConfigureAwait(false);
                     entry.Set(new FileInfo(name));

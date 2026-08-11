@@ -72,6 +72,7 @@ namespace MaxLib.WebServer
         /// <see cref="Services.HttpSender" />. <br/> With these you have basic functionality and a
         /// working web server that can deliver 404 answers for every request.
         /// </summary>
+#pragma warning disable CA2000 // ownership transfers to WebServiceGroups via AddWebService, disposed by Server.Dispose()
         public virtual void InitialDefault()
         {
             //Pre parse request
@@ -85,6 +86,7 @@ namespace MaxLib.WebServer
             //send response
             AddWebService(new Services.HttpSender());
         }
+#pragma warning restore CA2000
 
         /// <summary>
         /// Add a new web service to the server and integrate its services. This can be done at

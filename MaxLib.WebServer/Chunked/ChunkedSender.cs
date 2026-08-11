@@ -34,7 +34,9 @@ namespace MaxLib.WebServer.Chunked
             var stream = task.NetworkStream;
             if (stream is null)
                 return;
+#pragma warning disable CA2000 // must not dispose: would close the still-needed connection stream, and StreamWriter's default no-BOM encoding must not be swapped just to add leaveOpen
             var writer = new StreamWriter(stream);
+#pragma warning restore CA2000
             await writer.WriteAsync(header.HttpProtocol).ConfigureAwait(false);
             await writer.WriteAsync(" ").ConfigureAwait(false);
             await writer.WriteAsync(((int)header.StatusCode).ToString()).ConfigureAwait(false);
@@ -117,7 +119,9 @@ namespace MaxLib.WebServer.Chunked
                             await source.WriteStream(sink).ConfigureAwait(false);
                             sink.FinishWrite();
                         });
+#pragma warning disable CA2000 // sink already has its own using-block; HttpChunkedStream.Dispose() disposing it a second time is safe, adding a using here isn't
                         await SendChunk(writer, stream, new HttpChunkedStream(sink)).ConfigureAwait(false);
+#pragma warning restore CA2000
                     }
                 //using (var m = new MemoryStream())
                 //{

@@ -195,11 +195,13 @@ namespace MaxLib.WebServer
                 sb.AppendLine(r.ToString(baseStream.Length));
                 sb.AppendLine();
                 streams.Add(new HttpStringDataSource(sb.ToString()));
+#pragma warning disable CA2000 // ownership transfers to the streams list, disposed by MultipartRanges.Dispose()
                 streams.Add(new HttpPartialSource(
                     new HttpStreamDataSource(baseStream),
                     r.From,
                     r.To - r.From
                 ));
+#pragma warning restore CA2000
                 sb.Clear();
             }
             sb.Append("--");

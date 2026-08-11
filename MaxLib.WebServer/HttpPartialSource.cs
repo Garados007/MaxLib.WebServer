@@ -72,12 +72,12 @@ namespace MaxLib.WebServer
             // optimize if stream based
             if (BaseSource is HttpStreamDataSource streamDataSource)
             {
-                var window = new StreamWindow(stream, 0, Count);
+                using var window = new StreamWindow(stream, 0, Count);
                 return await streamDataSource.WriteStream(window, Start, Count);
             }
             else
             {
-                var window = new StreamWindow(stream, Start, Count);
+                using var window = new StreamWindow(stream, Start, Count);
                 return await BaseSource.WriteStream(window);
             }
         }

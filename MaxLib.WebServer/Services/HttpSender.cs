@@ -96,7 +96,9 @@ namespace MaxLib.WebServer.Services
             var stream = task.NetworkStream;
             if (stream == null)
                 return;
+#pragma warning disable CA2000 // must not dispose: would close the still-needed connection stream, and StreamWriter's default no-BOM encoding must not be swapped just to add leaveOpen
             var writer = new StreamWriter(stream);
+#pragma warning restore CA2000
             await writer.WriteAsync(header.HttpProtocol).ConfigureAwait(false);
             await writer.WriteAsync(" ").ConfigureAwait(false);
             await writer.WriteAsync(((int)header.StatusCode).ToString()).ConfigureAwait(false);
