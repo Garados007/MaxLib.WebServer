@@ -63,7 +63,7 @@ namespace MaxLib.WebServer.Post
                 }
             encoding ??= Encoding.UTF8;
             var buffer = new byte[content.UnreadData];
-            await content.ReadAsync(buffer, 0, buffer.Length).ConfigureAwait(false);
+            await content.ReadAsync(buffer.AsMemory()).ConfigureAwait(false);
             Set(encoding.GetString(buffer), options);
         }
 

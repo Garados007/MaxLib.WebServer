@@ -527,7 +527,7 @@ namespace MaxLib.WebServer.IO
             if (count <= length)
                 return length;
             
-            return length + await BaseStream.ReadAsync(buffer, offset + length, count - length, cancellationToken).ConfigureAwait(false);
+            return length + await BaseStream.ReadAsync(buffer.AsMemory(offset + length, count - length), cancellationToken).ConfigureAwait(false);
         }
     
         public async ValueTask<int> ReadAsync(Memory<byte> buffer, 
@@ -608,7 +608,7 @@ namespace MaxLib.WebServer.IO
                 int read = await ReadAsync(bytes, 0, Math.Min(count, blockSize), cancellationToken).ConfigureAwait(false);
                 if (read == 0)
                     break;
-                await buffer.WriteAsync(bytes, 0, read, cancellationToken).ConfigureAwait(false);
+                await buffer.WriteAsync(bytes.AsMemory(0, read), cancellationToken).ConfigureAwait(false);
                 count -= read;
             }
             

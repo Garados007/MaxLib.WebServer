@@ -82,3 +82,12 @@ dotnet_diagnostic.CA1864.severity = error
 
 # CA1868: Unnecessary call to 'Contains' for 'HashSet'/dictionary/list before Add/Remove
 dotnet_diagnostic.CA1868.severity = error
+
+# CA1822: Mark members as static
+dotnet_diagnostic.CA1822.severity = error
+
+# CA1844: Provide memory-based overrides of async methods when subclassing 'Stream'
+dotnet_diagnostic.CA1844.severity = error
+
+# CA1835: Prefer the memory-based overloads for 'ReadAsync'/'WriteAsync'
+dotnet_diagnostic.CA1835.severity = error

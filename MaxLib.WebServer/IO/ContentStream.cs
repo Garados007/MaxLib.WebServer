@@ -125,6 +125,18 @@ namespace MaxLib.WebServer.IO
             return length;
         }
 
+        public override async ValueTask<int> ReadAsync(Memory<byte> buffer, CancellationToken cancellationToken = default)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            var count = buffer.Length;
+            if (count > UnreadData)
+                count = (int)UnreadData;
+            var length = await reader.ReadAsync(buffer[..count], cancellationToken).ConfigureAwait(false);
+            ReadData += length;
+            return length;
+        }
+
         public override long Seek(long offset, SeekOrigin origin)
         {
             throw new InvalidOperationException("Cannot seek on this stream");

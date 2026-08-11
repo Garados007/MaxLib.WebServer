@@ -140,7 +140,7 @@ namespace MaxLib.WebServer.Services
 
             public override int Rank => UrlPath.Length;
 
-            private ReadOnlySpan<string> EncodeUrl(ReadOnlySpan<string> value)
+            private static ReadOnlySpan<string> EncodeUrl(ReadOnlySpan<string> value)
             {
                 Span<string> result = new string[value.Length];
                 for (int i = 0; i < value.Length; ++i)

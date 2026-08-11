@@ -127,7 +127,7 @@ namespace MaxLib.WebServer.WebSocket
                 buffer.Reverse();
         }
 
-        protected void ToBytes(ushort value, Span<byte> buffer)
+        protected static void ToBytes(ushort value, Span<byte> buffer)
         {
             var result = BitConverter.GetBytes(value);
             if (result.Length > buffer.Length)
