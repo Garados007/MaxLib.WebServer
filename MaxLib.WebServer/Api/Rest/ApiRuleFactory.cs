@@ -34,7 +34,7 @@ namespace MaxLib.WebServer.Api.Rest
         {
             public string? Constant { get; set; }
 
-            public bool IgnoreCase { get; set; } = false;
+            public bool IgnoreCase { get; set; }
 
             public override bool Check(RestQueryArgs args)
             {

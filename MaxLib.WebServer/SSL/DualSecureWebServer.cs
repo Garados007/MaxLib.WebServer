@@ -51,14 +51,14 @@ namespace MaxLib.WebServer.SSL
         {
             public StreamPeaker(Stream baseStream)
             {
-                BaseStream = baseStream ?? throw new ArgumentNullException("baseStream");
+                BaseStream = baseStream ?? throw new ArgumentNullException(nameof(baseStream));
             }
 
             public Stream BaseStream { get; private set; }
 
             int firstByte = -1;
-            bool firstByteRead = false;
-            bool baseStreamAtEnd = false;
+            bool firstByteRead;
+            bool baseStreamAtEnd;
 
             public override bool CanRead => true;
 

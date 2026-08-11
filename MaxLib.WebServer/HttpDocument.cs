@@ -19,7 +19,7 @@ namespace MaxLib.WebServer
             set => primaryMime = value;
         }
 
-        public string? PrimaryEncoding { get; set; } = null;
+        public string? PrimaryEncoding { get; set; }
 
         public Dictionary<object, object?> Information { get; } = new Dictionary<object, object?>();
 

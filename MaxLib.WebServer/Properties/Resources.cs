@@ -6,7 +6,7 @@ namespace MaxLib.WebServer.Properties
 {
     public static class Resources
     {
-        private static string? files_ViewHtmlCss = null;
+        private static string? files_ViewHtmlCss;
 
         public static string Files_ViewHtmlCss
         {

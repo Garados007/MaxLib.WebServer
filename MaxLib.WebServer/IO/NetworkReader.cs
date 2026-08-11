@@ -71,7 +71,7 @@ namespace MaxLib.WebServer.IO
         /// The number of unread chars in <see cref="charBuffer" />.
         /// </summary>
         int charBufferCount;
-        bool disposed = false;
+        bool disposed;
         readonly int expectedCharBytes;
 
         public NetworkReader(Stream stream)
@@ -170,7 +170,7 @@ namespace MaxLib.WebServer.IO
             while (readBufferCount < expectLength);
         }
 
-        int lastBytesUsed = 0;
+        int lastBytesUsed;
 
         protected int RefillCharBuffer()
         {

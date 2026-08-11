@@ -9,7 +9,7 @@ namespace MaxLib.WebServer
     [Serializable]
     public abstract class HttpHeader
     {
-        private bool lockReset = false;
+        private bool lockReset;
 
         public HttpHeader()
         {

@@ -27,7 +27,7 @@ namespace MaxLib.WebServer.Services
         /// <br />
         /// Do not use this in production!
         /// </summary>
-        public string? DebugWriteRequestFile { get; set; } = null;
+        public string? DebugWriteRequestFile { get; set; }
 
         /// <summary>
         /// If this property is set to a file name this parser will writer
@@ -41,7 +41,7 @@ namespace MaxLib.WebServer.Services
         /// <br />
         /// Do not use this in production!
         /// </summary>
-        public string? DebugLogConnectionFile { get; set; } = null;
+        public string? DebugLogConnectionFile { get; set; }
 
         /// <summary>
         /// Sometimes the data is not available at instant. This can happen with slow

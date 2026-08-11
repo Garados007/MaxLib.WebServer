@@ -5,3 +5,11 @@ dotnet_diagnostic.CS1570.severity = silent
 
 # CS1591: Fehledes XML-Kommentar für öffentlich sichtbaren Typ oder Element
 dotnet_diagnostic.CS1591.severity = silent
+
+[MaxLib.WebServer/**.cs]
+
+# CA1805: Do not initialize unnecessarily
+dotnet_diagnostic.CA1805.severity = error
+
+# CA1507: Use nameof to express symbol names
+dotnet_diagnostic.CA1507.severity = error

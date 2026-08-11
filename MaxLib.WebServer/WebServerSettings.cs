@@ -44,8 +44,8 @@ namespace MaxLib.WebServer
         }
 
         //Debug
-        public bool Debug_WriteRequests = false;
-        public bool Debug_LogConnections = false;
+        public bool Debug_WriteRequests;
+        public bool Debug_LogConnections;
 
         public WebServerSettings(int port, int connectionTimeout)
         {

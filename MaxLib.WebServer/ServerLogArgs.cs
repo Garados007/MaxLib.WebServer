@@ -8,7 +8,7 @@ namespace MaxLib.WebServer
     {
         public ServerLogItem LogItem { get; }
 
-        public bool Discard { get; set; } = false;
+        public bool Discard { get; set; }
 
         public ServerLogArgs(ServerLogItem logItem)
             => LogItem = logItem;
