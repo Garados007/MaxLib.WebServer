@@ -8,6 +8,8 @@ namespace MaxLib.WebServer
     [Serializable]
     public class HttpRequestHeader : HttpHeader
     {
+        private static readonly char[] AcceptListSeparators = { ',', ' ' };
+
         protected override void ResetCache()
         {
             base.ResetCache();
@@ -62,9 +64,9 @@ namespace MaxLib.WebServer
                     () => new ReadOnlyCollection<string>(
                         HeaderParameter.TryGetValue("Accept", out string value) ?
                             value.Split(
-                                new[] { ',', ' ' },
+                                AcceptListSeparators,
                                 StringSplitOptions.RemoveEmptyEntries
-                            ) : new string[0]
+                            ) : Array.Empty<string>()
                     )
                 )).Value;
             }
@@ -90,9 +92,9 @@ namespace MaxLib.WebServer
                     () => new ReadOnlyCollection<string>(
                         HeaderParameter.TryGetValue("Accept-Charset", out string value) ?
                             value.Split(
-                                new[] { ',', ' ' },
+                                AcceptListSeparators,
                                 StringSplitOptions.RemoveEmptyEntries
-                            ) : new string[0]
+                            ) : Array.Empty<string>()
                     )
                 )).Value;
             }
@@ -118,9 +120,9 @@ namespace MaxLib.WebServer
                     () => new ReadOnlyCollection<string>(
                         HeaderParameter.TryGetValue("Accept-Encoding", out string value) ?
                             value.Split(
-                                new[] { ',', ' ' },
+                                AcceptListSeparators,
                                 StringSplitOptions.RemoveEmptyEntries
-                            ) : new string[0]
+                            ) : Array.Empty<string>()
                     )
                 )).Value;
             }

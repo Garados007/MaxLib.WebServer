@@ -61,7 +61,7 @@ namespace MaxLib.WebServer
             Url = url ?? throw new ArgumentNullException(nameof(url));
             GetParameter = new Dictionary<string, string>();
             DocumentPath = "";
-            DocumentPathTiles = new string[0];
+            DocumentPathTiles = Array.Empty<string>();
             CompleteGet = "";
             SetLocation(url);
         }

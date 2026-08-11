@@ -10,7 +10,9 @@ namespace MaxLib.WebServer.WebSocket
 {
     public class WebSocketService : WebService, IDisposable, IAsyncDisposable
     {
-        public WebSocketService() 
+        private static readonly char[] ProtocolSeparators = { ' ', ',' };
+
+        public WebSocketService()
             : base(ServerStage.ParseRequest)
         {
         }
@@ -56,7 +58,7 @@ namespace MaxLib.WebServer.WebSocket
                 return;
 
             var protocols = (task.Request.GetHeader("Sec-WebSocket-Protocol")?.ToLowerInvariant() ?? "")
-                .Split(new char[] { ' ', ',' }, StringSplitOptions.RemoveEmptyEntries);
+                .Split(ProtocolSeparators, StringSplitOptions.RemoveEmptyEntries);
 
             var key = task.Request.GetHeader("Sec-WebSocket-Key");
             var version = task.Request.GetHeader("Sec-WebSocket-Version"); // MUST be 13 according RFC 6455

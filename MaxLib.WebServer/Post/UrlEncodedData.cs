@@ -29,15 +29,13 @@ namespace MaxLib.WebServer.Post
                     if (ind == -1)
                     {
                         var t = WebServerUtils.DecodeUri(tile);
-                        if (!Parameter.ContainsKey(t)) 
-                            Parameter.Add(t, "");
+                        Parameter.TryAdd(t, "");
                     }
                     else
                     {
                         var key = WebServerUtils.DecodeUri(tile.Remove(ind));
                         var value = ind + 1 == tile.Length ? "" : tile.Substring(ind + 1);
-                        if (!Parameter.ContainsKey(key)) 
-                            Parameter.Add(key, WebServerUtils.DecodeUri(value));
+                        Parameter.TryAdd(key, WebServerUtils.DecodeUri(value));
                     }
                 }
             }

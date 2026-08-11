@@ -338,8 +338,7 @@ namespace MaxLib.WebServer
         protected void RemoveConnection(HttpConnection connection)
         {
             _ = connection ?? throw new ArgumentNullException(nameof(connection));
-            if (KeepAliveConnections.Contains(connection))
-                KeepAliveConnections.Remove(connection);
+            KeepAliveConnections.Remove(connection);
             AllConnections.Remove(connection);
             connection.NetworkClient?.Close();
         }
