@@ -100,3 +100,7 @@ dotnet_diagnostic.IDE0301.severity = error
 
 # IDE0057: Use range operator
 dotnet_diagnostic.IDE0057.severity = error
+
+# SYSLIB1045: Use 'GeneratedRegexAttribute' to generate the regular expression
+# implementation at compile-time
+dotnet_diagnostic.SYSLIB1045.severity = error

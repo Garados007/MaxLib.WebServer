@@ -9,7 +9,7 @@ using System.Threading.Tasks;
 
 namespace MaxLib.WebServer.Post
 {
-    public class UrlEncodedData : IPostData
+    public partial class UrlEncodedData : IPostData
     {
         public string MimeType => WebServer.MimeType.ApplicationXWwwFromUrlencoded;
 
@@ -41,15 +41,10 @@ namespace MaxLib.WebServer.Post
             }
         }
 
-        static readonly Regex charsetRegex = new Regex(
-            "charset\\s*=\\s*(?<charset>[^\\s;]+)",
-            RegexOptions.Compiled | RegexOptions.IgnoreCase
-        );
-
         public async Task SetAsync(WebProgressTask task, IO.ContentStream content, string options)
         {
             ArgumentNullException.ThrowIfNull(content);
-            var match = charsetRegex.Match(options);
+            var match = charsetRegex().Match(options);
             Encoding? encoding = null;
             if (match.Success)
                 try
@@ -79,5 +74,8 @@ namespace MaxLib.WebServer.Post
         {
             GC.SuppressFinalize(this);
         }
+
+        [GeneratedRegex("charset\\s*=\\s*(?<charset>[^\\s;]+)", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
+        private static partial Regex charsetRegex();
     }
 }

@@ -8,7 +8,7 @@ using System.Text.RegularExpressions;
 namespace MaxLib.WebServer
 {
     [Serializable]
-    public class HttpLocation
+    public partial class HttpLocation
     {
         public string Url { get; private set; }
 
@@ -20,15 +20,11 @@ namespace MaxLib.WebServer
 
         public Dictionary<string, string> GetParameter { get; }
 
-        static readonly Regex UrlRegex = new Regex(@"^((?:\/+([^\/?]+))*\/?)(?:\?((?:([^&$]*)&?)*))?$", RegexOptions.Compiled);
-
-        static readonly Regex ArgsRegex = new Regex(@"^([^=]*)=(.*)$", RegexOptions.Compiled);
-
         public virtual void SetLocation(string url)
         {
             Url = url ?? throw new ArgumentNullException(url);
                 GetParameter.Clear();
-            var match = UrlRegex.Match(url);
+            var match = UrlRegex().Match(url);
             if (!match.Success)
             {
                 DocumentPath = url;
@@ -43,7 +39,7 @@ namespace MaxLib.WebServer
             CompleteGet = match.Groups[3].Success ? match.Groups[3].Value ?? "" : "";
             foreach (Capture capture in match.Groups[4].Captures)
             {
-                var submatch = ArgsRegex.Match(capture.Value);
+                var submatch = ArgsRegex().Match(capture.Value);
                 if (submatch.Success)
                 {
                     GetParameter[WebServerUtils.DecodeUri(submatch.Groups[1].Value)]
@@ -102,5 +98,10 @@ namespace MaxLib.WebServer
                 }
             return true;
         }
+
+        [GeneratedRegex(@"^((?:\/+([^\/?]+))*\/?)(?:\?((?:([^&$]*)&?)*))?$")]
+        private static partial Regex UrlRegex();
+        [GeneratedRegex(@"^([^=]*)=(.*)$")]
+        private static partial Regex ArgsRegex();
     }
 }

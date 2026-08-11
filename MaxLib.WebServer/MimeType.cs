@@ -15,7 +15,7 @@ namespace MaxLib.WebServer
     /// This class holds some constants for popular mime types. It also holds some
     /// functionality for working with mime types.
     /// </summary>
-    public static class MimeType
+    public static partial class MimeType
     {
 
         public const string ApplicationXWwwFromUrlencoded = "application/x-www-form-urlencoded";
@@ -234,10 +234,7 @@ namespace MaxLib.WebServer
                 var reader = new StringReader(await client.GetStringAsync(
                     @"http://svn.apache.org/repos/asf/httpd/httpd/trunk/docs/conf/mime.types"
                 ).ConfigureAwait(false));
-                var regex = new Regex(
-                    @"^(?<mime>[^#][^\s]*)(\s+(?<extension>\w+))+$",
-                    RegexOptions.Compiled
-                );
+                var regex = MimeTypesLineRegex();
                 string? line;
                 while ((line = await reader.ReadLineAsync().ConfigureAwait(false)) != null)
                 {
@@ -264,5 +261,8 @@ namespace MaxLib.WebServer
             }
             MimeType.mimeTypes = mimeTypes;
         }
+
+        [GeneratedRegex(@"^(?<mime>[^#][^\s]*)(\s+(?<extension>\w+))+$")]
+        private static partial Regex MimeTypesLineRegex();
     }
 }

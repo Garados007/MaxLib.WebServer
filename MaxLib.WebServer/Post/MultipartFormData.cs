@@ -12,7 +12,7 @@ using System.Threading.Tasks;
 
 namespace MaxLib.WebServer.Post
 {
-    public class MultipartFormData : IPostData
+    public partial class MultipartFormData : IPostData
     {
         public class FormEntry : IDisposable
         {
@@ -94,23 +94,6 @@ namespace MaxLib.WebServer.Post
         public List<FormEntry> Entries { get; }
             = new List<FormEntry>();
 
-        static Regex boundaryRegex = new Regex(
-            "boundary\\s*=\\s*(?:\"(?<name>[^\"]*)\"|(?<name>[^\"]*))",
-            RegexOptions.Compiled
-        );
-        static Regex nameRegex = new Regex(
-            "[^\\w]name\\s*=\\s*\"(?<name>[^\"]*)\"",
-            RegexOptions.Compiled | RegexOptions.IgnoreCase
-        );
-        static Regex filenameRegex = new Regex(
-            "[^\\w]filename\\s*=\\s*\"(?<name>[^\"]*)\"",
-            RegexOptions.Compiled | RegexOptions.IgnoreCase
-        );
-        static Regex headerSplit = new Regex(
-            "^(?<name>[^:\\s]+)\\s*:\\s*(?<value>.*)$",
-            RegexOptions.Compiled
-        );
-
         protected virtual FormEntry GetEntry(Dictionary<string, string> header)
         {
             _ = header ?? throw new ArgumentNullException(nameof(header));
@@ -119,10 +102,10 @@ namespace MaxLib.WebServer.Post
             {
                 if (!disposition.StartsWith("form-data", StringComparison.Ordinal))
                     return new FormEntry(header);
-                var nameResult = nameRegex.Match(disposition);
+                var nameResult = nameRegex().Match(disposition);
                 var name = nameResult.Success ? nameResult.Groups["name"].Value : null;
 
-                var filenameResult = filenameRegex.Match(disposition);
+                var filenameResult = filenameRegex().Match(disposition);
                 var filename = filenameResult.Success ? filenameResult.Groups["name"].Value : null;
 
                 if (filename != null && name != null)
@@ -154,7 +137,7 @@ namespace MaxLib.WebServer.Post
 
         public async Task SetAsync(WebProgressTask task, IO.ContentStream content, string options)
         {
-            var match = boundaryRegex.Match(options);
+            var match = boundaryRegex().Match(options);
             var boundary = match.Success ? match.Groups["name"].Value : "";
             boundary = $"--{boundary}";
             ReadOnlyMemory<byte> rawBoundary = Encoding.UTF8.GetBytes(boundary);
@@ -174,7 +157,7 @@ namespace MaxLib.WebServer.Post
                 string? line;
                 while (!string.IsNullOrWhiteSpace(line = await reader.ReadLineAsync().ConfigureAwait(false)))
                 {
-                    var header = headerSplit.Match(line);
+                    var header = headerSplit().Match(line);
                     if (!header.Success)
                         break;
                     dict.Add(header.Groups["name"].Value, header.Groups["value"].Value);
@@ -255,5 +238,14 @@ namespace MaxLib.WebServer.Post
             Entries.ForEach(x => x.Dispose());
             GC.SuppressFinalize(this);
         }
+
+        [GeneratedRegex("boundary\\s*=\\s*(?:\"(?<name>[^\"]*)\"|(?<name>[^\"]*))")]
+        private static partial Regex boundaryRegex();
+        [GeneratedRegex("[^\\w]name\\s*=\\s*\"(?<name>[^\"]*)\"", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
+        private static partial Regex nameRegex();
+        [GeneratedRegex("[^\\w]filename\\s*=\\s*\"(?<name>[^\"]*)\"", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
+        private static partial Regex filenameRegex();
+        [GeneratedRegex("^(?<name>[^:\\s]+)\\s*:\\s*(?<value>.*)$")]
+        private static partial Regex headerSplit();
     }
 }
