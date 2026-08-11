@@ -1,5 +1,6 @@
 ﻿using MaxLib.WebServer.Lazy;
 using System;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
@@ -41,7 +42,7 @@ namespace MaxLib.WebServer.Chunked
 #pragma warning restore CA2000
             await writer.WriteAsync(header.HttpProtocol).ConfigureAwait(false);
             await writer.WriteAsync(" ").ConfigureAwait(false);
-            await writer.WriteAsync(((int)header.StatusCode).ToString()).ConfigureAwait(false);
+            await writer.WriteAsync(((int)header.StatusCode).ToString(CultureInfo.InvariantCulture)).ConfigureAwait(false);
             await writer.WriteAsync(" ").ConfigureAwait(false);
             await writer.WriteLineAsync(StatusCodeText(header.StatusCode)).ConfigureAwait(false);
             for (int i = 0; i < header.HeaderParameter.Count; ++i) //Parameter
@@ -141,7 +142,7 @@ namespace MaxLib.WebServer.Chunked
                 else
                 {
                     if (length.Value == 0) return;
-                    await writer.WriteLineAsync(length.Value.ToString("X")).ConfigureAwait(false);
+                    await writer.WriteLineAsync(length.Value.ToString("X", CultureInfo.InvariantCulture)).ConfigureAwait(false);
                     await writer.FlushAsync().ConfigureAwait(false);
                     await source.WriteStream(stream).ConfigureAwait(false);
                 }

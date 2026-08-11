@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Globalization;
 
 #nullable enable
 
@@ -33,7 +34,7 @@ namespace MaxLib.WebServer
         }
 
         public ServerLogItem(DateTime date, ServerLogType type, Type sender, string infoType, string mask, params object?[] data)
-            : this(date, type, sender, infoType, string.Format(mask, data))
+            : this(date, type, sender, infoType, string.Format(CultureInfo.InvariantCulture, mask, data))
         { }
 
         public ServerLogItem(ServerLogType type, Type sender, string infoType, string information)
@@ -42,7 +43,7 @@ namespace MaxLib.WebServer
         }
 
         public ServerLogItem(ServerLogType type, Type sender, string infoType, string mask, params object?[] data)
-            : this(type, sender, infoType, string.Format(mask, data))
+            : this(type, sender, infoType, string.Format(CultureInfo.InvariantCulture, mask, data))
         { }
 
 

@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Text;
 
 namespace MaxLib.WebServer.Builder
@@ -52,8 +53,8 @@ namespace MaxLib.WebServer.Builder
             foreach (var (part, mode) in parts)
             {
                 if (mode)
-                    sb.AppendFormat("/{{{0}}}", part);
-                else sb.AppendFormat("/{0}", part);
+                    sb.AppendFormat(CultureInfo.InvariantCulture, "/{{{0}}}", part);
+                else sb.AppendFormat(CultureInfo.InvariantCulture, "/{0}", part);
             }
             if (Prefix)
                 sb.Append("/*");

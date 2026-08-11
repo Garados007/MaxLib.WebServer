@@ -2,6 +2,7 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Globalization;
 using System.Linq;
 using System.Net;
 using System.Net.Sockets;
@@ -156,7 +157,7 @@ namespace MaxLib.WebServer
             Listener.Start();
             ServerThread = new Thread(ServerMainTask)
             {
-                Name = "ServerThread - Port: " + Settings.Port.ToString()
+                Name = "ServerThread - Port: " + Settings.Port.ToString(CultureInfo.InvariantCulture)
             };
             ServerThread.Start();
         }

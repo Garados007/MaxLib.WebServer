@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Diagnostics;
+using System.Globalization;
 using System.Net;
 using System.Net.Security;
 using System.Net.Sockets;
@@ -33,7 +34,7 @@ namespace MaxLib.WebServer.SSL
             SecureListener.Start();
             SecureServerThread = new Thread(SecureMainTask)
             {
-                Name = "SecureServerThread - Port: " + SecureSettings.SecurePort.ToString()
+                Name = "SecureServerThread - Port: " + SecureSettings.SecurePort.ToString(CultureInfo.InvariantCulture)
             };
             SecureServerThread.Start();
         }

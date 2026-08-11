@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.IO;
 using System.Text;
 using System.Threading.Tasks;
@@ -62,7 +63,7 @@ namespace MaxLib.WebServer.Monitoring
             var callName = SanitizePath(task.Request.Location.DocumentPath);
             if (callName.Length == 0)
                 callName = "_";
-            var date = started.ToString("yyyy-MM-dd_HH-mm-ss-fffffff");
+            var date = started.ToString("yyyy-MM-dd_HH-mm-ss-fffffff", CultureInfo.InvariantCulture);
 
             var dir = $"{path}/{callName}";
             if (!Directory.Exists(dir))

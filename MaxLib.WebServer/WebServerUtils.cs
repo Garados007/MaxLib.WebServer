@@ -36,7 +36,7 @@ namespace MaxLib.WebServer
             digits = Math.Max(Math.Min(digits, vkd + 3 * step), vkd);
             var mask = vkd == 4 ? "0,000" : new string('0', vkd);
             if (digits > vkd) mask += "." + new string('#', digits - vkd);
-            return $"{bc.ToString(mask)} {names[step]}";
+            return $"{bc.ToString(mask, CultureInfo.InvariantCulture)} {names[step]}";
         }
 
         public static string GetDateString(DateTime date)

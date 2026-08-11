@@ -1,4 +1,5 @@
 using System;
+using System.Globalization;
 using System.Net;
 using System.Text;
 using System.Threading.Tasks;
@@ -28,16 +29,16 @@ namespace MaxLib.WebServer.Services
             sb.Append("<html><head><title>404 NOT FOUND</title></head>");
             sb.Append("<body><h1>Error 404: Not Found</h1><p>The requested resource is not found.</p>");
             sb.AppendLine("<pre>");
-            sb.AppendLine($"Protocol: {WebUtility.HtmlEncode(task.Request.HttpProtocol)}");
-            sb.AppendLine($"Method:   {WebUtility.HtmlEncode(task.Request.ProtocolMethod)}");
-            sb.AppendLine($"Url:      {WebUtility.HtmlEncode(task.Request.Location.Url)}");
+            sb.AppendLine(CultureInfo.InvariantCulture, $"Protocol: {WebUtility.HtmlEncode(task.Request.HttpProtocol)}");
+            sb.AppendLine(CultureInfo.InvariantCulture, $"Method:   {WebUtility.HtmlEncode(task.Request.ProtocolMethod)}");
+            sb.AppendLine(CultureInfo.InvariantCulture, $"Url:      {WebUtility.HtmlEncode(task.Request.Location.Url)}");
             sb.AppendLine($"Header:");
             foreach (var (key, value) in task.Request.HeaderParameter)
-                sb.AppendLine($"\t{WebUtility.HtmlEncode(key)}: {WebUtility.HtmlEncode(value)}");
+                sb.AppendLine(CultureInfo.InvariantCulture, $"\t{WebUtility.HtmlEncode(key)}: {WebUtility.HtmlEncode(value)}");
             sb.AppendLine($"Body:");
             sb.AppendLine(WebUtility.HtmlEncode(task.Request.Post.ToString()));
             sb.Append($"</pre><p>Try to change the request to get your expected response.</p>");
-            sb.Append($"<small>Created by <a href=\"https://github.com/Garados007/MaxLib.WebServer\" " +
+            sb.Append(CultureInfo.InvariantCulture, $"<small>Created by <a href=\"https://github.com/Garados007/MaxLib.WebServer\" " +
                 $"target=\"_blank\">MaxLib.WebServer {Version}</a>: {DateTime.UtcNow:r}</small></body></html>");
             task.Document.DataSources.Add(new HttpStringDataSource(sb.ToString())
             {

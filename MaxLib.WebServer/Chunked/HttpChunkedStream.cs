@@ -43,7 +43,7 @@ namespace MaxLib.WebServer.Chunked
                 read = await BaseStream.ReadAsync(buffer).ConfigureAwait(false);
                 if (read <= 0)
                     return total;
-                ReadOnlyMemory<byte> length = ascii.GetBytes(read.ToString("X"));
+                ReadOnlyMemory<byte> length = ascii.GetBytes(read.ToString("X", CultureInfo.InvariantCulture));
                 try
                 {
                     await stream.WriteAsync(length).ConfigureAwait(false);

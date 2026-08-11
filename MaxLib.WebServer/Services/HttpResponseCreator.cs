@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Globalization;
 using System.Linq;
 using System.Threading.Tasks;
 
@@ -31,7 +32,7 @@ namespace MaxLib.WebServer.Services
             {
                 ("Connection", "keep-alive"),
                 ("X-UA-Compatible", "IE=Edge"),
-                ("Content-Length", task.Document.DataSources.Sum((s) => s.Length()).ToString()),
+                ("Content-Length", task.Document.DataSources.Sum((s) => s.Length())?.ToString(CultureInfo.InvariantCulture) ?? ""),
             });
             if (task.Document.PrimaryEncoding != null)
                 response.HeaderParameter["Content-Type"] += "; charset=" +

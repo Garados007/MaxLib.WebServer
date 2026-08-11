@@ -61,3 +61,6 @@ dotnet_diagnostic.CA1862.severity = error
 
 # CA1311: Specify a culture or use an invariant version to avoid implicit dependency on current culture
 dotnet_diagnostic.CA1311.severity = error
+
+# CA1305: Specify IFormatProvider
+dotnet_diagnostic.CA1305.severity = error
