@@ -32,7 +32,7 @@ namespace MaxLib.WebServer
             if (!match.Success)
             {
                 DocumentPath = url;
-                DocumentPathTiles = new[] { url };
+                DocumentPathTiles = [url];
                 CompleteGet = "";
             }
             DocumentPath = match.Groups[1].Value;
@@ -61,7 +61,7 @@ namespace MaxLib.WebServer
             Url = url ?? throw new ArgumentNullException(nameof(url));
             GetParameter = new Dictionary<string, string>();
             DocumentPath = "";
-            DocumentPathTiles = Array.Empty<string>();
+            DocumentPathTiles = [];
             CompleteGet = "";
             SetLocation(url);
         }

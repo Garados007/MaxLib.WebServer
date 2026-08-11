@@ -95,7 +95,7 @@ namespace MaxLib.WebServer.Builder
                 {
                     var constructor = Options.GetConstructor(Type.EmptyTypes);
                     if (constructor != null)
-                        options = ((IJsonSerializerOptions)constructor.Invoke(Array.Empty<object>())).Options;
+                        options = ((IJsonSerializerOptions)constructor.Invoke([])).Options;
                 }
                 return x => preParse(x)?.Deserialize(target, options);
             }

@@ -338,7 +338,7 @@ namespace MaxLib.WebServer.Builder.Tools
                     return null;
                 }
                 var constructed = convAttr.Converter.GetConstructor(Type.EmptyTypes)?
-                    .Invoke(Array.Empty<object>());
+                    .Invoke([]);
                 if (constructed == null)
                 {
                     LogResultCannotCreateConverterInstance(method, convAttr);

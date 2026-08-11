@@ -8,7 +8,7 @@ namespace MaxLib.WebServer
     [Serializable]
     public class HttpRequestHeader : HttpHeader
     {
-        private static readonly char[] AcceptListSeparators = { ',', ' ' };
+        private static readonly char[] AcceptListSeparators = [',', ' '];
 
         protected override void ResetCache()
         {
@@ -66,7 +66,7 @@ namespace MaxLib.WebServer
                             value.Split(
                                 AcceptListSeparators,
                                 StringSplitOptions.RemoveEmptyEntries
-                            ) : Array.Empty<string>()
+                            ) : []
                     )
                 )).Value;
             }
@@ -94,7 +94,7 @@ namespace MaxLib.WebServer
                             value.Split(
                                 AcceptListSeparators,
                                 StringSplitOptions.RemoveEmptyEntries
-                            ) : Array.Empty<string>()
+                            ) : []
                     )
                 )).Value;
             }
@@ -122,7 +122,7 @@ namespace MaxLib.WebServer
                             value.Split(
                                 AcceptListSeparators,
                                 StringSplitOptions.RemoveEmptyEntries
-                            ) : Array.Empty<string>()
+                            ) : []
                     )
                 )).Value;
             }

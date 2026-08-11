@@ -10,7 +10,7 @@ namespace MaxLib.WebServer.WebSocket
 {
     public class WebSocketService : WebService, IDisposable, IAsyncDisposable
     {
-        private static readonly char[] ProtocolSeparators = { ' ', ',' };
+        private static readonly char[] ProtocolSeparators = [' ', ','];
 
         public WebSocketService()
             : base(ServerStage.ParseRequest)

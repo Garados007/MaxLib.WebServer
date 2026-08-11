@@ -20,7 +20,7 @@ namespace MaxLib.WebServer.Builder.Runtime
         }
 
         private static readonly (Type type, Func<WebProgressTask, Tools.Result<object?>> getter)[] coreTypes =
-        {
+        [
             (typeof(WebProgressTask), x => new Result<object?>(x)),
             (typeof(HttpDocument), x => new Result<object?>(x.Document)),
             (typeof(Server), x => new Result<object?>(x.Server)),
@@ -41,7 +41,7 @@ namespace MaxLib.WebServer.Builder.Runtime
             (typeof(Monitoring.IWatch), x => new Result<object?>(x.Monitor.Current)),
             (typeof(System.Net.IPEndPoint), x => x.Connection?.NetworkClient?.Client.RemoteEndPoint is System.Net.IPEndPoint data ? new Result<object?>(data) : new Result<object?>()),
             (typeof(System.Net.IPAddress), x => x.Connection?.NetworkClient?.Client.RemoteEndPoint is System.Net.IPEndPoint data ? new Result<object?>(data.Address) : new Result<object?>()),
-        };
+        ];
 
         public static CoreParameter? GetCoreParameter(Type target)
         {

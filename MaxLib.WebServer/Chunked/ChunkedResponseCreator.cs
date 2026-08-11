@@ -36,12 +36,12 @@ namespace MaxLib.WebServer.Chunked
             response.FieldContentType = task.Document.PrimaryMime;
             response.SetActualDate();
             response.HttpProtocol = request.HttpProtocol;
-            response.SetHeader(new (string, string?)[]
-            {
+            response.SetHeader(
+            [
                 ("Connection", "keep-alive"),
                 ("X-UA-Compatible", "IE=Edge"),
                 ("Transfer-Encoding", "chunked"),
-            });
+            ]);
             if (task.Document.PrimaryEncoding != null)
                 response.HeaderParameter["Content-Type"] += "; charset=" +
                     task.Document.PrimaryEncoding;

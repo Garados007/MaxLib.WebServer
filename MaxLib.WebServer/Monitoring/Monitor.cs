@@ -88,7 +88,7 @@ namespace MaxLib.WebServer.Monitoring
             await stream.FlushAsync().ConfigureAwait(false);
         }
 
-        private static char[] allowedChars = new[] { '-', '_', '+', '(', ')', };
+        private static char[] allowedChars = ['-', '_', '+', '(', ')',];
         private static string SanitizePath(string path)
         {
             var sb = new StringBuilder(path.Length);

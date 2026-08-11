@@ -14,6 +14,9 @@
 
   <PropertyGroup>
     <Nullable>enable</Nullable>
+    <!-- Without this, IDE0xxx code-style rules never run in `dotnet build` at all,
+         regardless of their .editorconfig severity - they're normally IDE-only. -->
+    <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
   </PropertyGroup>
 
   <PropertyGroup>
