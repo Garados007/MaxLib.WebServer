@@ -286,8 +286,7 @@ namespace MaxLib.WebServer.Api.Rest
         public T Optional<T>(T rule)
             where T : ApiRule
         {
-            if (rule is null)
-                throw new ArgumentNullException(nameof(rule));
+            ArgumentNullException.ThrowIfNull(rule);
             rule.Required = false;
             return rule;
         }

@@ -16,8 +16,7 @@ namespace MaxLib.WebServer
 
         public static string GetVolumeString(long byteCount, bool shortVersion, int digits)
         {
-            if (byteCount < 0)
-                throw new ArgumentOutOfRangeException(nameof(byteCount));
+            ArgumentOutOfRangeException.ThrowIfNegative(byteCount);
             var sn = new[] { "B", "KB", "MB", "GB", "TB", "PB", "EB", "ZB", "YB" };
             var ln = new[] { "Byte", "Kilobyte", "Megabyte", "Gigabyte", "Terabyte", "Petabyte", "Exabyte", "Zettabyte", "Yottabyte" };
             var names = shortVersion ? sn : ln;

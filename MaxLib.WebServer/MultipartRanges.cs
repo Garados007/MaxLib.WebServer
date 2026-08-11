@@ -23,7 +23,7 @@ namespace MaxLib.WebServer
             get => joinGap;
             set
             {
-                if (value < 0) throw new ArgumentOutOfRangeException(nameof(JoinGap));
+                ArgumentOutOfRangeException.ThrowIfNegative(value, nameof(JoinGap));
                 joinGap = value;
             }
         }
@@ -63,8 +63,8 @@ namespace MaxLib.WebServer
         public MultipartRanges(Stream stream, WebProgressTask task, string? mime)
             : this(
                 stream,
-                task?.Request ?? throw new ArgumentNullException(nameof(task.Request)),
-                task?.Response ?? throw new ArgumentNullException(nameof(task.Response)),
+                task?.Request ?? throw new ArgumentNullException(nameof(task)),
+                task?.Response ?? throw new ArgumentNullException(nameof(task)),
                 mime
             )
         {

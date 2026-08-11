@@ -32,8 +32,7 @@ namespace MaxLib.WebServer
 
         public HttpPartialSource(HttpDataSource dataSource, long start, long? count)
         {
-            if (start < 0)
-                throw new ArgumentOutOfRangeException(nameof(start));
+            ArgumentOutOfRangeException.ThrowIfNegative(start);
             if (count != null && count < 0)
                 throw new ArgumentOutOfRangeException(nameof(count));
             BaseSource = dataSource ?? throw new ArgumentNullException(nameof(dataSource));

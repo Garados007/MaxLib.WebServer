@@ -26,8 +26,8 @@ namespace MaxLib.WebServer.Lazy
         public LazyTask(WebProgressTask task)
         {
             _ = task ?? throw new ArgumentNullException(nameof(task));
-            Server = task.Server ?? throw new ArgumentNullException(nameof(task.Server));
-            Connection = task.Connection ?? throw new ArgumentNullException(nameof(task.Connection));
+            Server = task.Server ?? throw new ArgumentNullException(nameof(task));
+            Connection = task.Connection ?? throw new ArgumentNullException(nameof(task));
             Header = task.Request;
             Information = task.Document.Information;
         }

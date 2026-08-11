@@ -227,8 +227,7 @@ namespace MaxLib.WebServer.IO
 
         protected void ThrowIfDisposed()
         {
-            if (disposed)
-                throw new ObjectDisposedException(null);
+            ObjectDisposedException.ThrowIf(disposed, this);
         }
 
         public void Dispose()
@@ -559,8 +558,7 @@ namespace MaxLib.WebServer.IO
             CancellationToken cancellationToken = default)
         {
             ThrowIfDisposed();
-            if (count < 0)
-                throw new ArgumentOutOfRangeException(nameof(count));
+            ArgumentOutOfRangeException.ThrowIfNegative(count);
             
             var buffer = new byte[count];
             var read = 0;
@@ -598,10 +596,8 @@ namespace MaxLib.WebServer.IO
             _ = buffer ?? throw new ArgumentNullException(nameof(buffer));
             if (!buffer.CanWrite)
                 throw new ArgumentException("stream is not writable", nameof(buffer));
-            if (count < 0)
-                throw new ArgumentOutOfRangeException(nameof(count));
-            if (blockSize <= 0)
-                throw new ArgumentOutOfRangeException(nameof(blockSize));
+            ArgumentOutOfRangeException.ThrowIfNegative(count);
+            ArgumentOutOfRangeException.ThrowIfNegativeOrZero(blockSize);
             
             var originalCount = count;
             var bytes = new byte[blockSize];

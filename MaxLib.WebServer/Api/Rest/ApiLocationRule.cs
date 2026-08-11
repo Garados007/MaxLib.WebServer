@@ -13,8 +13,7 @@ namespace MaxLib.WebServer.Api.Rest
             get => index;
             set
             {
-                if (value < 0)
-                    throw new ArgumentOutOfRangeException(nameof(Index));
+                ArgumentOutOfRangeException.ThrowIfNegative(value, nameof(Index));
                 index = value;
             }
         }

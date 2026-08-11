@@ -259,7 +259,7 @@ namespace MaxLib.WebServer.Services
         public override async Task ProgressTask(WebProgressTask task)
         {
             _ = task ?? throw new ArgumentNullException(nameof(task));
-            _ = task.NetworkStream ?? throw new ArgumentNullException(nameof(task.NetworkStream));
+            _ = task.NetworkStream ?? throw new ArgumentNullException(nameof(task));
 
             var reader = new NetworkReader(task.NetworkStream);
             StringBuilder? debugBuilder = null;

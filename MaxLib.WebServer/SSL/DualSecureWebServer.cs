@@ -116,11 +116,10 @@ namespace MaxLib.WebServer.SSL
 
             public override int Read(byte[] buffer, int offset, int count)
             {
-                if (buffer == null) throw new ArgumentNullException("buffer");
+                ArgumentNullException.ThrowIfNull(buffer);
                 if (offset < 0 || offset + count > buffer.Length)
-                    throw new ArgumentOutOfRangeException("offset");
-                if (count < 0)
-                    throw new ArgumentOutOfRangeException("count");
+                    throw new ArgumentOutOfRangeException(nameof(offset));
+                ArgumentOutOfRangeException.ThrowIfNegative(count);
                 if (count == 0) return 0;
                 if (firstByte == -1 && !baseStreamAtEnd) GetFirstByte();
                 if (!firstByteRead)

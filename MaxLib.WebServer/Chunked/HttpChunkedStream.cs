@@ -14,8 +14,7 @@ namespace MaxLib.WebServer.Chunked
         public HttpChunkedStream(Stream baseStream, int readBufferLength = 0x8000)
         {
             BaseStream = baseStream ?? throw new ArgumentNullException(nameof(baseStream));
-            if (readBufferLength <= 0) 
-                throw new ArgumentOutOfRangeException(nameof(readBufferLength));
+            ArgumentOutOfRangeException.ThrowIfNegativeOrZero(readBufferLength);
             ReadBufferLength = readBufferLength;
         }
 

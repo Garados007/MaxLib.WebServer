@@ -78,7 +78,7 @@ namespace MaxLib.WebServer
 
         public HttpCookie(string cookie)
         {
-            if (cookie == null) throw new ArgumentNullException("Cookie");
+            ArgumentNullException.ThrowIfNull(cookie);
             AddedCookies = new Dictionary<string, Cookie>();
             RequestedCookies = new ReadOnlyDictionary<string, Cookie>(new Dictionary<string, Cookie>());
             SetRequestCookieString(cookie);

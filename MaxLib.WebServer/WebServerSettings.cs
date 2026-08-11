@@ -51,8 +51,7 @@ namespace MaxLib.WebServer
         {
             if (port <= 0 || port >= 0xffff)
                 throw new ArgumentOutOfRangeException(nameof(port));
-            if (connectionTimeout < 0)
-                throw new ArgumentOutOfRangeException(nameof(connectionTimeout));
+            ArgumentOutOfRangeException.ThrowIfNegative(connectionTimeout);
             Port = port;
             ConnectionTimeout = connectionTimeout;
         }
