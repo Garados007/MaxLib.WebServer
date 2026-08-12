@@ -1,5 +1,3 @@
-using System;
-
 namespace MaxLib.WebServer.Builder
 {
     /// <summary>

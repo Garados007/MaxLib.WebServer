@@ -107,3 +107,6 @@ dotnet_diagnostic.SYSLIB1045.severity = error
 
 # IDE0038: Use pattern matching to avoid 'is' check followed by a cast
 dotnet_diagnostic.IDE0038.severity = error
+
+# IDE0005: Remove unnecessary usings/imports
+dotnet_diagnostic.IDE0005.severity = error
