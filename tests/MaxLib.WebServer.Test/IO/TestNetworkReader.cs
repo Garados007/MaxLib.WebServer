@@ -120,5 +120,40 @@ namespace MaxLib.WebServer.Test.IO
             Assert.AreEqual("00-01-02-03", BitConverter.ToString(readed.ToArray()));
             Assert.AreEqual("04-05-06-07-08-09", BitConverter.ToString(await reader.ReadBytesAsync(6).ConfigureAwait(false)));
         }
+
+        // Regression test for https://github.com/Garados007/MaxLib.WebServer/issues/18
+        // A "\r\n" line ending advances past the '\n' without decrementing the pending
+        // char count. That drift accumulates with every CRLF-terminated line and, once
+        // it overruns the actually-decoded data, the scan reads stale characters left
+        // over from a previous decode pass into the returned line (here: a spurious
+        // trailing '\0' instead of a clean "BC").
+        [TestMethod]
+        public async Task TestReadLine_DoesNotDriftPastDecodedData()
+        {
+            // buffer size 8 forces exactly one decode pass to hold "A\r\nBC" (5 bytes),
+            // leaving the rest of the char buffer at its default '\0'.
+            var data = Encoding.ASCII.GetBytes("A\r\nBC");
+            using var stream = new MemoryStream(data);
+            var reader = new NetworkReader(stream, Encoding.ASCII, false, 8);
+            Assert.AreEqual("A", await reader.ReadLineAsync().ConfigureAwait(false));
+            Assert.AreEqual("BC", await reader.ReadLineAsync().ConfigureAwait(false));
+        }
+
+        // Regression test for https://github.com/Garados007/MaxLib.WebServer/issues/18
+        // When the byte buffer is fully drained exactly as its read offset reaches the
+        // buffer's end, the buffer-compaction is skipped, so the following read targets
+        // a zero-length slice. That read returns 0 and is misread as "stream closed",
+        // even though more data is still available - silently truncating the stream.
+        [TestMethod]
+        public async Task TestReadLine_RefillsAfterBufferExactlyDrained()
+        {
+            // buffer size 8: the first line exactly fills the buffer with no line
+            // terminator, so the next line's data only arrives on a later refill.
+            var data = Encoding.ASCII.GetBytes("AAAAAAAA\r\nBBBB\r\n");
+            using var stream = new MemoryStream(data);
+            var reader = new NetworkReader(stream, Encoding.ASCII, false, 8);
+            Assert.AreEqual("AAAAAAAA", await reader.ReadLineAsync().ConfigureAwait(false));
+            Assert.AreEqual("BBBB", await reader.ReadLineAsync().ConfigureAwait(false));
+        }
     }
 }

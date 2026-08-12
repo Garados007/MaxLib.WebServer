@@ -149,7 +149,7 @@ namespace MaxLib.WebServer.IO
             if (readBufferCount >= expectLength)
                 return;
             // move the data to the left only if less then the half buffer is available
-            if ((readBufferOffset << 1) > readBuffer.Length && readBufferCount > 0)
+            if ((readBufferOffset << 1) > readBuffer.Length)
             {
                 readBuffer.Span.Slice(readBufferOffset, readBufferCount)
                     .CopyTo(readBuffer.Span[ .. readBufferCount]);
@@ -324,6 +324,7 @@ namespace MaxLib.WebServer.IO
                                 if (charBuffer[charBufferOffset] == '\n')
                                 {
                                     charBufferOffset++;
+                                    charBufferCount--;
                                 }
                             }
                         }
@@ -393,6 +394,7 @@ namespace MaxLib.WebServer.IO
                                 if (charBuffer[charBufferOffset] == '\n')
                                 {
                                     charBufferOffset++;
+                                    charBufferCount--;
                                 }
                             }
                         }
@@ -447,6 +449,7 @@ namespace MaxLib.WebServer.IO
                                 if (charBuffer[charBufferOffset] == '\n')
                                 {
                                     charBufferOffset++;
+                                    charBufferCount--;
                                 }
                             }
                         }
