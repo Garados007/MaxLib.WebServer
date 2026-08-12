@@ -1,4 +1,3 @@
-using System.Linq;
 using System.Threading;
 using System;
 using System.Text;
@@ -71,7 +70,7 @@ namespace MaxLib.WebServer.IO
         /// The number of unread chars in <see cref="charBuffer" />.
         /// </summary>
         int charBufferCount;
-        bool disposed = false;
+        bool disposed;
         readonly int expectedCharBytes;
 
         public NetworkReader(Stream stream)
@@ -170,7 +169,7 @@ namespace MaxLib.WebServer.IO
             while (readBufferCount < expectLength);
         }
 
-        int lastBytesUsed = 0;
+        int lastBytesUsed;
 
         protected int RefillCharBuffer()
         {
@@ -227,12 +226,12 @@ namespace MaxLib.WebServer.IO
 
         protected void ThrowIfDisposed()
         {
-            if (disposed)
-                throw new ObjectDisposedException(null);
+            ObjectDisposedException.ThrowIf(disposed, this);
         }
 
         public void Dispose()
         {
+            GC.SuppressFinalize(this);
             disposed = true;
             if (!leaveOpen)
                 BaseStream.Dispose();
@@ -240,6 +239,7 @@ namespace MaxLib.WebServer.IO
 
         public async ValueTask DisposeAsync()
         {
+            GC.SuppressFinalize(this);
             disposed = true;
             if (!leaveOpen)
                 await BaseStream.DisposeAsync().ConfigureAwait(false);
@@ -356,7 +356,7 @@ namespace MaxLib.WebServer.IO
         )
         {
             if (limit < 0)
-                return await ReadLineAsync(cancellationToken);
+                return await ReadLineAsync(cancellationToken).ConfigureAwait(false);
 
             ThrowIfDisposed();
             StringBuilder? sb = null;
@@ -526,7 +526,7 @@ namespace MaxLib.WebServer.IO
             if (count <= length)
                 return length;
             
-            return length + await BaseStream.ReadAsync(buffer, offset + length, count - length, cancellationToken).ConfigureAwait(false);
+            return length + await BaseStream.ReadAsync(buffer.AsMemory(offset + length, count - length), cancellationToken).ConfigureAwait(false);
         }
     
         public async ValueTask<int> ReadAsync(Memory<byte> buffer, 
@@ -559,8 +559,7 @@ namespace MaxLib.WebServer.IO
             CancellationToken cancellationToken = default)
         {
             ThrowIfDisposed();
-            if (count < 0)
-                throw new ArgumentOutOfRangeException(nameof(count));
+            ArgumentOutOfRangeException.ThrowIfNegative(count);
             
             var buffer = new byte[count];
             var read = 0;
@@ -598,10 +597,8 @@ namespace MaxLib.WebServer.IO
             _ = buffer ?? throw new ArgumentNullException(nameof(buffer));
             if (!buffer.CanWrite)
                 throw new ArgumentException("stream is not writable", nameof(buffer));
-            if (count < 0)
-                throw new ArgumentOutOfRangeException(nameof(count));
-            if (blockSize <= 0)
-                throw new ArgumentOutOfRangeException(nameof(blockSize));
+            ArgumentOutOfRangeException.ThrowIfNegative(count);
+            ArgumentOutOfRangeException.ThrowIfNegativeOrZero(blockSize);
             
             var originalCount = count;
             var bytes = new byte[blockSize];
@@ -610,7 +607,7 @@ namespace MaxLib.WebServer.IO
                 int read = await ReadAsync(bytes, 0, Math.Min(count, blockSize), cancellationToken).ConfigureAwait(false);
                 if (read == 0)
                     break;
-                await buffer.WriteAsync(bytes, 0, read, cancellationToken).ConfigureAwait(false);
+                await buffer.WriteAsync(bytes.AsMemory(0, read), cancellationToken).ConfigureAwait(false);
                 count -= read;
             }
             
@@ -629,6 +626,7 @@ namespace MaxLib.WebServer.IO
             Stream target
         )
         {
+            ArgumentNullException.ThrowIfNull(target);
             if (marking.Length == 0)
                 return 0;
             long fullRead = 0;
@@ -699,9 +697,10 @@ namespace MaxLib.WebServer.IO
             CancellationToken cancellationToken = default
         )
         {
+            ArgumentNullException.ThrowIfNull(target);
             if (marking.Length == 0)
                 return 0;
-            
+
             long fullRead = 0;
 
             if (marking.Length * 2 > readBuffer.Length)

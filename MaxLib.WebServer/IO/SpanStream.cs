@@ -23,7 +23,7 @@ namespace MaxLib.WebServer.IO
 
         public override long Length => Memory.Length;
 
-        int position = 0;
+        int position;
         public override long Position
         {
             get => position;

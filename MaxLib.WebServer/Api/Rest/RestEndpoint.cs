@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -51,7 +52,7 @@ namespace MaxLib.WebServer.Api.Rest
             var sb = new StringBuilder();
             foreach (var kvp in args)
             {
-                sb.AppendLine($"{kvp.Key}: {kvp.Value}");
+                sb.AppendLine(CultureInfo.InvariantCulture, $"{kvp.Key}: {kvp.Value}");
             }
             return Task.FromResult<HttpDataSource?>(new HttpStringDataSource(sb.ToString())); 
         }

@@ -3,6 +3,7 @@ using System.IO;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.Globalization;
 using System.Text.RegularExpressions;
 using MaxLib.WebServer.IO;
 using System.Threading.Tasks;
@@ -11,7 +12,7 @@ using System.Threading.Tasks;
 
 namespace MaxLib.WebServer.Post
 {
-    public class MultipartFormData : IPostData
+    public partial class MultipartFormData : IPostData
     {
         public class FormEntry : IDisposable
         {
@@ -44,6 +45,7 @@ namespace MaxLib.WebServer.Post
 
             public void Set(FileInfo tempFile)
             {
+                ArgumentNullException.ThrowIfNull(tempFile);
                 Content = null;
                 if (TempFile != null && TempFile.FullName != tempFile.FullName)
                     try 
@@ -59,6 +61,7 @@ namespace MaxLib.WebServer.Post
 
             public virtual void Dispose()
             {
+                GC.SuppressFinalize(this);
             }
         }
 
@@ -91,35 +94,18 @@ namespace MaxLib.WebServer.Post
         public List<FormEntry> Entries { get; }
             = new List<FormEntry>();
 
-        static Regex boundaryRegex = new Regex(
-            "boundary\\s*=\\s*(?:\"(?<name>[^\"]*)\"|(?<name>[^\"]*))",
-            RegexOptions.Compiled
-        );
-        static Regex nameRegex = new Regex(
-            "[^\\w]name\\s*=\\s*\"(?<name>[^\"]*)\"",
-            RegexOptions.Compiled | RegexOptions.IgnoreCase
-        );
-        static Regex filenameRegex = new Regex(
-            "[^\\w]filename\\s*=\\s*\"(?<name>[^\"]*)\"",
-            RegexOptions.Compiled | RegexOptions.IgnoreCase
-        );
-        static Regex headerSplit = new Regex(
-            "^(?<name>[^:\\s]+)\\s*:\\s*(?<value>.*)$",
-            RegexOptions.Compiled
-        );
-
         protected virtual FormEntry GetEntry(Dictionary<string, string> header)
         {
             _ = header ?? throw new ArgumentNullException(nameof(header));
 
             if (header.TryGetValue("Content-Disposition", out string? disposition))
             {
-                if (!disposition.StartsWith("form-data"))
+                if (!disposition.StartsWith("form-data", StringComparison.Ordinal))
                     return new FormEntry(header);
-                var nameResult = nameRegex.Match(disposition);
+                var nameResult = nameRegex().Match(disposition);
                 var name = nameResult.Success ? nameResult.Groups["name"].Value : null;
 
-                var filenameResult = filenameRegex.Match(disposition);
+                var filenameResult = filenameRegex().Match(disposition);
                 var filename = filenameResult.Success ? filenameResult.Groups["name"].Value : null;
 
                 if (filename != null && name != null)
@@ -151,7 +137,7 @@ namespace MaxLib.WebServer.Post
 
         public async Task SetAsync(WebProgressTask task, IO.ContentStream content, string options)
         {
-            var match = boundaryRegex.Match(options);
+            var match = boundaryRegex().Match(options);
             var boundary = match.Success ? match.Groups["name"].Value : "";
             boundary = $"--{boundary}";
             ReadOnlyMemory<byte> rawBoundary = Encoding.UTF8.GetBytes(boundary);
@@ -163,15 +149,15 @@ namespace MaxLib.WebServer.Post
             while (true)
             {
                 // expect boundary
-                if (reader.ReadLine() != boundary)
+                if (await reader.ReadLineAsync().ConfigureAwait(false) != boundary)
                     break;
 
                 // read headers until an empty line is found
-                var dict = new Dictionary<string, string>(StringComparer.InvariantCultureIgnoreCase);
+                var dict = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
                 string? line;
-                while (!string.IsNullOrWhiteSpace(line = reader.ReadLine()))
+                while (!string.IsNullOrWhiteSpace(line = await reader.ReadLineAsync().ConfigureAwait(false)))
                 {
-                    var header = headerSplit.Match(line);
+                    var header = headerSplit().Match(line);
                     if (!header.Success)
                         break;
                     dict.Add(header.Groups["name"].Value, header.Groups["value"].Value);
@@ -186,9 +172,11 @@ namespace MaxLib.WebServer.Post
                 if (storeInTemp)
                 {
                     var name = Path.GetTempFileName();
+#pragma warning disable CA2000 // already disposed via the using declaration below; the analyzer is confused by the `StorageMapper?.Invoke(task, file) ?? file` fallback
                     using var file = new FileStream(name, FileMode.OpenOrCreate, FileAccess.Write,
                         FileShare.None
                     );
+#pragma warning restore CA2000
                     using var stream = StorageMapper?.Invoke(task, file) ?? file;
                     await reader.ReadUntilAsync(rawBoundary, stream).ConfigureAwait(false);
                     entry.Set(new FileInfo(name));
@@ -203,7 +191,7 @@ namespace MaxLib.WebServer.Post
             }
 
             // there should nothing left but to be sure just discard the rest
-            content.Discard();
+            await content.DiscardAsync().ConfigureAwait(false);
         }
 
         /// <summary>
@@ -228,18 +216,18 @@ namespace MaxLib.WebServer.Post
         public override string ToString()
         {
             var sb = new StringBuilder();
-            sb.AppendLine($"[{Entries.Count:#,#0} Entries]");
+            sb.AppendLine(CultureInfo.InvariantCulture, $"[{Entries.Count:#,#0} Entries]");
             var boundary = new string('-', 20);
             foreach (var entry in Entries)
             {
                 sb.AppendLine(boundary);
                 foreach (var (key, value) in entry.Header)
-                    sb.AppendLine($"{key}: {value}");
+                    sb.AppendLine(CultureInfo.InvariantCulture, $"{key}: {value}");
                 sb.AppendLine();
                 if (entry.Content != null)
-                    sb.AppendLine($"[{entry.Content.Value.Length:#,#0} Bytes]");
+                    sb.AppendLine(CultureInfo.InvariantCulture, $"[{entry.Content.Value.Length:#,#0} Bytes]");
                 if (entry.TempFile != null && entry.TempFile.Exists)
-                    sb.AppendLine($"[{entry.TempFile.Length:#,#0} Bytes in {entry.TempFile.FullName}]");
+                    sb.AppendLine(CultureInfo.InvariantCulture, $"[{entry.TempFile.Length:#,#0} Bytes in {entry.TempFile.FullName}]");
             }
             sb.AppendLine(boundary);
             return sb.ToString();
@@ -248,6 +236,16 @@ namespace MaxLib.WebServer.Post
         public void Dispose()
         {
             Entries.ForEach(x => x.Dispose());
+            GC.SuppressFinalize(this);
         }
+
+        [GeneratedRegex("boundary\\s*=\\s*(?:\"(?<name>[^\"]*)\"|(?<name>[^\"]*))")]
+        private static partial Regex boundaryRegex();
+        [GeneratedRegex("[^\\w]name\\s*=\\s*\"(?<name>[^\"]*)\"", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
+        private static partial Regex nameRegex();
+        [GeneratedRegex("[^\\w]filename\\s*=\\s*\"(?<name>[^\"]*)\"", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
+        private static partial Regex filenameRegex();
+        [GeneratedRegex("^(?<name>[^:\\s]+)\\s*:\\s*(?<value>.*)$")]
+        private static partial Regex headerSplit();
     }
 }

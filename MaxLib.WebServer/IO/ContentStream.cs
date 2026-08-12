@@ -96,8 +96,7 @@ namespace MaxLib.WebServer.IO
 
         public override int Read(byte[] buffer, int offset, int count)
         {
-            if (buffer is null)
-                throw new ArgumentNullException(nameof(buffer));
+            ArgumentNullException.ThrowIfNull(buffer);
             if (offset < 0 || offset > buffer.Length)
                 throw new ArgumentOutOfRangeException(nameof(offset));
             if (count < 0 || count + offset > buffer.Length)
@@ -113,8 +112,7 @@ namespace MaxLib.WebServer.IO
         {
             cancellationToken.ThrowIfCancellationRequested();
 
-            if (buffer is null)
-                throw new ArgumentNullException(nameof(buffer));
+            ArgumentNullException.ThrowIfNull(buffer);
             if (offset < 0 || offset > buffer.Length)
                 throw new ArgumentOutOfRangeException(nameof(offset));
             if (count < 0 || count + offset > buffer.Length)
@@ -123,6 +121,18 @@ namespace MaxLib.WebServer.IO
                 count = (int)UnreadData;
             var length = await reader.ReadAsync(buffer, offset, count, cancellationToken)
                 .ConfigureAwait(false);
+            ReadData += length;
+            return length;
+        }
+
+        public override async ValueTask<int> ReadAsync(Memory<byte> buffer, CancellationToken cancellationToken = default)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            var count = buffer.Length;
+            if (count > UnreadData)
+                count = (int)UnreadData;
+            var length = await reader.ReadAsync(buffer[..count], cancellationToken).ConfigureAwait(false);
             ReadData += length;
             return length;
         }
@@ -150,6 +160,7 @@ namespace MaxLib.WebServer.IO
 
         public override async ValueTask DisposeAsync()
         {
+            GC.SuppressFinalize(this);
             await DiscardAsync().ConfigureAwait(false);
             await base.DisposeAsync().ConfigureAwait(false);
         }

@@ -78,7 +78,7 @@ namespace MaxLib.WebServer
 
         public HttpCookie(string cookie)
         {
-            if (cookie == null) throw new ArgumentNullException("Cookie");
+            ArgumentNullException.ThrowIfNull(cookie);
             AddedCookies = new Dictionary<string, Cookie>();
             RequestedCookies = new ReadOnlyDictionary<string, Cookie>(new Dictionary<string, Cookie>());
             SetRequestCookieString(cookie);
@@ -98,12 +98,12 @@ namespace MaxLib.WebServer
             CompleteRequestCookie = cookie ?? throw new ArgumentNullException(nameof(cookie));
             AddedCookies.Clear();
             var reqCookie = new Dictionary<string, Cookie>();
-            if (CompleteRequestCookie != "")
+            if (CompleteRequestCookie.Length != 0)
             {
                 var tiles = CompleteRequestCookie.Split('&', ';');
                 foreach (var tile in tiles)
                 {
-                    var ind = tile.IndexOf('=');
+                    var ind = tile.IndexOf('=', StringComparison.Ordinal);
                     if (ind == -1)
                     {
                         var key = WebServerUtils.DecodeUri(tile.Trim());
@@ -112,7 +112,7 @@ namespace MaxLib.WebServer
                     }
                     else
                     {
-                        var key = WebServerUtils.DecodeUri(tile.Remove(ind).Trim());
+                        var key = WebServerUtils.DecodeUri(tile[..ind].Trim());
                         var value = ind + 1 == tile.Length ? "" : WebServerUtils.DecodeUri(tile[(ind + 1)..]);
                         if (!reqCookie.ContainsKey(key))
                             reqCookie.Add(key, new Cookie(key, value));

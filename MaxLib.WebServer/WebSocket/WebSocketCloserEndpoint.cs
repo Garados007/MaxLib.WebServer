@@ -1,5 +1,6 @@
 #nullable enable
 
+using System;
 using System.IO;
 using System.Threading.Tasks;
 
@@ -26,9 +27,10 @@ namespace MaxLib.WebServer.WebSocket
 
         public class WebSocketCloseConnection : WebSocketConnection
         {
-            public WebSocketCloseConnection(Stream networkStream, WebSocketCloserEndpoint endpoint) 
+            public WebSocketCloseConnection(Stream networkStream, WebSocketCloserEndpoint endpoint)
                 : base(networkStream)
             {
+                ArgumentNullException.ThrowIfNull(endpoint);
                 _ = Close(endpoint.CloseReason, endpoint.Info);
             }
 

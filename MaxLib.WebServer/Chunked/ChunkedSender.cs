@@ -1,5 +1,6 @@
 ﻿using MaxLib.WebServer.Lazy;
 using System;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
@@ -22,6 +23,7 @@ namespace MaxLib.WebServer.Chunked
 
         public override bool CanWorkWith(WebProgressTask task)
         {
+            ArgumentNullException.ThrowIfNull(task);
             return !OnlyWithLazy || (task.Document.DataSources.Count > 0 &&
                 task.Document.DataSources.Any((s) => s is LazySource ||
                     (s is Remote.MarshalSource ms && ms.IsLazy)
@@ -30,14 +32,17 @@ namespace MaxLib.WebServer.Chunked
 
         public override async Task ProgressTask(WebProgressTask task)
         {
+            ArgumentNullException.ThrowIfNull(task);
             var header = task.Response;
             var stream = task.NetworkStream;
             if (stream is null)
                 return;
+#pragma warning disable CA2000 // must not dispose: would close the still-needed connection stream, and StreamWriter's default no-BOM encoding must not be swapped just to add leaveOpen
             var writer = new StreamWriter(stream);
+#pragma warning restore CA2000
             await writer.WriteAsync(header.HttpProtocol).ConfigureAwait(false);
             await writer.WriteAsync(" ").ConfigureAwait(false);
-            await writer.WriteAsync(((int)header.StatusCode).ToString()).ConfigureAwait(false);
+            await writer.WriteAsync(((int)header.StatusCode).ToString(CultureInfo.InvariantCulture)).ConfigureAwait(false);
             await writer.WriteAsync(" ").ConfigureAwait(false);
             await writer.WriteLineAsync(StatusCodeText(header.StatusCode)).ConfigureAwait(false);
             for (int i = 0; i < header.HeaderParameter.Count; ++i) //Parameter
@@ -88,6 +93,9 @@ namespace MaxLib.WebServer.Chunked
 
         protected virtual async Task SendChunk(StreamWriter writer, Stream stream, HttpDataSource source)
         {
+            ArgumentNullException.ThrowIfNull(writer);
+            ArgumentNullException.ThrowIfNull(stream);
+            ArgumentNullException.ThrowIfNull(source);
             if (source is LazySource lazySource)
                 foreach (var s in lazySource.GetAllSources())
                     await SendChunk(writer, stream, s).ConfigureAwait(false);
@@ -117,7 +125,9 @@ namespace MaxLib.WebServer.Chunked
                             await source.WriteStream(sink).ConfigureAwait(false);
                             sink.FinishWrite();
                         });
+#pragma warning disable CA2000 // sink already has its own using-block; HttpChunkedStream.Dispose() disposing it a second time is safe, adding a using here isn't
                         await SendChunk(writer, stream, new HttpChunkedStream(sink)).ConfigureAwait(false);
+#pragma warning restore CA2000
                     }
                 //using (var m = new MemoryStream())
                 //{
@@ -132,7 +142,7 @@ namespace MaxLib.WebServer.Chunked
                 else
                 {
                     if (length.Value == 0) return;
-                    await writer.WriteLineAsync(length.Value.ToString("X")).ConfigureAwait(false);
+                    await writer.WriteLineAsync(length.Value.ToString("X", CultureInfo.InvariantCulture)).ConfigureAwait(false);
                     await writer.FlushAsync().ConfigureAwait(false);
                     await source.WriteStream(stream).ConfigureAwait(false);
                 }

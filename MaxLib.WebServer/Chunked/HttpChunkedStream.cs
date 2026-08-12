@@ -14,8 +14,7 @@ namespace MaxLib.WebServer.Chunked
         public HttpChunkedStream(Stream baseStream, int readBufferLength = 0x8000)
         {
             BaseStream = baseStream ?? throw new ArgumentNullException(nameof(baseStream));
-            if (readBufferLength <= 0) 
-                throw new ArgumentOutOfRangeException(nameof(readBufferLength));
+            ArgumentOutOfRangeException.ThrowIfNegativeOrZero(readBufferLength);
             ReadBufferLength = readBufferLength;
         }
 
@@ -28,10 +27,12 @@ namespace MaxLib.WebServer.Chunked
         public override void Dispose()
         {
             BaseStream.Dispose();
+            GC.SuppressFinalize(this);
         }
 
         protected override async Task<long> WriteStreamInternal(Stream stream)
         {
+            ArgumentNullException.ThrowIfNull(stream);
             long total = 0;
             int read;
             Memory<byte> buffer = new byte[ReadBufferLength];
@@ -42,7 +43,7 @@ namespace MaxLib.WebServer.Chunked
                 read = await BaseStream.ReadAsync(buffer).ConfigureAwait(false);
                 if (read <= 0)
                     return total;
-                ReadOnlyMemory<byte> length = ascii.GetBytes(read.ToString("X"));
+                ReadOnlyMemory<byte> length = ascii.GetBytes(read.ToString("X", CultureInfo.InvariantCulture));
                 try
                 {
                     await stream.WriteAsync(length).ConfigureAwait(false);

@@ -1,5 +1,4 @@
-﻿using System.Net;
-using System;
+﻿using System;
 using System.Threading.Tasks;
 
 #nullable enable
@@ -39,6 +38,7 @@ namespace MaxLib.WebServer
         public void Dispose()
         {
             Document?.Dispose();
+            GC.SuppressFinalize(this);
         }
 
         public void EnableMonitoring()
@@ -47,7 +47,7 @@ namespace MaxLib.WebServer
                 Monitor = new Monitoring.Monitor(true);
         }
 
-        internal Func<Task>? SwitchProtocolHandler { get; private set; } = null;
+        internal Func<Task>? SwitchProtocolHandler { get; private set; }
 
         /// <summary>
         /// A call to this method notify the web server that this connection will switch protocols 

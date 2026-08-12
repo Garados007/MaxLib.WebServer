@@ -1,4 +1,5 @@
 ﻿using MaxLib.WebServer.Lazy;
+using System;
 using System.Linq;
 using System.Threading.Tasks;
 
@@ -20,6 +21,7 @@ namespace MaxLib.WebServer.Chunked
 
         public override bool CanWorkWith(WebProgressTask task)
         {
+            ArgumentNullException.ThrowIfNull(task);
             return !OnlyWithLazy || (task.Document.DataSources.Count > 0 &&
                 task.Document.DataSources.Any((s) => s is LazySource ||
                     (s is Remote.MarshalSource ms && ms.IsLazy)
@@ -28,17 +30,18 @@ namespace MaxLib.WebServer.Chunked
 
         public override async Task ProgressTask(WebProgressTask task)
         {
+            ArgumentNullException.ThrowIfNull(task);
             var request = task.Request;
             var response = task.Response;
             response.FieldContentType = task.Document.PrimaryMime;
             response.SetActualDate();
             response.HttpProtocol = request.HttpProtocol;
-            response.SetHeader(new (string, string?)[]
-            {
+            response.SetHeader(
+            [
                 ("Connection", "keep-alive"),
                 ("X-UA-Compatible", "IE=Edge"),
                 ("Transfer-Encoding", "chunked"),
-            });
+            ]);
             if (task.Document.PrimaryEncoding != null)
                 response.HeaderParameter["Content-Type"] += "; charset=" +
                     task.Document.PrimaryEncoding;

@@ -58,6 +58,21 @@ namespace MaxLib.WebServer.Test.IO
         }
 
         [TestMethod]
+        public async Task TestReadIntoStream()
+        {
+            var reader = new NetworkReader(baseStream);
+            await reader.ReadLineAsync().ConfigureAwait(false);
+            await reader.ReadLineAsync().ConfigureAwait(false);
+            using var output = new MemoryStream();
+            var read = await reader.ReadAsync(output, 8).ConfigureAwait(false);
+            Assert.AreEqual(8, read);
+            Assert.AreEqual(
+                BitConverter.ToString(new byte[] { 0, 1, 2, 3, 4, 5, 6, 7 }),
+                BitConverter.ToString(output.ToArray())
+            );
+        }
+
+        [TestMethod]
         public async Task TestPeekAndReadBytes()
         {
             var reader = new NetworkReader(baseStream);

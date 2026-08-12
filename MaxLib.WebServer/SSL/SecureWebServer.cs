@@ -1,4 +1,6 @@
-﻿using System.Diagnostics;
+﻿using System;
+using System.Diagnostics;
+using System.Globalization;
 using System.Net;
 using System.Net.Security;
 using System.Net.Sockets;
@@ -32,7 +34,7 @@ namespace MaxLib.WebServer.SSL
             SecureListener.Start();
             SecureServerThread = new Thread(SecureMainTask)
             {
-                Name = "SecureServerThread - Port: " + SecureSettings.SecurePort.ToString()
+                Name = "SecureServerThread - Port: " + SecureSettings.SecurePort.ToString(CultureInfo.InvariantCulture)
             };
             SecureServerThread.Start();
         }
@@ -72,6 +74,7 @@ namespace MaxLib.WebServer.SSL
 
         protected virtual void SecureClientConnected(TcpClient client)
         {
+            ArgumentNullException.ThrowIfNull(client);
             if (SecureSettings.Certificate == null)
             {
                 client.Close();
@@ -92,15 +95,15 @@ namespace MaxLib.WebServer.SSL
                 //authentificate as server and establish ssl connection
                 var stream = new SslStream(client.GetStream(), false);
                 connection.NetworkStream = stream;
-                stream.AuthenticateAsServer(
-                    serverCertificate:          SecureSettings.Certificate, 
-                    clientCertificateRequired:  false, 
-                    enabledSslProtocols:        SslProtocols.None, 
+                await stream.AuthenticateAsServerAsync(
+                    serverCertificate:          SecureSettings.Certificate,
+                    clientCertificateRequired:  false,
+                    enabledSslProtocols:        SslProtocols.None,
                     checkCertificateRevocation: true
-                    );
+                    ).ConfigureAwait(false);
                 if (!stream.IsAuthenticated)
                 {
-                    stream.Dispose();
+                    await stream.DisposeAsync().ConfigureAwait(false);
                     client.Close();
                     AllConnections.Remove(connection);
                     return;

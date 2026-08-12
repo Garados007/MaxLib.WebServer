@@ -23,6 +23,7 @@ namespace MaxLib.WebServer.Builder.Runtime
         )
             : base(ServerStage.CreateDocument)
         {
+            ArgumentNullException.ThrowIfNull(method);
             Rules = rules;
             Parameters = parameters;
             Method = method;
@@ -33,6 +34,7 @@ namespace MaxLib.WebServer.Builder.Runtime
 
         public override Task ProgressTask(WebProgressTask task, object?[]? data)
         {
+            ArgumentNullException.ThrowIfNull(task);
             if (data is null)
                 return Task.CompletedTask;
             using var watch = task.Monitor.Watch(MethodClass, $"Execute {Method.Name}()");
@@ -45,6 +47,7 @@ namespace MaxLib.WebServer.Builder.Runtime
 
         public override bool CanWorkWith(WebProgressTask task, out object?[]? data)
         {
+            ArgumentNullException.ThrowIfNull(task);
             using var watch = task.Monitor.Watch(MethodClass, $"Check {Method.Name}()");
             data = new object[Parameters.Count];
             Dictionary<string, object?> vars;
@@ -77,6 +80,7 @@ namespace MaxLib.WebServer.Builder.Runtime
         public override void Dispose()
         {
             base.Dispose();
+            GC.SuppressFinalize(this);
             if (MethodClass is IDisposable disposable)
                 disposable.Dispose();
         }

@@ -1,5 +1,4 @@
-﻿using MaxLib.IO;
-using System;
+﻿using System;
 using System.IO;
 using System.Text;
 using System.Threading.Tasks;
@@ -40,6 +39,7 @@ namespace MaxLib.WebServer
 
         public override void Dispose()
         {
+            GC.SuppressFinalize(this);
         }
 
         public override long? Length()

@@ -16,8 +16,7 @@ namespace MaxLib.WebServer
 
         public static string GetVolumeString(long byteCount, bool shortVersion, int digits)
         {
-            if (byteCount < 0)
-                throw new ArgumentOutOfRangeException(nameof(byteCount));
+            ArgumentOutOfRangeException.ThrowIfNegative(byteCount);
             var sn = new[] { "B", "KB", "MB", "GB", "TB", "PB", "EB", "ZB", "YB" };
             var ln = new[] { "Byte", "Kilobyte", "Megabyte", "Gigabyte", "Terabyte", "Petabyte", "Exabyte", "Zettabyte", "Yottabyte" };
             var names = shortVersion ? sn : ln;
@@ -37,7 +36,7 @@ namespace MaxLib.WebServer
             digits = Math.Max(Math.Min(digits, vkd + 3 * step), vkd);
             var mask = vkd == 4 ? "0,000" : new string('0', vkd);
             if (digits > vkd) mask += "." + new string('#', digits - vkd);
-            return $"{bc.ToString(mask)} {names[step]}";
+            return $"{bc.ToString(mask, CultureInfo.InvariantCulture)} {names[step]}";
         }
 
         public static string GetDateString(DateTime date)

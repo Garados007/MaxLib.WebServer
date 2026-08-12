@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.IO;
-using System.Net;
 using System.Net.Http;
 using System.Text.Json;
 using System.Text.RegularExpressions;
@@ -15,7 +14,7 @@ namespace MaxLib.WebServer
     /// This class holds some constants for popular mime types. It also holds some
     /// functionality for working with mime types.
     /// </summary>
-    public static class MimeType
+    public static partial class MimeType
     {
 
         public const string ApplicationXWwwFromUrlencoded = "application/x-www-form-urlencoded";
@@ -160,16 +159,16 @@ namespace MaxLib.WebServer
         {
             _ = mime ?? throw new ArgumentNullException(nameof(mime));
             _ = pattern ?? throw new ArgumentNullException(nameof(pattern));
-            var ind = mime.IndexOf('/');
-            if (ind == -1) 
+            var ind = mime.IndexOf('/', StringComparison.Ordinal);
+            if (ind == -1)
                 throw new ArgumentException("no Mime", nameof(mime));
-            var ml = mime.Remove(ind).ToLower();
-            var mh = mime.Substring(ind + 1).ToLower();
-            ind = pattern.IndexOf('/');
-            if (ind == -1) 
+            var ml = mime[..ind].ToLowerInvariant();
+            var mh = mime[(ind + 1)..].ToLowerInvariant();
+            ind = pattern.IndexOf('/', StringComparison.Ordinal);
+            if (ind == -1)
                 throw new ArgumentException("no Mime", nameof(pattern));
-            var pl = pattern.Remove(ind).ToLower();
-            var ph = pattern.Substring(ind + 1).ToLower();
+            var pl = pattern[..ind].ToLowerInvariant();
+            var ph = pattern[(ind + 1)..].ToLowerInvariant();
             return (pl == "*" || pl == ml) && (ph == "*" || ph == mh);
         }
 
@@ -186,7 +185,7 @@ namespace MaxLib.WebServer
             _ = extension ?? throw new ArgumentNullException(nameof(extension));
             if (extension.StartsWith('.'))
                 return GetMimeTypeForExtension(extension[1..]);
-            if (mimeTypes.TryGetValue(extension.ToLower(), out string? mime))
+            if (mimeTypes.TryGetValue(extension.ToLowerInvariant(), out string? mime))
                 return mime;
             else return null;
         }
@@ -233,13 +232,10 @@ namespace MaxLib.WebServer
                 using var client = new HttpClient();
                 var reader = new StringReader(await client.GetStringAsync(
                     @"http://svn.apache.org/repos/asf/httpd/httpd/trunk/docs/conf/mime.types"
-                ));
-                var regex = new Regex(
-                    @"^(?<mime>[^#][^\s]*)(\s+(?<extension>\w+))+$",
-                    RegexOptions.Compiled
-                );
+                ).ConfigureAwait(false));
+                var regex = MimeTypesLineRegex();
                 string? line;
-                while ((line = reader.ReadLine()) != null)
+                while ((line = await reader.ReadLineAsync().ConfigureAwait(false)) != null)
                 {
                     var match = regex.Match(line);
                     if (!match.Success)
@@ -264,5 +260,8 @@ namespace MaxLib.WebServer
             }
             MimeType.mimeTypes = mimeTypes;
         }
+
+        [GeneratedRegex(@"^(?<mime>[^#][^\s]*)(\s+(?<extension>\w+))+$")]
+        private static partial Regex MimeTypesLineRegex();
     }
 }

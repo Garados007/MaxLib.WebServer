@@ -19,7 +19,7 @@ namespace MaxLib.WebServer
             set => primaryMime = value;
         }
 
-        public string? PrimaryEncoding { get; set; } = null;
+        public string? PrimaryEncoding { get; set; }
 
         public Dictionary<object, object?> Information { get; } = new Dictionary<object, object?>();
 
@@ -31,12 +31,13 @@ namespace MaxLib.WebServer
 
         public void Dispose()
         {
+            GC.SuppressFinalize(this);
             foreach (var ds in DataSources.ToArray()) ds.Dispose();
             DataSources.Clear();
             foreach (var kvp in Information.ToArray())
             {
-                if (kvp.Key is IDisposable) ((IDisposable)kvp.Key).Dispose();
-                if (kvp.Value is IDisposable) ((IDisposable)kvp.Value).Dispose();
+                if (kvp.Key is IDisposable keyDisposable) keyDisposable.Dispose();
+                if (kvp.Value is IDisposable valueDisposable) valueDisposable.Dispose();
             }
             Information.Clear();
         }

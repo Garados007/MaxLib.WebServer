@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Globalization;
 using System.Linq;
 using System.Threading.Tasks;
 
@@ -27,12 +28,12 @@ namespace MaxLib.WebServer.Services
             response.FieldContentType = task.Document.PrimaryMime;
             response.SetActualDate();
             response.HttpProtocol = request.HttpProtocol;
-            response.SetHeader(new (string, string?)[]
-            {
+            response.SetHeader(
+            [
                 ("Connection", "keep-alive"),
                 ("X-UA-Compatible", "IE=Edge"),
-                ("Content-Length", task.Document.DataSources.Sum((s) => s.Length()).ToString()),
-            });
+                ("Content-Length", task.Document.DataSources.Sum((s) => s.Length())?.ToString(CultureInfo.InvariantCulture) ?? ""),
+            ]);
             if (task.Document.PrimaryEncoding != null)
                 response.HeaderParameter["Content-Type"] += "; charset=" +
                     task.Document.PrimaryEncoding;
@@ -44,6 +45,7 @@ namespace MaxLib.WebServer.Services
 
         public override bool CanWorkWith(WebProgressTask task)
         {
+            ArgumentNullException.ThrowIfNull(task);
             return !task.Document.Information.ContainsKey($"block {nameof(HttpResponseCreator)}");
         }
     }

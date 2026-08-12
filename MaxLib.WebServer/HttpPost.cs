@@ -35,11 +35,11 @@ namespace MaxLib.WebServer
             string args = "";
             if (mime != null)
             {
-                var ind = mime.IndexOf(';');
+                var ind = mime.IndexOf(';', StringComparison.Ordinal);
                 if (ind >= 0)
                 {
-                    args = mime.Substring(ind + 1);
-                    mime = mime.Remove(ind);
+                    args = mime[(ind + 1)..];
+                    mime = mime[..ind];
                 }
             }
 
@@ -55,27 +55,31 @@ namespace MaxLib.WebServer
                         return data;
                     });
                 }, System.Threading.LazyThreadSafetyMode.ExecutionAndPublication);
+#pragma warning disable CA2000 // ownership transfers to LazyData; HttpPost.Dispose() disposes the resolved IPostData once created
             else LazyData = new Lazy<Task<IPostData>>(
                 Task.FromResult<IPostData>(new UnknownPostData(content, mime))
             );
+#pragma warning restore CA2000
         }
 
         public HttpPost()
         {
         }
 
+#pragma warning disable CA2000 // ownership transfers through the chained ctor into Content, disposed by HttpPost.Dispose()
         public HttpPost(WebProgressTask task, ReadOnlyMemory<byte> content, string? mime)
             : this(
                 task,
                 new IO.ContentStream(
                     new IO.NetworkReader(new IO.SpanStream(content)),
                     content.Length
-                ), 
+                ),
                 mime
             )
         {
 
         }
+#pragma warning restore CA2000
 
         public HttpPost(WebProgressTask task, IO.ContentStream content, string? mime)
             : this()
@@ -89,6 +93,7 @@ namespace MaxLib.WebServer
 
         public void Dispose()
         {
+            GC.SuppressFinalize(this);
             if (LazyData != null && LazyData.IsValueCreated)
             {
                 Task.Run(async () =>

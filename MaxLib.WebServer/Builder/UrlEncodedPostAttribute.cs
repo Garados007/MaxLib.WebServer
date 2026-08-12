@@ -36,6 +36,7 @@ namespace MaxLib.WebServer.Builder
 
         public override Result<object?> GetValue(WebProgressTask task, string field, Dictionary<string, object?> vars)
         {
+            ArgumentNullException.ThrowIfNull(task);
             var post = task.Request.Post.Data;
             if (!(post is Post.UrlEncodedData data))
                 return new Result<object?>();

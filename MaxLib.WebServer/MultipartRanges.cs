@@ -1,5 +1,4 @@
-﻿using MaxLib.IO;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Text;
@@ -23,7 +22,7 @@ namespace MaxLib.WebServer
             get => joinGap;
             set
             {
-                if (value < 0) throw new ArgumentOutOfRangeException(nameof(JoinGap));
+                ArgumentOutOfRangeException.ThrowIfNegative(value, nameof(JoinGap));
                 joinGap = value;
             }
         }
@@ -38,9 +37,9 @@ namespace MaxLib.WebServer
                 var sb = new StringBuilder();
                 sb.Append("bytes ");
                 sb.Append(From);
-                sb.Append("-");
+                sb.Append('-');
                 sb.Append(To);
-                sb.Append("/");
+                sb.Append('/');
                 sb.Append(total);
                 return sb.ToString();
             }
@@ -63,8 +62,8 @@ namespace MaxLib.WebServer
         public MultipartRanges(Stream stream, WebProgressTask task, string? mime)
             : this(
                 stream,
-                task?.Request ?? throw new ArgumentNullException(nameof(task.Request)),
-                task?.Response ?? throw new ArgumentNullException(nameof(task.Response)),
+                task?.Request ?? throw new ArgumentNullException(nameof(task)),
+                task?.Response ?? throw new ArgumentNullException(nameof(task)),
                 mime
             )
         {
@@ -115,9 +114,9 @@ namespace MaxLib.WebServer
         void ParseRanges(string code)
         {
             code = code.Trim();
-            if (!code.StartsWith("bytes")) return;
+            if (!code.StartsWith("bytes", StringComparison.Ordinal)) return;
             code = code[5..].TrimStart();
-            if (!code.StartsWith("=")) return;
+            if (!code.StartsWith('=')) return;
             code = code[1..].TrimStart();
             foreach (var part in code.Split(','))
             {
@@ -178,7 +177,7 @@ namespace MaxLib.WebServer
         {
             var b = new byte[8];
             new Random().NextBytes(b);
-            var boundary = BitConverter.ToString(b).Replace("-", "");
+            var boundary = BitConverter.ToString(b).Replace("-", "", StringComparison.Ordinal);
             base.MimeType = WebServer.MimeType.MultipartByteranges + "; boundary=" + boundary;
             response.StatusCode = HttpStateCode.PartialContent;
             var sb = new StringBuilder();
@@ -195,11 +194,13 @@ namespace MaxLib.WebServer
                 sb.AppendLine(r.ToString(baseStream.Length));
                 sb.AppendLine();
                 streams.Add(new HttpStringDataSource(sb.ToString()));
+#pragma warning disable CA2000 // ownership transfers to the streams list, disposed by MultipartRanges.Dispose()
                 streams.Add(new HttpPartialSource(
                     new HttpStreamDataSource(baseStream),
                     r.From,
                     r.To - r.From
                 ));
+#pragma warning restore CA2000
                 sb.Clear();
             }
             sb.Append("--");
@@ -225,6 +226,7 @@ namespace MaxLib.WebServer
         {
             baseStream.Dispose();
             foreach (var s in streams) s.Dispose();
+            GC.SuppressFinalize(this);
         }
 
         protected override async Task<long> WriteStreamInternal(Stream stream)

@@ -2,6 +2,7 @@ using System.Threading;
 using System.Text;
 using System.IO;
 using System;
+using System.Globalization;
 using System.Threading.Tasks;
 using MaxLib.WebServer.IO;
 using System.Net.Sockets;
@@ -27,7 +28,7 @@ namespace MaxLib.WebServer.Services
         /// <br />
         /// Do not use this in production!
         /// </summary>
-        public string? DebugWriteRequestFile { get; set; } = null;
+        public string? DebugWriteRequestFile { get; set; }
 
         /// <summary>
         /// If this property is set to a file name this parser will writer
@@ -41,7 +42,7 @@ namespace MaxLib.WebServer.Services
         /// <br />
         /// Do not use this in production!
         /// </summary>
-        public string? DebugLogConnectionFile { get; set; } = null;
+        public string? DebugLogConnectionFile { get; set; }
 
         /// <summary>
         /// Sometimes the data is not available at instant. This can happen with slow
@@ -93,7 +94,7 @@ namespace MaxLib.WebServer.Services
             {
                 var sb = new StringBuilder();
                 sb.AppendLine(new string('=', 100));
-                sb.AppendLine($"=   {WebServerUtils.GetDateString(DateTime.UtcNow).PadRight(95, ' ')}=");
+                sb.AppendLine(CultureInfo.InvariantCulture, $"=   {WebServerUtils.GetDateString(DateTime.UtcNow).PadRight(95, ' ')}=");
                 sb.AppendLine(new string('=', 100));
                 sb.AppendLine();
                 return sb;
@@ -123,7 +124,7 @@ namespace MaxLib.WebServer.Services
                 return;
             
             var sb = new StringBuilder();
-            sb.AppendLine($"{WebServerUtils.GetDateString(DateTime.UtcNow)} " +
+            sb.AppendLine(CultureInfo.InvariantCulture, $"{WebServerUtils.GetDateString(DateTime.UtcNow)} " +
                 $"{task.Connection?.NetworkClient?.Client.RemoteEndPoint}");
             var host = task.Request.HeaderParameter.TryGetValue("Host", out string? host_)
                 ? host_ : "";
@@ -135,7 +136,8 @@ namespace MaxLib.WebServer.Services
 
         protected virtual async ValueTask<bool> WaitForData(WebProgressTask task)
         {
-            try 
+            ArgumentNullException.ThrowIfNull(task);
+            try
             {
                 if (task.NetworkStream is NetworkStream ns && !ns.DataAvailable)
                 {
@@ -171,6 +173,8 @@ namespace MaxLib.WebServer.Services
             NetworkReader reader, long limit, HttpStateCode exceedState
         )
         {
+            ArgumentNullException.ThrowIfNull(task);
+            ArgumentNullException.ThrowIfNull(reader);
             string? line;
             try { line = await reader.ReadLineAsync(limit).ConfigureAwait(false); }
             catch (IO.ReadLineOverflowException e)
@@ -196,6 +200,8 @@ namespace MaxLib.WebServer.Services
 
         protected virtual bool ParseFirstHeaderLine(WebProgressTask task, string line)
         {
+            ArgumentNullException.ThrowIfNull(task);
+            ArgumentNullException.ThrowIfNull(line);
             WebServerLog.Add(ServerLogType.Debug, GetType(), "Header", line);
             var parts = line.Split(' ');
             if (parts.Length != 3)
@@ -215,7 +221,9 @@ namespace MaxLib.WebServer.Services
 
         protected virtual bool ParseOtherHeaderLine(WebProgressTask task, string line)
         {
-            var ind = line.IndexOf(':');
+            ArgumentNullException.ThrowIfNull(task);
+            ArgumentNullException.ThrowIfNull(line);
+            var ind = line.IndexOf(':', StringComparison.Ordinal);
             if (ind < 0)
             {
                 WebServerLog.Add(ServerLogType.Error, GetType(), "Header", "Bad Request");
@@ -224,8 +232,8 @@ namespace MaxLib.WebServer.Services
                 return false;
             }
 
-            var key = line.Remove(ind).Trim();
-            var value = line.Substring(ind + 1).Trim();
+            var key = line[..ind].Trim();
+            var value = line[(ind + 1)..].Trim();
             task.Request.HeaderParameter.Add(key, value);
 
             return true;
@@ -233,6 +241,7 @@ namespace MaxLib.WebServer.Services
 
         protected virtual ValueTask<bool> LoadContent(WebProgressTask task, NetworkReader reader)
         {
+            ArgumentNullException.ThrowIfNull(task);
             if (!task.Request.HeaderParameter.TryGetValue("Content-Length", out string? strLength))
                 return new ValueTask<bool>(true);
             
@@ -244,6 +253,7 @@ namespace MaxLib.WebServer.Services
                 return new ValueTask<bool>(false);
             }
 
+#pragma warning disable CA2000 // ownership transfers via SetPost into HttpPost.Content, disposed by HttpPost.Dispose()
             var content = new IO.ContentStream(reader, length);
 
             task.Request.Post.SetPost(
@@ -252,6 +262,7 @@ namespace MaxLib.WebServer.Services
                 task.Request.HeaderParameter.TryGetValue("Content-Type", out string? contentType)
                     ? contentType : null
             );
+#pragma warning restore CA2000
 
             return new ValueTask<bool>(true);
         }
@@ -259,9 +270,11 @@ namespace MaxLib.WebServer.Services
         public override async Task ProgressTask(WebProgressTask task)
         {
             _ = task ?? throw new ArgumentNullException(nameof(task));
-            _ = task.NetworkStream ?? throw new ArgumentNullException(nameof(task.NetworkStream));
+            _ = task.NetworkStream ?? throw new ArgumentNullException(nameof(task));
 
+#pragma warning disable CA2000 // must not dispose: reader is captured by a lazily-read ContentStream and consumed after this method returns; also wraps the live connection stream
             var reader = new NetworkReader(task.NetworkStream);
+#pragma warning restore CA2000
             StringBuilder? debugBuilder = null;
 
             try
@@ -269,7 +282,7 @@ namespace MaxLib.WebServer.Services
                 debugBuilder = await DebugStartRequest().ConfigureAwait(false);
 
                 // wait until some data is received.
-                if (!await WaitForData(task))
+                if (!await WaitForData(task).ConfigureAwait(false))
                     return;
                 
                 // read first header line
@@ -283,7 +296,7 @@ namespace MaxLib.WebServer.Services
                 
                 // read all other header lines
                 var limit = MaxHeaderLength;
-                while (!string.IsNullOrWhiteSpace(line = await ReadLine(task, reader, limit, HttpStateCode.RequestHeaderFieldsTooLarge)))
+                while (!string.IsNullOrWhiteSpace(line = await ReadLine(task, reader, limit, HttpStateCode.RequestHeaderFieldsTooLarge).ConfigureAwait(false)))
                 {
                     debugBuilder?.AppendLine(line);
                     if (!ParseOtherHeaderLine(task, line))
@@ -299,7 +312,7 @@ namespace MaxLib.WebServer.Services
                 debugBuilder?.AppendLine();
 
                 // read content if possible
-                if (!await LoadContent(task, reader))
+                if (!await LoadContent(task, reader).ConfigureAwait(false))
                     return;
                 
                 await DebugConnection(task).ConfigureAwait(false);

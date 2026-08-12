@@ -1,5 +1,4 @@
-﻿using MaxLib.IO;
-using System;
+﻿using System;
 using System.IO;
 using System.Threading.Tasks;
 
@@ -23,7 +22,10 @@ namespace MaxLib.WebServer
         }
 
         public override void Dispose()
-            => Stream.Dispose();
+        {
+            Stream.Dispose();
+            GC.SuppressFinalize(this);
+        }
 
         public override long? Length()
             => Stream.Length;
@@ -35,6 +37,7 @@ namespace MaxLib.WebServer
 
         public async Task<long> WriteStream(Stream stream, long offset, long? count)
         {
+            ArgumentNullException.ThrowIfNull(stream);
             if (Stream.CanSeek)
                 Stream.Position = offset;
             long total = 0;
@@ -43,9 +46,9 @@ namespace MaxLib.WebServer
             {
                 int read;
                 int job = count == null ? buffer.Length : (int)Math.Min(buffer.Length, count.Value - total);
-                while ((read = await Stream.ReadAsync(buffer[..job])) > 0)
+                while ((read = await Stream.ReadAsync(buffer[..job]).ConfigureAwait(false)) > 0)
                 {
-                    await stream.WriteAsync(buffer[0..read]);
+                    await stream.WriteAsync(buffer[0..read]).ConfigureAwait(false);
                     total += read;
                 }
             }

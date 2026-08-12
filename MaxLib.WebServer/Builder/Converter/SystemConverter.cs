@@ -1,4 +1,5 @@
 using System;
+using System.Globalization;
 
 namespace MaxLib.WebServer.Builder.Converter
 {
@@ -6,6 +7,7 @@ namespace MaxLib.WebServer.Builder.Converter
     {
         public Func<object?, object?>? GetConverter(Type source, Type target)
         {
+            ArgumentNullException.ThrowIfNull(target);
             // simple conversion
             if (source == target || target.IsAssignableFrom(source))
                 return value => value;
@@ -13,7 +15,7 @@ namespace MaxLib.WebServer.Builder.Converter
             // check if IConvertible is implemented
             var iConvertible = typeof(IConvertible);
             if (iConvertible.IsAssignableFrom(source) && iConvertible.IsAssignableFrom(target))
-                return value => Convert.ChangeType(value, target);
+                return value => Convert.ChangeType(value, target, CultureInfo.InvariantCulture);
             
             // unknown conversion
             return null;

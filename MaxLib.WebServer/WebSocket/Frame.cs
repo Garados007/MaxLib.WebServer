@@ -27,6 +27,7 @@ namespace MaxLib.WebServer.WebSocket
 
         public async Task Write(Stream output)
         {
+            ArgumentNullException.ThrowIfNull(output);
             Memory<byte> buffer = new byte[8];
             buffer.Span[0] = (byte)((byte)OpCode | (FinalFrame ? 0x80 : 0x00));
             buffer.Span[1] = (byte)(Payload.Length < 126 ? Payload.Length : 
@@ -51,6 +52,7 @@ namespace MaxLib.WebServer.WebSocket
 
         public static async Task<Frame?> TryRead(Stream input, bool throwLargePayload = false)
         {
+            ArgumentNullException.ThrowIfNull(input);
             try
             {
                 Memory<byte> buffer = new byte[8];
@@ -125,7 +127,7 @@ namespace MaxLib.WebServer.WebSocket
                 buffer.Reverse();
         }
 
-        protected void ToBytes(ushort value, Span<byte> buffer)
+        protected static void ToBytes(ushort value, Span<byte> buffer)
         {
             var result = BitConverter.GetBytes(value);
             if (result.Length > buffer.Length)

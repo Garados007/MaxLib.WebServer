@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.IO;
 using System.Text;
 using System.Threading.Tasks;
@@ -62,7 +63,7 @@ namespace MaxLib.WebServer.Monitoring
             var callName = SanitizePath(task.Request.Location.DocumentPath);
             if (callName.Length == 0)
                 callName = "_";
-            var date = started.ToString("yyyy-MM-dd_HH-mm-ss-fffffff");
+            var date = started.ToString("yyyy-MM-dd_HH-mm-ss-fffffff", CultureInfo.InvariantCulture);
 
             var dir = $"{path}/{callName}";
             if (!Directory.Exists(dir))
@@ -81,14 +82,13 @@ namespace MaxLib.WebServer.Monitoring
             catch (Exception e)
             {
                 WebServerLog.Add(ServerLogType.FatalError, GetType(), "write logs", e.ToString());
-                writer.WriteLine(e);
+                await writer.WriteLineAsync(e.ToString()).ConfigureAwait(false);
             }
-            await writer.FlushAsync();
-            writer.Flush();
-            await stream.FlushAsync();
+            await writer.FlushAsync().ConfigureAwait(false);
+            await stream.FlushAsync().ConfigureAwait(false);
         }
 
-        private static char[] allowedChars = new[] { '-', '_', '+', '(', ')', };
+        private static char[] allowedChars = ['-', '_', '+', '(', ')',];
         private static string SanitizePath(string path)
         {
             var sb = new StringBuilder(path.Length);

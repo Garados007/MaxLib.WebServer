@@ -29,7 +29,7 @@ namespace MaxLib.WebServer.WebSocket
             var constructor = type.GetConstructor(Type.EmptyTypes);
             if (constructor == null)
                 throw new ArgumentException("type has no parameterless constructor", nameof(type));
-            registry.Add(key, () => (EventBase)constructor.Invoke(Array.Empty<object>()));
+            registry.Add(key, () => (EventBase)constructor.Invoke([]));
         }
 
         public EventBase? Parse(Frame frame)

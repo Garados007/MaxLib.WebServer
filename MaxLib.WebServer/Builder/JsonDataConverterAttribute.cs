@@ -76,7 +76,7 @@ namespace MaxLib.WebServer.Builder
                 {
                     var constructor = Options.GetConstructor(Type.EmptyTypes);
                     if (constructor != null)
-                        options = ((IJsonSerializerOptions)constructor.Invoke(Array.Empty<object>())).Options;
+                        options = ((IJsonSerializerOptions)constructor.Invoke([])).Options;
                 }
                 writer = (w, value) =>
                 {
@@ -99,7 +99,7 @@ namespace MaxLib.WebServer.Builder
             {
                 var constructor = JsonWriterOptions.GetConstructor(Type.EmptyTypes);
                 if (constructor != null)
-                    writerOptions = ((IJsonWriterOptions)constructor.Invoke(Array.Empty<object>())).Options;
+                    writerOptions = ((IJsonWriterOptions)constructor.Invoke([])).Options;
             }
             
             return value =>

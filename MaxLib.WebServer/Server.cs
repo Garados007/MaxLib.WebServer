@@ -2,6 +2,7 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Globalization;
 using System.Linq;
 using System.Net;
 using System.Net.Sockets;
@@ -72,6 +73,7 @@ namespace MaxLib.WebServer
         /// <see cref="Services.HttpSender" />. <br/> With these you have basic functionality and a
         /// working web server that can deliver 404 answers for every request.
         /// </summary>
+#pragma warning disable CA2000 // ownership transfers to WebServiceGroups via AddWebService, disposed by Server.Dispose()
         public virtual void InitialDefault()
         {
             //Pre parse request
@@ -85,6 +87,7 @@ namespace MaxLib.WebServer
             //send response
             AddWebService(new Services.HttpSender());
         }
+#pragma warning restore CA2000
 
         /// <summary>
         /// Add a new web service to the server and integrate its services. This can be done at
@@ -154,7 +157,7 @@ namespace MaxLib.WebServer
             Listener.Start();
             ServerThread = new Thread(ServerMainTask)
             {
-                Name = "ServerThread - Port: " + Settings.Port.ToString()
+                Name = "ServerThread - Port: " + Settings.Port.ToString(CultureInfo.InvariantCulture)
             };
             ServerThread.Start();
         }
@@ -241,6 +244,7 @@ namespace MaxLib.WebServer
 
         protected virtual void ClientConnected(TcpClient client)
         {
+            ArgumentNullException.ThrowIfNull(client);
             //prepare session
             var connection = new HttpConnection()
             {
@@ -251,7 +255,7 @@ namespace MaxLib.WebServer
             };
             AllConnections.Add(connection);
             //listen to connection
-            _ = Task.Run(async () => await SafeClientStartListen(connection)).ConfigureAwait(false);
+            _ = Task.Run(async () => await SafeClientStartListen(connection).ConfigureAwait(false));
         }
 
         protected virtual async Task SafeClientStartListen(HttpConnection connection)
@@ -274,6 +278,7 @@ namespace MaxLib.WebServer
 
         protected virtual async Task ClientStartListen(HttpConnection connection)
         {
+            ArgumentNullException.ThrowIfNull(connection);
             connection.LastWorkTime = -1;
             if (connection.NetworkClient != null && connection.NetworkClient.Connected)
             {
@@ -304,7 +309,7 @@ namespace MaxLib.WebServer
                 {
 
                     if (Settings.MonitoringOutputDirectory is string monitorOut && task.Monitor.Enabled)
-                        await task.Monitor.Save(monitorOut, start, task); 
+                        await task.Monitor.Save(monitorOut, start, task).ConfigureAwait(false);
 
                 }
 
@@ -333,8 +338,7 @@ namespace MaxLib.WebServer
         protected void RemoveConnection(HttpConnection connection)
         {
             _ = connection ?? throw new ArgumentNullException(nameof(connection));
-            if (KeepAliveConnections.Contains(connection))
-                KeepAliveConnections.Remove(connection);
+            KeepAliveConnections.Remove(connection);
             AllConnections.Remove(connection);
             connection.NetworkClient?.Close();
         }
@@ -357,6 +361,7 @@ namespace MaxLib.WebServer
 
         protected virtual WebProgressTask? PrepairProgressTask(HttpConnection connection)
         {
+            ArgumentNullException.ThrowIfNull(connection);
             var stream = connection.NetworkStream;
             if (stream == null)
                 try
@@ -483,7 +488,7 @@ namespace MaxLib.WebServer
             if (!ServerExecution)
                 Start();
 
-            try { await Task.Delay(-1, token.Token); }
+            try { await Task.Delay(-1, token.Token).ConfigureAwait(false); }
             catch (TaskCanceledException) {}
 
             Stop();
@@ -494,6 +499,7 @@ namespace MaxLib.WebServer
         /// </summary>
         public void Dispose()
         {
+            GC.SuppressFinalize(this);
             if (RunToken != null && !RunToken.IsCancellationRequested)
                 RunToken.Cancel();
             if (ServerExecution)

@@ -44,15 +44,14 @@ namespace MaxLib.WebServer
         }
 
         //Debug
-        public bool Debug_WriteRequests = false;
-        public bool Debug_LogConnections = false;
+        public bool Debug_WriteRequests;
+        public bool Debug_LogConnections;
 
         public WebServerSettings(int port, int connectionTimeout)
         {
             if (port <= 0 || port >= 0xffff)
                 throw new ArgumentOutOfRangeException(nameof(port));
-            if (connectionTimeout < 0)
-                throw new ArgumentOutOfRangeException(nameof(connectionTimeout));
+            ArgumentOutOfRangeException.ThrowIfNegative(connectionTimeout);
             Port = port;
             ConnectionTimeout = connectionTimeout;
         }

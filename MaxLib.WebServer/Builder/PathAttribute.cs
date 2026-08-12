@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Text;
 
 namespace MaxLib.WebServer.Builder
@@ -35,11 +36,12 @@ namespace MaxLib.WebServer.Builder
         /// <param name="path">the path string</param>
         public PathAttribute(string path)
         {
+            ArgumentNullException.ThrowIfNull(path);
             var parts = path.Split('/', StringSplitOptions.RemoveEmptyEntries);
             foreach (var part in parts)
             {
                 if (part.StartsWith('{') && part.EndsWith('}'))
-                    this.parts.Add((part.Substring(1, part.Length - 2), true));
+                    this.parts.Add((part[1..^1], true));
                 else this.parts.Add((part, false));
             }
         }
@@ -51,8 +53,8 @@ namespace MaxLib.WebServer.Builder
             foreach (var (part, mode) in parts)
             {
                 if (mode)
-                    sb.AppendFormat("/{{{0}}}", part);
-                else sb.AppendFormat("/{0}", part);
+                    sb.AppendFormat(CultureInfo.InvariantCulture, "/{{{0}}}", part);
+                else sb.AppendFormat(CultureInfo.InvariantCulture, "/{0}", part);
             }
             if (Prefix)
                 sb.Append("/*");

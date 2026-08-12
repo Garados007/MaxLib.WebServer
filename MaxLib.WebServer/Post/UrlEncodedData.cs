@@ -2,13 +2,14 @@ using System.Text.RegularExpressions;
 using System.Text;
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Threading.Tasks;
 
 #nullable enable
 
 namespace MaxLib.WebServer.Post
 {
-    public class UrlEncodedData : IPostData
+    public partial class UrlEncodedData : IPostData
     {
         public string MimeType => WebServer.MimeType.ApplicationXWwwFromUrlencoded;
 
@@ -19,37 +20,31 @@ namespace MaxLib.WebServer.Post
         {
             _ = content ?? throw new ArgumentNullException(nameof(content));
             Parameter.Clear();
-            if (content != "")
+            if (content.Length != 0)
             {
                 var tiles = content.Split('&');
                 foreach (var tile in tiles)
                 {
-                    var ind = tile.IndexOf('=');
+                    var ind = tile.IndexOf('=', StringComparison.Ordinal);
                     if (ind == -1)
                     {
                         var t = WebServerUtils.DecodeUri(tile);
-                        if (!Parameter.ContainsKey(t)) 
-                            Parameter.Add(t, "");
+                        Parameter.TryAdd(t, "");
                     }
                     else
                     {
-                        var key = WebServerUtils.DecodeUri(tile.Remove(ind));
-                        var value = ind + 1 == tile.Length ? "" : tile.Substring(ind + 1);
-                        if (!Parameter.ContainsKey(key)) 
-                            Parameter.Add(key, WebServerUtils.DecodeUri(value));
+                        var key = WebServerUtils.DecodeUri(tile[..ind]);
+                        var value = ind + 1 == tile.Length ? "" : tile[(ind + 1)..];
+                        Parameter.TryAdd(key, WebServerUtils.DecodeUri(value));
                     }
                 }
             }
         }
 
-        static readonly Regex charsetRegex = new Regex(
-            "charset\\s*=\\s*(?<charset>[^\\s;]+)",
-            RegexOptions.Compiled | RegexOptions.IgnoreCase
-        );
-
         public async Task SetAsync(WebProgressTask task, IO.ContentStream content, string options)
         {
-            var match = charsetRegex.Match(options);
+            ArgumentNullException.ThrowIfNull(content);
+            var match = charsetRegex().Match(options);
             Encoding? encoding = null;
             if (match.Success)
                 try
@@ -63,7 +58,7 @@ namespace MaxLib.WebServer.Post
                 }
             encoding ??= Encoding.UTF8;
             var buffer = new byte[content.UnreadData];
-            await content.ReadAsync(buffer, 0, buffer.Length).ConfigureAwait(false);
+            await content.ReadAsync(buffer.AsMemory()).ConfigureAwait(false);
             Set(encoding.GetString(buffer), options);
         }
 
@@ -71,12 +66,16 @@ namespace MaxLib.WebServer.Post
         {
             var sb = new StringBuilder();
             foreach (var (key, value) in Parameter)
-                sb.AppendLine($"{key}: {value}");
+                sb.AppendLine(CultureInfo.InvariantCulture, $"{key}: {value}");
             return sb.ToString();
         }
 
         public void Dispose()
         {
+            GC.SuppressFinalize(this);
         }
+
+        [GeneratedRegex("charset\\s*=\\s*(?<charset>[^\\s;]+)", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
+        private static partial Regex charsetRegex();
     }
 }

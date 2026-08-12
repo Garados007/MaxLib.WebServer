@@ -10,7 +10,9 @@ namespace MaxLib.WebServer.WebSocket
 {
     public class WebSocketService : WebService, IDisposable, IAsyncDisposable
     {
-        public WebSocketService() 
+        private static readonly char[] ProtocolSeparators = [' ', ','];
+
+        public WebSocketService()
             : base(ServerStage.ParseRequest)
         {
         }
@@ -28,19 +30,22 @@ namespace MaxLib.WebServer.WebSocket
 
         public override bool CanWorkWith(WebProgressTask task)
         {
-            return task.Request.GetHeader("Upgrade") == "websocket" && 
-                (task.Request.GetHeader("Connection")?.ToLower().Contains("upgrade") ?? false);
+            ArgumentNullException.ThrowIfNull(task);
+            return task.Request.GetHeader("Upgrade") == "websocket" &&
+                (task.Request.GetHeader("Connection")?.Contains("upgrade", StringComparison.OrdinalIgnoreCase) ?? false);
         }
 
         public override void Dispose()
         {
             base.Dispose();
+            GC.SuppressFinalize(this);
             foreach (var endpoint in Endpoints)
                 endpoint.Dispose();
         }
 
         public async ValueTask DisposeAsync()
         {
+            GC.SuppressFinalize(this);
             await Task.WhenAll(
                 Endpoints.Select(async x => await x.DisposeAsync().ConfigureAwait(false))
             ).ConfigureAwait(false);
@@ -48,11 +53,12 @@ namespace MaxLib.WebServer.WebSocket
 
         public override async Task ProgressTask(WebProgressTask task)
         {
+            ArgumentNullException.ThrowIfNull(task);
             if (task.NetworkStream == null)
                 return;
 
-            var protocols = (task.Request.GetHeader("Sec-WebSocket-Protocol")?.ToLower() ?? "")
-                .Split(new char[] { ' ', ',' }, StringSplitOptions.RemoveEmptyEntries);
+            var protocols = (task.Request.GetHeader("Sec-WebSocket-Protocol")?.ToLowerInvariant() ?? "")
+                .Split(ProtocolSeparators, StringSplitOptions.RemoveEmptyEntries);
 
             var key = task.Request.GetHeader("Sec-WebSocket-Key");
             var version = task.Request.GetHeader("Sec-WebSocket-Version"); // MUST be 13 according RFC 6455
@@ -66,7 +72,7 @@ namespace MaxLib.WebServer.WebSocket
             }
 
             var responseKey = Convert.ToBase64String(
-                System.Security.Cryptography.SHA1.Create().ComputeHash(
+                System.Security.Cryptography.SHA1.HashData(
                     Encoding.UTF8.GetBytes(
                         $"{key.Trim()}258EAFA5-E914-47DA-95CA-C5AB0DC85B11"
                     )
