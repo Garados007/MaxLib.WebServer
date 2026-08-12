@@ -22,6 +22,22 @@ namespace MaxLib.WebServer.Test.IO
                 => base.ReadAsync(buffer.Length > 1 ? buffer[..1] : buffer, cancellationToken);
         }
 
+        // Used to exercise the constructor's "stream is not readable" guard, which a
+        // plain MemoryStream (always readable) can never trigger on its own.
+        private sealed class NonReadableStream : Stream
+        {
+            public override bool CanRead => false;
+            public override bool CanSeek => false;
+            public override bool CanWrite => true;
+            public override long Length => 0;
+            public override long Position { get => 0; set => throw new NotSupportedException(); }
+            public override void Flush() { }
+            public override int Read(byte[] buffer, int offset, int count) => throw new NotSupportedException();
+            public override long Seek(long offset, SeekOrigin origin) => throw new NotSupportedException();
+            public override void SetLength(long value) => throw new NotSupportedException();
+            public override void Write(byte[] buffer, int offset, int count) => throw new NotSupportedException();
+        }
+
         Stream baseStream;
 
         [TestInitialize]
@@ -278,6 +294,432 @@ namespace MaxLib.WebServer.Test.IO
                 BitConverter.ToString(data),
                 BitConverter.ToString(await reader.ReadBytesAsync(3).ConfigureAwait(false))
             );
+        }
+
+        // --- coverage: synchronous API mirrors ---
+        // The synchronous PeekChar/ReadChar/ReadLine methods (and the RefillCharBuffer/
+        // RefillBuffer helpers behind them) are a fully separate code path from their
+        // async counterparts and were entirely untested.
+
+        [TestMethod]
+        public void TestPeek_Sync()
+        {
+            var reader = new NetworkReader(baseStream);
+            Assert.AreEqual<char?>('♡', reader.PeekChar());
+            Assert.AreEqual<char?>('♡', reader.PeekChar());
+            Assert.AreEqual<char?>('♡', reader.ReadChar());
+        }
+
+        [TestMethod]
+        public void TestReadLine_Sync()
+        {
+            var reader = new NetworkReader(baseStream);
+            Assert.AreEqual<string>("♡", reader.ReadLine());
+            Assert.AreEqual<string>("foo", reader.ReadLine());
+        }
+
+        [TestMethod]
+        public void TestReadChar_Sync_ReplacesInvalidByteWithReplacementChar()
+        {
+            var reader = new NetworkReader(baseStream);
+            // remove the first byte to kill the char, same trick as TestBrokenRead
+            var buffer = new byte[1];
+            Assert.AreEqual(1, reader.Read(buffer, 0, 1));
+            Assert.AreEqual(0xe2, buffer[0]);
+            Assert.AreEqual(65533, (int)reader.ReadChar()!);
+        }
+
+        [TestMethod]
+        public void TestReadLine_Sync_BareCrWithoutLfIsTreatedAsLineBreak()
+        {
+            var data = Encoding.ASCII.GetBytes("A\rB");
+            using var stream = new MemoryStream(data);
+            var reader = new NetworkReader(stream, Encoding.ASCII);
+            Assert.AreEqual("A", reader.ReadLine());
+            Assert.AreEqual("B", reader.ReadLine());
+            Assert.IsNull(reader.ReadLine());
+        }
+
+        [TestMethod]
+        public void TestReadLine_Sync_LineSpanningMultipleRefills()
+        {
+            // mirrors TestReadLine_RefillsAfterBufferExactlyDrained, but via the sync
+            // API: the terminator is only found after the partial line has already
+            // been buffered into a StringBuilder from an earlier refill.
+            var data = Encoding.ASCII.GetBytes("AAAAAAAA\r\nBBBB\r\n");
+            using var stream = new MemoryStream(data);
+            var reader = new NetworkReader(stream, Encoding.ASCII, false, 8);
+            Assert.AreEqual("AAAAAAAA", reader.ReadLine());
+            Assert.AreEqual("BBBB", reader.ReadLine());
+        }
+
+        [TestMethod]
+        public void TestReadLine_Sync_LineSpanningManyRefills()
+        {
+            // three refills happen before the terminator ever shows up, so the
+            // StringBuilder is already non-null on the second and third append -
+            // exercising the "already have a StringBuilder" side of `sb ??= ...`.
+            var data = Encoding.ASCII.GetBytes("AABBCC\r\n");
+            using var stream = new MemoryStream(data);
+            var reader = new NetworkReader(stream, Encoding.ASCII, false, 2);
+            Assert.AreEqual("AABBCC", reader.ReadLine());
+        }
+
+        [TestMethod]
+        public void TestReadLine_Sync_BareCrAtEndOfStreamIsTreatedAsLineBreak()
+        {
+            // the '\r' is the very last byte in the stream, so the lookahead for a
+            // paired '\n' hits a genuine EOF rather than more buffered data.
+            var data = Encoding.ASCII.GetBytes("A\r");
+            using var stream = new MemoryStream(data);
+            var reader = new NetworkReader(stream, Encoding.ASCII);
+            Assert.AreEqual("A", reader.ReadLine());
+            Assert.IsNull(reader.ReadLine());
+        }
+
+        [TestMethod]
+        public void TestPeekAndReadChar_Sync_EmptyStreamReturnsNull()
+        {
+            using var stream = new MemoryStream(Array.Empty<byte>());
+            var reader = new NetworkReader(stream);
+            Assert.IsNull(reader.PeekChar());
+            Assert.IsNull(reader.ReadChar());
+        }
+
+        [TestMethod]
+        public async Task TestPeekAndReadChar_EmptyStreamReturnsNull()
+        {
+            using var stream = new MemoryStream(Array.Empty<byte>());
+            var reader = new NetworkReader(stream);
+            Assert.IsNull(await reader.PeekCharAsync().ConfigureAwait(false));
+            Assert.IsNull(await reader.ReadCharAsync().ConfigureAwait(false));
+        }
+
+        // --- coverage: Dispose / DisposeAsync lifecycle ---
+
+        [TestMethod]
+        public void TestDispose_ClosesUnderlyingStreamAndBlocksFurtherUse()
+        {
+            var stream = new MemoryStream(new byte[] { 1, 2, 3 });
+            var reader = new NetworkReader(stream);
+            reader.Dispose();
+            Assert.ThrowsExactly<ObjectDisposedException>(() => stream.ReadByte());
+            Assert.ThrowsExactly<ObjectDisposedException>(() => reader.ReadChar());
+        }
+
+        [TestMethod]
+        public void TestDispose_LeaveOpenTrue_DoesNotDisposeStream()
+        {
+            var stream = new MemoryStream(new byte[] { 1, 2, 3 });
+            var reader = new NetworkReader(stream, Encoding.UTF8, leaveOpen: true);
+            reader.Dispose();
+            Assert.AreEqual(1, stream.ReadByte());
+        }
+
+        [TestMethod]
+        public async Task TestDisposeAsync_ClosesUnderlyingStream()
+        {
+            var stream = new MemoryStream(new byte[] { 1, 2, 3 });
+            var reader = new NetworkReader(stream);
+            await reader.DisposeAsync().ConfigureAwait(false);
+            Assert.ThrowsExactly<ObjectDisposedException>(() => stream.ReadByte());
+        }
+
+        // --- coverage: constructor validation ---
+
+        [TestMethod]
+        public void TestConstructor_NullStreamThrows()
+        {
+            Assert.ThrowsExactly<ArgumentNullException>(() => new NetworkReader(null!));
+        }
+
+        [TestMethod]
+        public void TestConstructor_NonReadableStreamThrows()
+        {
+            using var stream = new NonReadableStream();
+            Assert.ThrowsExactly<ArgumentException>(() => new NetworkReader(stream));
+        }
+
+        [TestMethod]
+        public async Task TestConstructor_TwoArgOverload_UsesGivenEncoding()
+        {
+            var data = Encoding.ASCII.GetBytes("hi\r\n");
+            using var stream = new MemoryStream(data);
+            var reader = new NetworkReader(stream, Encoding.ASCII);
+            Assert.AreEqual("hi", await reader.ReadLineAsync().ConfigureAwait(false));
+        }
+
+        // --- coverage: Encoding property ---
+
+        [TestMethod]
+        public async Task TestEncodingSetter_ChangesDecoder()
+        {
+            var data = Encoding.ASCII.GetBytes("hi\r\n");
+            using var stream = new MemoryStream(data);
+            var reader = new NetworkReader(stream, Encoding.UTF8);
+            Assert.AreEqual(Encoding.UTF8, reader.Encoding);
+            reader.Encoding = Encoding.ASCII;
+            Assert.AreEqual(Encoding.ASCII, reader.Encoding);
+            Assert.AreEqual("hi", await reader.ReadLineAsync().ConfigureAwait(false));
+        }
+
+        [TestMethod]
+        public void TestEncodingSetter_NullThrows()
+        {
+            using var stream = new MemoryStream();
+            var reader = new NetworkReader(stream);
+            Assert.ThrowsExactly<ArgumentNullException>(() => reader.Encoding = null!);
+        }
+
+        // --- coverage: raw byte-read overloads ---
+        // Read(byte[],offset,count) (the plain synchronous overload) was entirely
+        // untested, and several argument-validation branches on the async byte[]
+        // and Memory<byte> overloads were never exercised from the "throws" side.
+
+        [TestMethod]
+        public void TestRead_Sync_ReadsBufferedAndRemainingBytes()
+        {
+            var reader = new NetworkReader(baseStream);
+            // ReadChar (unlike PeekChar) actually advances past the decoded char, so
+            // Read() must discard it from the pending char buffer before reading raw
+            // bytes, rather than silently re-serving already-consumed data.
+            Assert.AreEqual<char?>('♡', reader.ReadChar());
+            var buffer = new byte[5];
+            var read = reader.Read(buffer, 0, 5);
+            Assert.AreEqual(5, read);
+            Assert.AreEqual("0D-0A-66-6F-6F", BitConverter.ToString(buffer));
+        }
+
+        [TestMethod]
+        public void TestRead_Sync_ArgumentValidation()
+        {
+            var reader = new NetworkReader(baseStream);
+            var buffer = new byte[4];
+            Assert.ThrowsExactly<ArgumentNullException>(() => reader.Read(null!, 0, 1));
+            Assert.ThrowsExactly<ArgumentOutOfRangeException>(() => reader.Read(buffer, -1, 1));
+            Assert.ThrowsExactly<ArgumentOutOfRangeException>(() => reader.Read(buffer, 5, 0));
+            Assert.ThrowsExactly<ArgumentOutOfRangeException>(() => reader.Read(buffer, 0, -1));
+            Assert.ThrowsExactly<ArgumentOutOfRangeException>(() => reader.Read(buffer, 2, 3));
+        }
+
+        [TestMethod]
+        public async Task TestReadAsync_ByteArray_ArgumentValidation()
+        {
+            var reader = new NetworkReader(baseStream);
+            var buffer = new byte[4];
+            await Assert.ThrowsExactlyAsync<ArgumentNullException>(
+                () => reader.ReadAsync(null!, 0, 1).AsTask());
+            await Assert.ThrowsExactlyAsync<ArgumentOutOfRangeException>(
+                () => reader.ReadAsync(buffer, -1, 1).AsTask());
+            await Assert.ThrowsExactlyAsync<ArgumentOutOfRangeException>(
+                () => reader.ReadAsync(buffer, 5, 0).AsTask());
+            await Assert.ThrowsExactlyAsync<ArgumentOutOfRangeException>(
+                () => reader.ReadAsync(buffer, 0, -1).AsTask());
+            await Assert.ThrowsExactlyAsync<ArgumentOutOfRangeException>(
+                () => reader.ReadAsync(buffer, 2, 3).AsTask());
+        }
+
+        [TestMethod]
+        public async Task TestReadAsync_Memory_ReadsBufferedAndRemainingBytes()
+        {
+            var reader = new NetworkReader(baseStream);
+            // force everything into the internal byte buffer without consuming it
+            Assert.IsNotNull(await reader.PeekCharAsync().ConfigureAwait(false));
+
+            // fully satisfied from the pre-buffered bytes - no further stream read needed
+            var small = new byte[3];
+            Assert.AreEqual(3, await reader.ReadAsync(small.AsMemory()).ConfigureAwait(false));
+            Assert.AreEqual("E2-99-A1", BitConverter.ToString(small));
+
+            // requesting more than what's left pre-buffered must also pull from BaseStream
+            var rest = new byte[20];
+            var read = await reader.ReadAsync(rest.AsMemory()).ConfigureAwait(false);
+            Assert.AreEqual(14, read); // 17 bytes total in the fixture, 3 already consumed
+        }
+
+        [TestMethod]
+        public async Task TestReadMemoryAsync_ReturnsCorrectSlice()
+        {
+            var reader = new NetworkReader(baseStream);
+            var mem = await reader.ReadMemoryAsync(3).ConfigureAwait(false);
+            Assert.AreEqual(3, mem.Length);
+            Assert.AreEqual("E2-99-A1", BitConverter.ToString(mem.ToArray()));
+        }
+
+        [TestMethod]
+        public async Task TestReadBytesAsync_ShortReadTrimsResultToActualLength()
+        {
+            // a client that promises more data (e.g. via Content-Length) than it
+            // actually sends must not get its short read padded with zero bytes.
+            using var stream = new MemoryStream(new byte[] { 1, 2, 3 });
+            var reader = new NetworkReader(stream);
+            var result = await reader.ReadBytesAsync(10).ConfigureAwait(false);
+            Assert.AreEqual(3, result.Length);
+            Assert.AreEqual("01-02-03", BitConverter.ToString(result));
+        }
+
+        // --- coverage: ReadAsync(Stream, count) ---
+
+        [TestMethod]
+        public async Task TestReadAsync_IntoStream_ArgumentValidation()
+        {
+            var reader = new NetworkReader(baseStream);
+            await Assert.ThrowsExactlyAsync<ArgumentNullException>(
+                () => reader.ReadAsync((Stream)null!, 1).AsTask());
+            using var readOnlyTarget = new MemoryStream(new byte[] { 1, 2, 3 }, writable: false);
+            await Assert.ThrowsExactlyAsync<ArgumentException>(
+                () => reader.ReadAsync(readOnlyTarget, 1).AsTask());
+            using var target = new MemoryStream();
+            await Assert.ThrowsExactlyAsync<ArgumentOutOfRangeException>(
+                () => reader.ReadAsync(target, -1).AsTask());
+        }
+
+        [TestMethod]
+        public async Task TestReadAsync_IntoStream_StopsEarlyWhenSourceExhausted()
+        {
+            // a malicious/broken peer can close the connection before delivering as
+            // many bytes as requested; the copy must stop cleanly instead of hanging.
+            using var stream = new MemoryStream(new byte[] { 1, 2, 3 });
+            var reader = new NetworkReader(stream);
+            using var target = new MemoryStream();
+            var read = await reader.ReadAsync(target, 100).ConfigureAwait(false);
+            Assert.AreEqual(3, read);
+            Assert.AreEqual("01-02-03", BitConverter.ToString(target.ToArray()));
+        }
+
+        // --- coverage: synchronous ReadUntil, and the marking-too-large guard ---
+
+        [TestMethod]
+        public void TestReadUntil_Sync_FindsMarking()
+        {
+            using var stream = new MemoryStream(new byte[] { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9 });
+            var reader = new NetworkReader(stream);
+            var readed = reader.ReadUntil(new byte[] { 4, 5, 6 });
+            Assert.AreEqual("00-01-02-03", BitConverter.ToString(readed.ToArray()));
+            var remainder = new byte[6];
+            Assert.AreEqual(6, reader.Read(remainder, 0, 6));
+            Assert.AreEqual("04-05-06-07-08-09", BitConverter.ToString(remainder));
+        }
+
+        [TestMethod]
+        public void TestReadUntil_Sync_MarkingNeverFoundReturnsAllBytes()
+        {
+            var data = new byte[] { 1, 2, 3, 4, 5 };
+            using var stream = new MemoryStream(data);
+            var reader = new NetworkReader(stream);
+            var readed = reader.ReadUntil(new byte[] { 0xAA, 0xBB });
+            Assert.AreEqual(BitConverter.ToString(data), BitConverter.ToString(readed.ToArray()));
+        }
+
+        [TestMethod]
+        public void TestReadUntil_Sync_EmptyMarkingReadsNothing()
+        {
+            var data = new byte[] { 1, 2, 3 };
+            using var stream = new MemoryStream(data);
+            var reader = new NetworkReader(stream);
+            var readed = reader.ReadUntil(Array.Empty<byte>());
+            Assert.AreEqual(0, readed.Length);
+            var remainder = new byte[3];
+            Assert.AreEqual(3, reader.Read(remainder, 0, 3));
+            Assert.AreEqual(BitConverter.ToString(data), BitConverter.ToString(remainder));
+        }
+
+        [TestMethod]
+        public void TestReadUntil_Sync_DiscardsPendingCharBufferBeforeSearching()
+        {
+            // ReadChar buffers ahead into the char buffer; ReadUntil operates on raw
+            // bytes and must discard that pending, already-decoded-but-unread data
+            // rather than re-serving it or losing the byte it corresponds to.
+            using var stream = new MemoryStream(new byte[] { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9 });
+            var reader = new NetworkReader(stream);
+            Assert.IsNotNull(reader.ReadChar());
+            var readed = reader.ReadUntil(new byte[] { 4, 5, 6 });
+            Assert.AreEqual("01-02-03", BitConverter.ToString(readed.ToArray()));
+        }
+
+        [TestMethod]
+        public void TestReadUntil_Sync_MarkingTooLargeForBufferThrows()
+        {
+            // a marking that (doubled, to guarantee room to slide the match window)
+            // does not fit in the read buffer must be rejected rather than silently
+            // producing wrong matches.
+            using var stream = new MemoryStream(new byte[] { 1, 2, 3, 4 });
+            var reader = new NetworkReader(stream, Encoding.ASCII, false, 4);
+            Assert.ThrowsExactly<ArgumentException>(() => reader.ReadUntil(new byte[] { 1, 2, 3 }));
+        }
+
+        [TestMethod]
+        public async Task TestReadUntilAsync_MarkingTooLargeForBufferThrows()
+        {
+            using var stream = new MemoryStream(new byte[] { 1, 2, 3, 4 });
+            var reader = new NetworkReader(stream, Encoding.ASCII, false, 4);
+            await Assert.ThrowsExactlyAsync<ArgumentException>(
+                () => reader.ReadUntilAsync(new byte[] { 1, 2, 3 }).AsTask());
+        }
+
+        // --- coverage: ReadLineAsync(limit, ...) edge branches ---
+        // The happy path is already exercised indirectly via HttpRequestParser's
+        // tests; these cover the limit-specific branches that aren't.
+
+        [TestMethod]
+        public async Task TestReadLineAsync_WithLimit_EmptyStreamReturnsNull()
+        {
+            using var stream = new MemoryStream(Array.Empty<byte>());
+            var reader = new NetworkReader(stream);
+            Assert.IsNull(await reader.ReadLineAsync(10).ConfigureAwait(false));
+        }
+
+        [TestMethod]
+        public async Task TestReadLineAsync_NegativeLimitDelegatesToUnlimitedOverload()
+        {
+            var data = Encoding.ASCII.GetBytes("hello\r\n");
+            using var stream = new MemoryStream(data);
+            var reader = new NetworkReader(stream, Encoding.ASCII);
+            Assert.AreEqual("hello", await reader.ReadLineAsync(-1).ConfigureAwait(false));
+        }
+
+        [TestMethod]
+        public async Task TestReadLineAsync_LineExceedingLimitThrowsWithinSingleRefill()
+        {
+            var data = Encoding.ASCII.GetBytes("abcdef\r\n");
+            using var stream = new MemoryStream(data);
+            var reader = new NetworkReader(stream, Encoding.ASCII);
+            await Assert.ThrowsExactlyAsync<ReadLineOverflowException>(
+                () => reader.ReadLineAsync(3).AsTask());
+        }
+
+        [TestMethod]
+        public async Task TestReadLineAsync_LineExceedingLimitThrowsAcrossRefills()
+        {
+            // buffer size 4: neither "AAAA" nor "BBBB" contains a terminator on its
+            // own, so the overflow can only be detected once the accumulated partial
+            // line is checked against the limit between refills.
+            var data = Encoding.ASCII.GetBytes("AAAABBBB\r\n");
+            using var stream = new MemoryStream(data);
+            var reader = new NetworkReader(stream, Encoding.ASCII, false, 4);
+            await Assert.ThrowsExactlyAsync<ReadLineOverflowException>(
+                () => reader.ReadLineAsync(6).AsTask());
+        }
+
+        [TestMethod]
+        public async Task TestReadLineAsync_WithLimit_LineSpanningMultipleRefillsSucceeds()
+        {
+            // the terminator is only found after a partial line already accumulated
+            // in a StringBuilder from an earlier refill - and the completed line
+            // still fits under the limit.
+            var data = Encoding.ASCII.GetBytes("AAAABB\r\n");
+            using var stream = new MemoryStream(data);
+            var reader = new NetworkReader(stream, Encoding.ASCII, false, 4);
+            Assert.AreEqual("AAAABB", await reader.ReadLineAsync(10).ConfigureAwait(false));
+        }
+
+        [TestMethod]
+        public async Task TestReadLineAsync_ReturnsPartialLineOnEofWithinLimit()
+        {
+            var data = Encoding.ASCII.GetBytes("AB"); // no terminator, stream just ends
+            using var stream = new MemoryStream(data);
+            var reader = new NetworkReader(stream, Encoding.ASCII);
+            Assert.AreEqual("AB", await reader.ReadLineAsync(10).ConfigureAwait(false));
         }
     }
 }
