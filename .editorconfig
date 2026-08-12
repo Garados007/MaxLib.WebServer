@@ -104,3 +104,6 @@ dotnet_diagnostic.IDE0057.severity = error
 # SYSLIB1045: Use 'GeneratedRegexAttribute' to generate the regular expression
 # implementation at compile-time
 dotnet_diagnostic.SYSLIB1045.severity = error
+
+# IDE0038: Use pattern matching to avoid 'is' check followed by a cast
+dotnet_diagnostic.IDE0038.severity = error

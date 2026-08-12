@@ -36,8 +36,8 @@ namespace MaxLib.WebServer
             DataSources.Clear();
             foreach (var kvp in Information.ToArray())
             {
-                if (kvp.Key is IDisposable) ((IDisposable)kvp.Key).Dispose();
-                if (kvp.Value is IDisposable) ((IDisposable)kvp.Value).Dispose();
+                if (kvp.Key is IDisposable keyDisposable) keyDisposable.Dispose();
+                if (kvp.Value is IDisposable valueDisposable) valueDisposable.Dispose();
             }
             Information.Clear();
         }
