@@ -2,6 +2,7 @@ using System;
 using System.Linq;
 using System.Text;
 using System.IO;
+using System.Threading;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using System.Threading.Tasks;
 using MaxLib.WebServer.IO;
@@ -11,6 +12,16 @@ namespace MaxLib.WebServer.Test.IO
     [TestClass]
     public class TestNetworkReader
     {
+        // Simulates a hostile/slow peer that never delivers more than one byte per
+        // socket read, regardless of how much buffer space or data is available.
+        // Used to force multi-byte UTF-8 sequences to split across many refills.
+        private sealed class OneByteAtATimeStream(byte[] data) : MemoryStream(data)
+        {
+            public override ValueTask<int> ReadAsync(Memory<byte> buffer,
+                CancellationToken cancellationToken = default)
+                => base.ReadAsync(buffer.Length > 1 ? buffer[..1] : buffer, cancellationToken);
+        }
+
         Stream baseStream;
 
         [TestInitialize]
@@ -154,6 +165,119 @@ namespace MaxLib.WebServer.Test.IO
             var reader = new NetworkReader(stream, Encoding.ASCII, false, 8);
             Assert.AreEqual("AAAAAAAA", await reader.ReadLineAsync().ConfigureAwait(false));
             Assert.AreEqual("BBBB", await reader.ReadLineAsync().ConfigureAwait(false));
+        }
+
+        // A malicious or merely unlucky peer can have its "\r\n" split exactly across
+        // two socket reads (the '\r' arrives at the very end of one chunk, the '\n' at
+        // the start of the next). The line must still be reassembled as one clean line.
+        [TestMethod]
+        public async Task TestReadLine_CrLfSplitAcrossRefillBoundary()
+        {
+            // buffer size 3: the first refill reads exactly "AB\r", stopping right on
+            // the '\r'; the '\n' only becomes available on the following refill.
+            var data = Encoding.ASCII.GetBytes("AB\r\nCD");
+            using var stream = new MemoryStream(data);
+            var reader = new NetworkReader(stream, Encoding.ASCII, false, 3);
+            Assert.AreEqual("AB", await reader.ReadLineAsync().ConfigureAwait(false));
+            Assert.AreEqual("CD", await reader.ReadLineAsync().ConfigureAwait(false));
+        }
+
+        // A client can send a bare '\r' that is not followed by '\n' (old Mac-style
+        // line ending, or just malformed/hostile input). It must still be treated as
+        // a line break without swallowing the character that follows it.
+        [TestMethod]
+        public async Task TestReadLine_BareCrWithoutLfIsTreatedAsLineBreak()
+        {
+            var data = Encoding.ASCII.GetBytes("A\rB\rC");
+            using var stream = new MemoryStream(data);
+            var reader = new NetworkReader(stream, Encoding.ASCII, false, 8);
+            Assert.AreEqual("A", await reader.ReadLineAsync().ConfigureAwait(false));
+            Assert.AreEqual("B", await reader.ReadLineAsync().ConfigureAwait(false));
+            Assert.AreEqual("C", await reader.ReadLineAsync().ConfigureAwait(false));
+            Assert.IsNull(await reader.ReadLineAsync().ConfigureAwait(false));
+        }
+
+        // A request whose header block is immediately terminated ("\r\n\r\n" with no
+        // headers at all) must yield two empty lines rather than being merged, dropped,
+        // or corrupted. buffer size 4 also forces the terminating refill to happen
+        // exactly when the byte buffer's read offset reaches its capacity.
+        [TestMethod]
+        public async Task TestReadLine_ConsecutiveBlankLines()
+        {
+            var data = Encoding.ASCII.GetBytes("\r\n\r\n");
+            using var stream = new MemoryStream(data);
+            var reader = new NetworkReader(stream, Encoding.ASCII, false, 4);
+            Assert.AreEqual("", await reader.ReadLineAsync().ConfigureAwait(false));
+            Assert.AreEqual("", await reader.ReadLineAsync().ConfigureAwait(false));
+            Assert.IsNull(await reader.ReadLineAsync().ConfigureAwait(false));
+        }
+
+        // A client sending a byte that is not valid UTF-8 (here a lone 0xFF, which is
+        // never a legal lead byte) must not throw or desynchronize the reader. It
+        // should decode to the replacement character and parsing of subsequent,
+        // well-formed lines must continue normally.
+        [TestMethod]
+        public async Task TestReadLine_InvalidUtf8ByteDoesNotThrowAndKeepsSync()
+        {
+            var data = new byte[] { 0x41, 0xFF, 0x42, 0x0D, 0x0A, 0x43, 0x0D, 0x0A }; // "A" 0xFF "B\r\nC\r\n"
+            using var stream = new MemoryStream(data);
+            var reader = new NetworkReader(stream);
+            Assert.AreEqual("A�B", await reader.ReadLineAsync().ConfigureAwait(false));
+            Assert.AreEqual("C", await reader.ReadLineAsync().ConfigureAwait(false));
+        }
+
+        // A hostile peer could dribble a multi-byte UTF-8 character one byte per
+        // socket read on purpose, hoping to desynchronize the decoder across many
+        // refills. The character must still be reconstructed correctly as part of a
+        // single line.
+        [TestMethod]
+        public async Task TestReadLine_MultiByteCharacterSplitByteByByteAcrossReads()
+        {
+            // "A" + U+1F600 (F0 9F 98 80, a 4-byte sequence) + "B\r\n"
+            var data = new byte[] { 0x41, 0xF0, 0x9F, 0x98, 0x80, 0x42, 0x0D, 0x0A };
+            using var stream = new OneByteAtATimeStream(data);
+            var reader = new NetworkReader(stream);
+            var expected = "A" + char.ConvertFromUtf32(0x1F600) + "B";
+            Assert.AreEqual(expected, await reader.ReadLineAsync().ConfigureAwait(false));
+        }
+
+        // A peer that connects and immediately closes without sending anything must
+        // be reported as a clean "no data", not throw or hang.
+        [TestMethod]
+        public async Task TestReadLine_EmptyStreamReturnsNull()
+        {
+            using var stream = new MemoryStream(Array.Empty<byte>());
+            var reader = new NetworkReader(stream);
+            Assert.IsNull(await reader.ReadLineAsync().ConfigureAwait(false));
+        }
+
+        // A malformed multipart body whose boundary marker never actually appears
+        // must not hang forever or throw. All bytes up to the (never reached) EOF
+        // must be returned instead.
+        [TestMethod]
+        public async Task TestReadUntilAsync_MarkingNeverFoundReturnsAllBytes()
+        {
+            var data = new byte[] { 1, 2, 3, 4, 5, 6, 7, 8, 9, 10 };
+            using var stream = new MemoryStream(data);
+            var reader = new NetworkReader(stream);
+            var readed = await reader.ReadUntilAsync(new byte[] { 0xAA, 0xBB, 0xCC }).ConfigureAwait(false);
+            Assert.AreEqual(BitConverter.ToString(data), BitConverter.ToString(readed.ToArray()));
+        }
+
+        // An empty marking must be a safe no-op: nothing is consumed from the stream
+        // and a subsequent real read still observes the untouched data.
+        [TestMethod]
+        public async Task TestReadUntilAsync_EmptyMarkingReadsNothing()
+        {
+            var data = new byte[] { 1, 2, 3 };
+            using var stream = new MemoryStream(data);
+            var reader = new NetworkReader(stream);
+            var readed = await reader.ReadUntilAsync(Array.Empty<byte>()).ConfigureAwait(false);
+            Assert.AreEqual(0, readed.Length);
+            Assert.AreEqual(
+                BitConverter.ToString(data),
+                BitConverter.ToString(await reader.ReadBytesAsync(3).ConfigureAwait(false))
+            );
         }
     }
 }
