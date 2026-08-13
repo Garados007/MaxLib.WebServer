@@ -7,6 +7,7 @@ using System.Net.Sockets;
 using System.Security.Authentication;
 using System.Threading;
 using System.Threading.Tasks;
+using Microsoft.Extensions.Logging;
 
 #nullable enable
 
@@ -14,6 +15,9 @@ namespace MaxLib.WebServer.SSL
 {
     public class SecureWebServer : Server
     {
+        static readonly ILogger logger = WebServerLog.LoggerFactory.CreateLogger<SecureWebServer>();
+        static readonly EventId StartUpEventId = new(0, "StartUp");
+
         public SecureWebServerSettings SecureSettings => (SecureWebServerSettings)Settings;
 
         //Secure Server
@@ -28,7 +32,7 @@ namespace MaxLib.WebServer.SSL
         {
             if (SecureSettings.EnableUnsafePort)
                 base.Start();
-            WebServerLog.Add(ServerLogType.Information, GetType(), "StartUp", "Start Secure Server on Port {0}", SecureSettings.SecurePort);
+            logger.LogInformation(StartUpEventId, "Start Secure Server on Port {Port}", SecureSettings.SecurePort);
             ServerExecution = true;
             SecureListener = new TcpListener(new IPEndPoint(Settings.IPFilter, SecureSettings.SecurePort));
             SecureListener.Start();
@@ -43,13 +47,13 @@ namespace MaxLib.WebServer.SSL
         {
             if (SecureSettings.EnableUnsafePort)
                 base.Stop();
-            WebServerLog.Add(ServerLogType.Information, GetType(), "StartUp", "Stopped Secure Server");
+            logger.LogInformation(StartUpEventId, "Stopped Secure Server");
             ServerExecution = false;
         }
 
         protected virtual void SecureMainTask()
         {
-            WebServerLog.Add(ServerLogType.Information, GetType(), "StartUp", "Secure Server succesfuly started");
+            logger.LogInformation(StartUpEventId, "Secure Server successfully started");
             var watch = new Stopwatch();
             while (ServerExecution)
             {
@@ -62,14 +66,14 @@ namespace MaxLib.WebServer.SSL
                     SecureClientConnected(SecureListener.AcceptTcpClient());
                 }
                 //wait
-                if (SecureListener!.Pending()) 
+                if (SecureListener!.Pending())
                     continue;
                 var time = watch.ElapsedMilliseconds % 20;
                 Thread.Sleep(20 - (int)time);
             }
             watch.Stop();
             SecureListener!.Stop();
-            WebServerLog.Add(ServerLogType.Information, GetType(), "StartUp", "Secure Server succesfuly stopped");
+            logger.LogInformation(StartUpEventId, "Secure Server successfully stopped");
         }
 
         protected virtual void SecureClientConnected(TcpClient client)

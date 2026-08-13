@@ -1,4 +1,5 @@
 ﻿using System;
+using Microsoft.Extensions.Logging;
 using System.IO;
 using System.Threading.Tasks;
 
@@ -9,6 +10,9 @@ namespace MaxLib.WebServer
     [Serializable]
     public class HttpStreamDataSource : HttpDataSource
     {
+        static readonly ILogger logger = WebServerLog.LoggerFactory.CreateLogger<HttpStreamDataSource>();
+        static readonly EventId SendEventId = new(0, "Send");
+
         public Stream Stream { get; }
 
         public HttpStreamDataSource(Stream stream)
@@ -54,7 +58,7 @@ namespace MaxLib.WebServer
             }
             catch (IOException)
             {
-                WebServerLog.Add(ServerLogType.Information, GetType(), "Send", "Connection closed by remote Host");
+                logger.LogInformation(SendEventId, "Connection closed by remote host");
             }
             return total;
         }

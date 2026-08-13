@@ -1,4 +1,5 @@
 ﻿using System;
+using Microsoft.Extensions.Logging;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -10,6 +11,9 @@ namespace MaxLib.WebServer.WebSocket
 {
     public class WebSocketService : WebService, IDisposable, IAsyncDisposable
     {
+        static readonly ILogger logger = WebServerLog.LoggerFactory.CreateLogger<WebSocketService>();
+        static readonly EventId HandshakeEventId = new(0, "handshake");
+
         private static readonly char[] ProtocolSeparators = [' ', ','];
 
         public WebSocketService()
@@ -17,7 +21,7 @@ namespace MaxLib.WebServer.WebSocket
         {
         }
 
-        public ICollection<IWebSocketEndpoint> Endpoints { get; } 
+        public ICollection<IWebSocketEndpoint> Endpoints { get; }
             = new List<IWebSocketEndpoint>();
 
         public WebSocketCloserEndpoint? CloseEndpoint { get; set; }
@@ -104,7 +108,7 @@ namespace MaxLib.WebServer.WebSocket
             }
         }
 
-        private void HandleCreateConnection(WebProgressTask task, string responseKey, 
+        private static void HandleCreateConnection(WebProgressTask task, string responseKey,
             IWebSocketEndpoint endpoint, WebSocketConnection connection)
         {
             task.Response.StatusCode = HttpStateCode.SwitchingProtocols;
@@ -127,7 +131,7 @@ namespace MaxLib.WebServer.WebSocket
                     }
                     catch (Exception e)
                     {
-                        WebServerLog.Add(ServerLogType.Error, GetType(), "handshake", $"handshake error: {e}");
+                        logger.LogError(HandshakeEventId, e, "Handshake error");
                     }
             });
             task.NextStage = ServerStage.SendResponse;

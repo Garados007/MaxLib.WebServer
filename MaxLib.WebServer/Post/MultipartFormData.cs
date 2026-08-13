@@ -7,6 +7,7 @@ using System.Globalization;
 using System.Text.RegularExpressions;
 using MaxLib.WebServer.IO;
 using System.Threading.Tasks;
+using Microsoft.Extensions.Logging;
 
 #nullable enable
 
@@ -16,6 +17,9 @@ namespace MaxLib.WebServer.Post
     {
         public class FormEntry : IDisposable
         {
+            static readonly ILogger logger = WebServerLog.LoggerFactory.CreateLogger<FormEntry>();
+            static readonly EventId PostEventId = new(0, "POST");
+
             public ReadOnlyDictionary<string, string> Header { get; }
 
             public ReadOnlyMemory<byte>? Content { get; private set; }
@@ -32,13 +36,13 @@ namespace MaxLib.WebServer.Post
             {
                 Content = content;
                 if (TempFile != null && TempFile.Exists)
-                    try 
+                    try
                     {
                         TempFile.Delete();
                     }
                     catch (Exception)
                     {
-                        WebServerLog.Add(ServerLogType.Information, GetType(), "POST", "Cannot delete temp file");
+                        logger.LogInformation(PostEventId, "Cannot delete temp file");
                     }
                 TempFile = null;
             }
@@ -48,13 +52,13 @@ namespace MaxLib.WebServer.Post
                 ArgumentNullException.ThrowIfNull(tempFile);
                 Content = null;
                 if (TempFile != null && TempFile.FullName != tempFile.FullName)
-                    try 
+                    try
                     {
                         TempFile.Delete();
                     }
                     catch (Exception)
                     {
-                        WebServerLog.Add(ServerLogType.Information, GetType(), "POST", "Cannot delete temp file");
+                        logger.LogInformation(PostEventId, "Cannot delete temp file");
                     }
                 TempFile = tempFile;
             }

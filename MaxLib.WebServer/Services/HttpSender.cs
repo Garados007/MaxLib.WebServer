@@ -1,4 +1,5 @@
 ﻿using System;
+using Microsoft.Extensions.Logging;
 using System.Globalization;
 using System.IO;
 using System.Linq;
@@ -13,6 +14,10 @@ namespace MaxLib.WebServer.Services
     /// </summary>
     public class HttpSender : WebService
     {
+        static readonly ILogger logger = WebServerLog.LoggerFactory.CreateLogger<HttpSender>();
+        static readonly EventId StatusCodeEventId = new(0, "StatusCode");
+        static readonly EventId SendEventId = new(0, "Send");
+
         /// <summary>
         /// WebServiceType.SendResponse: Sendet Response und Dokument, wenn vorhanden, an den Clienten.
         /// </summary>
@@ -83,8 +88,8 @@ namespace MaxLib.WebServer.Services
                 case 509: return "Bandwidth Limit Exceeded";
                 case 510: return "Not Extended";
                 default:
-                    WebServerLog.Add(ServerLogType.Information, GetType(), "StatusCode",
-                        "Cant get status string from {0} ({1}).", code, (int)code);
+                    logger.LogInformation(StatusCodeEventId,
+                        "Cant get status string from {StatusCode} ({StatusCodeNumber}).", code, (int)code);
                     return "";
             }
         }
@@ -121,12 +126,12 @@ namespace MaxLib.WebServer.Services
             try { await writer.FlushAsync().ConfigureAwait(false); }
             catch (ObjectDisposedException)
             {
-                WebServerLog.Add(ServerLogType.Error, GetType(), "Send", "Connection closed by remote host.");
+                logger.LogError(SendEventId, "Connection closed by remote host.");
                 return;
             }
             catch (IOException)
             {
-                WebServerLog.Add(ServerLogType.Error, GetType(), "Send", "Connection closed by remote host.");
+                logger.LogError(SendEventId, "Connection closed by remote host.");
                 return;
             }
             //Daten senden
@@ -138,7 +143,7 @@ namespace MaxLib.WebServer.Services
             try { await stream.FlushAsync().ConfigureAwait(false); }
             catch (IOException)
             {
-                WebServerLog.Add(ServerLogType.Error, GetType(), "Send", "Connection closed by remote host.");
+                logger.LogError(SendEventId, "Connection closed by remote host.");
                 return;
             }
         }

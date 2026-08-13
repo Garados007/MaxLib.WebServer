@@ -26,6 +26,7 @@
 
   <ItemGroup>
     <PackageReference Include="MaxLib.Common" Version="1.2.1" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="8.0.0" />
   </ItemGroup>
 
   <ItemGroup>

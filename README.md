@@ -65,7 +65,7 @@ using var server = new Server(new WebServerSettings(
 server.InitDefault();
 
 // the server can now be started. A basic set of services is defined so a new
-// request will be handled and the user gets a response. Right now its a 
+// request will be handled and the user gets a response. Right now its a
 // 404 NOT FOUND but we will add more.
 server.Start();
 
@@ -111,6 +111,32 @@ After that you can run your programm and open the page
 [http://localhost:8000/hello](http://localhost:8000/hello). You will see your hello world message.
 
 > More information about the new builder system can be found [here](https://github.com/Garados007/MaxLib.WebServer/wiki/Builder-System)
+
+## Logging
+
+`MaxLib.WebServer` logs exclusively through the standard
+[`Microsoft.Extensions.Logging.ILogger`](https://learn.microsoft.com/en-us/dotnet/core/extensions/logging)
+abstraction. There is no MaxLib-specific logging API to learn: point it at whatever
+logging backend your application already uses (Serilog, NLog, log4net, the built-in
+console/debug providers, ...) via that backend's own standard `ILoggerFactory` setup,
+and every log call made inside this library flows into it.
+
+> **The one-line contract:** call `WebServerLog.SetLoggerFactory(...)` **exactly once**,
+> **before** constructing anything else from this library. Each class resolves its
+> logger once, at first use, so a factory set afterwards will not be picked up by
+> classes that already ran. A second call to `SetLoggerFactory` throws
+> `InvalidOperationException` rather than silently changing anything.
+
+```csharp
+using Microsoft.Extensions.Logging;
+
+// Wire this library's logging to whatever backend you already use - here plain
+// console output, but AddSerilog(), AddNLog(), AddDebug(), etc. work the same way.
+WebServerLog.SetLoggerFactory(LoggerFactory.Create(builder => builder.AddSimpleConsole()));
+
+using var server = new Server(new WebServerSettings(8000, 5000));
+// ...
+```
 
 ## Example
 

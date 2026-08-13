@@ -1,4 +1,5 @@
 ﻿using System;
+using Microsoft.Extensions.Logging;
 using System.IO;
 using System.Text;
 using System.Globalization;
@@ -11,6 +12,9 @@ namespace MaxLib.WebServer.Chunked
     [Serializable]
     public class HttpChunkedStream : HttpDataSource
     {
+        static readonly ILogger logger = WebServerLog.LoggerFactory.CreateLogger<HttpChunkedStream>();
+        static readonly EventId WriteEventId = new(0, "write");
+
         public HttpChunkedStream(Stream baseStream, int readBufferLength = 0x8000)
         {
             BaseStream = baseStream ?? throw new ArgumentNullException(nameof(baseStream));
@@ -55,7 +59,7 @@ namespace MaxLib.WebServer.Chunked
                 }
                 catch (IOException)
                 {
-                    WebServerLog.Add(ServerLogType.Information, GetType(), "write", "connection closed");
+                    logger.LogInformation(WriteEventId, "Connection closed");
                     return total;
                 }
             }

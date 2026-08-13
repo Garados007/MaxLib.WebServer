@@ -1,4 +1,5 @@
 ﻿using System;
+using Microsoft.Extensions.Logging;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Text.Json;
@@ -9,6 +10,9 @@ namespace MaxLib.WebServer.WebSocket
 {
     public class EventFactory
     {
+        static readonly ILogger logger = WebServerLog.LoggerFactory.CreateLogger<EventFactory>();
+        static readonly EventId ParseErrorEventId = new(0, "parse error");
+
         readonly Dictionary<string, Func<EventBase>> registry
             = new Dictionary<string, Func<EventBase>>();
 
@@ -53,7 +57,7 @@ namespace MaxLib.WebServer.WebSocket
             }
             catch (Exception e)
             {
-                WebServerLog.Add(new ServerLogItem(ServerLogType.Error, GetType(), "parse error", e.ToString()));
+                logger.LogError(ParseErrorEventId, e, "Error parsing WebSocket frame");
                 @event = null;
                 return false;
             }

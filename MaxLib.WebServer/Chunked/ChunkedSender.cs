@@ -1,4 +1,5 @@
 ﻿using MaxLib.WebServer.Lazy;
+using Microsoft.Extensions.Logging;
 using System;
 using System.Globalization;
 using System.IO;
@@ -12,12 +13,15 @@ namespace MaxLib.WebServer.Chunked
 {
     public class ChunkedSender : Services.HttpSender
     {
+        static readonly ILogger logger = WebServerLog.LoggerFactory.CreateLogger<ChunkedSender>();
+        static readonly EventId SendEventId = new(0, "Send");
+
         public bool OnlyWithLazy { get; private set; }
 
         public ChunkedSender(bool onlyWithLazy = false) : base()
         {
             OnlyWithLazy = onlyWithLazy;
-            if (onlyWithLazy) 
+            if (onlyWithLazy)
                 Priority = WebServicePriority.High;
         }
 
@@ -63,12 +67,12 @@ namespace MaxLib.WebServer.Chunked
             try { await writer.FlushAsync().ConfigureAwait(false); await stream.FlushAsync().ConfigureAwait(false); }
             catch (ObjectDisposedException)
             {
-                WebServerLog.Add(ServerLogType.Information, GetType(), "Send", "Connection closed by remote host.");
+                logger.LogInformation(SendEventId, "Connection closed by remote host.");
                 return;
             }
             catch (IOException)
             {
-                WebServerLog.Add(ServerLogType.Information, GetType(), "Send", "Connection closed by remote host.");
+                logger.LogInformation(SendEventId, "Connection closed by remote host.");
                 return;
             }
             //send data
@@ -86,7 +90,7 @@ namespace MaxLib.WebServer.Chunked
             }
             catch (IOException)
             {
-                WebServerLog.Add(ServerLogType.Information, GetType(), "Send", "Connection closed by remote host.");
+                logger.LogInformation(SendEventId, "Connection closed by remote host.");
                 return;
             }
         }

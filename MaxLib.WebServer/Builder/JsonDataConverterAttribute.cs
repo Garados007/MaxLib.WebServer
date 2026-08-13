@@ -2,6 +2,7 @@ using System;
 using System.IO;
 using System.Text.Json;
 using MaxLib.WebServer.Builder.Converter;
+using Microsoft.Extensions.Logging;
 
 namespace MaxLib.WebServer.Builder
 {
@@ -10,6 +11,8 @@ namespace MaxLib.WebServer.Builder
     /// </summary>
     public partial class JsonDataConverterAttribute : DataConverterAttribute, Tools.IDataConverter
     {
+        static readonly ILogger logger = WebServerLog.LoggerFactory.CreateLogger<JsonDataConverterAttribute>();
+        static readonly EventId JsonConvertEventId = new(0, "JSON Convert");
 
         /// <summary>
         /// The options that should be used for the default JSON conversion. This will
@@ -59,10 +62,8 @@ namespace MaxLib.WebServer.Builder
                 try { conv = (ICustomJsonDataConverter)Activator.CreateInstance(CustomConverter)!; }
                 catch (Exception e)
                 {
-                    WebServerLog.Add(ServerLogType.Error, GetType(), "JSON Convert", 
-                        $"Error: {e}"
-                    );
-                    return null; 
+                    logger.LogError(JsonConvertEventId, e, "Error creating custom JSON converter instance");
+                    return null;
                 }
                 writer = conv.Convert;
             }
@@ -101,7 +102,7 @@ namespace MaxLib.WebServer.Builder
                 if (constructor != null)
                     writerOptions = ((IJsonWriterOptions)constructor.Invoke([])).Options;
             }
-            
+
             return value =>
             {
                 var m = new MemoryStream();

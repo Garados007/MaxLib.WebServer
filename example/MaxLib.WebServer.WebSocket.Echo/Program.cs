@@ -1,5 +1,5 @@
 ﻿using MaxLib.WebServer.Services;
-using System;
+using Microsoft.Extensions.Logging;
 using System.Threading.Tasks;
 
 #nullable enable
@@ -10,7 +10,7 @@ namespace MaxLib.WebServer.WebSocket.Echo
     {
         static async Task Main()
         {
-            WebServerLog.LogAdded += WebServerLog_LogAdded;
+            WebServerLog.SetLoggerFactory(LoggerFactory.Create(builder => builder.AddSimpleConsole()));
             using var server = new Server(new WebServerSettings(8000, 5000));
             // add services
             server.AddWebService(new HttpRequestParser());
@@ -23,11 +23,6 @@ namespace MaxLib.WebServer.WebSocket.Echo
             server.AddWebService(websocket);
             // run server until cancel received
             await server.RunAsync();
-        }
-
-        private static void WebServerLog_LogAdded(ServerLogItem item)
-        {
-            Console.WriteLine($"[{item.Date}] [{item.Type}] ({item.InfoType}) {item.SenderType}: {item.Information}");
         }
     }
 }

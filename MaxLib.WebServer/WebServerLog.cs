@@ -1,5 +1,6 @@
-﻿using System;
-using System.Collections.Generic;
+using System;
+using Microsoft.Extensions.Logging;
+using Microsoft.Extensions.Logging.Abstractions;
 
 #nullable enable
 
@@ -7,46 +8,24 @@ namespace MaxLib.WebServer
 {
     public static class WebServerLog
     {
-        public static List<ServerLogItem> ServerLog { get; } = new List<ServerLogItem>();
-        public static List<Type> IgnoreSenderEvents { get; } = new List<Type>();
+        internal static ILoggerFactory LoggerFactory { get; set; } = NullLoggerFactory.Instance;
+
+        static bool factorySet;
 
         /// <summary>
-        /// This event fires if some log item should be added. The log item can now filtered and discarded.
+        /// Sets the <see cref="ILoggerFactory"/> this library uses for all of its internal logging.
+        /// Must be called before constructing anything else from this library - every class resolves
+        /// its logger once, at first use. Can only be called once; a second call throws.
         /// </summary>
-        public static event ServerLogAddedHandler? LogPreAdded;
-
-        /// <summary>
-        /// This event fires after a log item is added.
-        /// </summary>
-        public static event Action<ServerLogItem>? LogAdded;
-
-        static readonly object lockObject = new object();
-        public static void Add(ServerLogItem logItem)
+        public static void SetLoggerFactory(ILoggerFactory loggerFactory)
         {
-            if (IgnoreSenderEvents.Exists((type) => type.FullName== logItem.SenderType)) 
-                return;
-            var eventArgs = new ServerLogArgs(logItem);
-            LogPreAdded?.Invoke(eventArgs);
-            if (eventArgs.Discard)
-                return;
-            lock (lockObject) 
-                ServerLog.Add(logItem);
-            LogAdded?.Invoke(logItem);
-        }
-
-        public static void Add(ServerLogType type, Type sender, string infoType, string information)
-        {
-            Add(new ServerLogItem(type, sender, infoType, information));
-        }
-
-        public static void Add(ServerLogType type, Type sender, string infoType, string mask, params object?[] data)
-        {
-            Add(new ServerLogItem(type, sender, infoType, mask: mask, data: data));
-        }
-
-        public static void Clear()
-        {
-            ServerLog.Clear();
+            ArgumentNullException.ThrowIfNull(loggerFactory);
+            if (factorySet)
+                throw new InvalidOperationException(
+                    "The logger factory has already been set and cannot be changed afterwards."
+                );
+            LoggerFactory = loggerFactory;
+            factorySet = true;
         }
     }
 }

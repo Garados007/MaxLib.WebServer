@@ -3,18 +3,22 @@ using System.IO;
 using System.Net.Security;
 using System.Security.Authentication;
 using System.Threading.Tasks;
+using Microsoft.Extensions.Logging;
 
-#nullable enable 
+#nullable enable
 
 namespace MaxLib.WebServer.SSL
 {
     public class DualSecureWebServer : Server
     {
+        static readonly ILogger logger = WebServerLog.LoggerFactory.CreateLogger<DualSecureWebServer>();
+        static readonly EventId StartUpEventId = new(0, "StartUp");
+
         public DualSecureWebServerSettings DualSettings => (DualSecureWebServerSettings)Settings;
 
         public DualSecureWebServer(DualSecureWebServerSettings settings) : base(settings)
         {
-            WebServerLog.Add(ServerLogType.Information, GetType(), "StartUp", "The use of dual mode is critical");
+            logger.LogInformation(StartUpEventId, "The use of dual mode is critical");
         }
 
         protected override async Task ClientStartListen(HttpConnection connection)

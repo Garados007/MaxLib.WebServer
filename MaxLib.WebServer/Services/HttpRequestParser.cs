@@ -6,6 +6,7 @@ using System.Globalization;
 using System.Threading.Tasks;
 using MaxLib.WebServer.IO;
 using System.Net.Sockets;
+using Microsoft.Extensions.Logging;
 
 #nullable enable
 
@@ -17,14 +18,17 @@ namespace MaxLib.WebServer.Services
     /// </summary>
     public class HttpRequestParser : WebService
     {
+        static readonly ILogger logger = WebServerLog.LoggerFactory.CreateLogger<HttpRequestParser>();
+        static readonly EventId HeaderEventId = new(0, "Header");
+
         /// <summary>
-        /// If this property is set to a file name this parser will write 
+        /// If this property is set to a file name this parser will write
         /// the content of each request to the request file. This file contains
         /// the request time, the full HTTP header and full POST content.
         /// <br />
         /// If either this or <see cref="DebugLogConnectionFile" /> is set then
         /// this parser will handle all requests synchronously (only one request
-        /// is at the same time parsing). 
+        /// is at the same time parsing).
         /// <br />
         /// Do not use this in production!
         /// </summary>
@@ -32,13 +36,13 @@ namespace MaxLib.WebServer.Services
 
         /// <summary>
         /// If this property is set to a file name this parser will writer
-        /// a brief description of each request to the connection file. 
+        /// a brief description of each request to the connection file.
         /// This file contains only the request time, the remote IP and port,
         /// the requested host and url path.
         /// <br />
         /// If either this or <see cref="DebugWriteRequestFile" /> is set then
         /// this parser will handle all requests synchronously (only one request
-        /// is at the same time parsing). 
+        /// is at the same time parsing).
         /// <br />
         /// Do not use this in production!
         /// </summary>
@@ -72,7 +76,7 @@ namespace MaxLib.WebServer.Services
         /// This <see cref="WebService" /> reads the request and put their data in the current
         /// <see cref="WebProgressTask" />.
         /// </summary>
-        public HttpRequestParser() 
+        public HttpRequestParser()
             : base(ServerStage.ReadRequest)
         {
         }
@@ -86,7 +90,7 @@ namespace MaxLib.WebServer.Services
         {
             if (DebugLogConnectionFile == null && DebugWriteRequestFile == null)
                 return null;
-            
+
             // enter locked debug zone
             await debugSemaphore.WaitAsync().ConfigureAwait(false);
 
@@ -122,7 +126,7 @@ namespace MaxLib.WebServer.Services
         {
             if (DebugLogConnectionFile == null)
                 return;
-            
+
             var sb = new StringBuilder();
             sb.AppendLine(CultureInfo.InvariantCulture, $"{WebServerUtils.GetDateString(DateTime.UtcNow)} " +
                 $"{task.Connection?.NetworkClient?.Client.RemoteEndPoint}");
@@ -130,7 +134,7 @@ namespace MaxLib.WebServer.Services
                 ? host_ : "";
             sb.AppendLine("    " + host + task.Request.Location.DocumentPath);
             sb.AppendLine();
-            
+
             await File.AppendAllTextAsync(DebugLogConnectionFile, sb.ToString()).ConfigureAwait(false);
         }
 
@@ -151,7 +155,7 @@ namespace MaxLib.WebServer.Services
                     }
                     if (!ns.DataAvailable)
                     {
-                        WebServerLog.Add(ServerLogType.Error, GetType(), "Header", "Request Timeout");
+                        logger.LogError(HeaderEventId, "Request Timeout");
                         task.Request.FieldConnection = HttpConnectionType.KeepAlive;
                         task.Response.StatusCode = HttpStateCode.RequestTimeOut;
                         task.NextStage = ServerStage.CreateResponse;
@@ -161,7 +165,7 @@ namespace MaxLib.WebServer.Services
             }
             catch (ObjectDisposedException)
             {
-                WebServerLog.Add(ServerLogType.Error, GetType(), "Header", "Connection closed by remote host");
+                logger.LogError(HeaderEventId, "Connection closed by remote host");
                 task.Response.StatusCode = HttpStateCode.RequestTimeOut;
                 task.NextStage = ServerStage.FINAL_STAGE;
                 return false;
@@ -184,14 +188,14 @@ namespace MaxLib.WebServer.Services
             }
             catch
             {
-                WebServerLog.Add(ServerLogType.Error, GetType(), "Header", "Connection closed by remote host");
+                logger.LogError(HeaderEventId, "Connection closed by remote host");
                 task.Response.StatusCode = HttpStateCode.RequestTimeOut;
                 task.NextStage = ServerStage.FINAL_STAGE;
                 return null;
             }
             if (line == null)
             {
-                WebServerLog.Add(ServerLogType.Error, GetType(), "Header", "Can't read Header line");
+                logger.LogError(HeaderEventId, "Can't read Header line");
                 task.Response.StatusCode = HttpStateCode.BadRequest;
                 task.NextStage = ServerStage.CreateResponse;
             }
@@ -202,11 +206,11 @@ namespace MaxLib.WebServer.Services
         {
             ArgumentNullException.ThrowIfNull(task);
             ArgumentNullException.ThrowIfNull(line);
-            WebServerLog.Add(ServerLogType.Debug, GetType(), "Header", line);
+            logger.LogDebug(HeaderEventId, "{Line}", line);
             var parts = line.Split(' ');
             if (parts.Length != 3)
             {
-                WebServerLog.Add(ServerLogType.Error, GetType(), "Header", "Bad Request");
+                logger.LogError(HeaderEventId, "Bad Request");
                 task.Response.StatusCode = HttpStateCode.BadRequest;
                 task.NextStage = ServerStage.CreateResponse;
                 return false;
@@ -226,7 +230,7 @@ namespace MaxLib.WebServer.Services
             var ind = line.IndexOf(':', StringComparison.Ordinal);
             if (ind < 0)
             {
-                WebServerLog.Add(ServerLogType.Error, GetType(), "Header", "Bad Request");
+                logger.LogError(HeaderEventId, "Bad Request");
                 task.Response.StatusCode = HttpStateCode.BadRequest;
                 task.NextStage = ServerStage.CreateResponse;
                 return false;
@@ -244,10 +248,10 @@ namespace MaxLib.WebServer.Services
             ArgumentNullException.ThrowIfNull(task);
             if (!task.Request.HeaderParameter.TryGetValue("Content-Length", out string? strLength))
                 return new ValueTask<bool>(true);
-            
+
             if (!int.TryParse(strLength, out int length) || length < 0)
             {
-                WebServerLog.Add(ServerLogType.Error, GetType(), "Header", "Bad Request, invalid content length");
+                logger.LogError(HeaderEventId, "Bad Request, invalid content length");
                 task.Response.StatusCode = HttpStateCode.BadRequest;
                 task.NextStage = ServerStage.CreateResponse;
                 return new ValueTask<bool>(false);
@@ -284,7 +288,7 @@ namespace MaxLib.WebServer.Services
                 // wait until some data is received.
                 if (!await WaitForData(task).ConfigureAwait(false))
                     return;
-                
+
                 // read first header line
                 var line = await ReadLine(task, reader, MaxUrlLength, HttpStateCode.RequestUrlTooLong)
                     .ConfigureAwait(false);
@@ -293,7 +297,7 @@ namespace MaxLib.WebServer.Services
                 debugBuilder?.AppendLine(line);
                 if (!ParseFirstHeaderLine(task, line))
                     return;
-                
+
                 // read all other header lines
                 var limit = MaxHeaderLength;
                 while (!string.IsNullOrWhiteSpace(line = await ReadLine(task, reader, limit, HttpStateCode.RequestHeaderFieldsTooLarge).ConfigureAwait(false)))
@@ -314,7 +318,7 @@ namespace MaxLib.WebServer.Services
                 // read content if possible
                 if (!await LoadContent(task, reader).ConfigureAwait(false))
                     return;
-                
+
                 await DebugConnection(task).ConfigureAwait(false);
             }
             catch (IO.ReadLineOverflowException e)

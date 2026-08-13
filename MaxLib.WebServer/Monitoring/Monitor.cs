@@ -5,6 +5,7 @@ using System.IO;
 using System.Text;
 using System.Threading.Tasks;
 using System.Diagnostics;
+using Microsoft.Extensions.Logging;
 
 namespace MaxLib.WebServer.Monitoring
 {
@@ -13,6 +14,9 @@ namespace MaxLib.WebServer.Monitoring
     /// </summary>
     public class Monitor
     {
+        static readonly ILogger logger = WebServerLog.LoggerFactory.CreateLogger<Monitor>();
+        static readonly EventId WriteLogsEventId = new(0, "write logs");
+
         /// <summary>
         /// Gets if monitoring for this single request is allowed.
         /// </summary>
@@ -81,7 +85,7 @@ namespace MaxLib.WebServer.Monitoring
             try { WriteTo(writer); }
             catch (Exception e)
             {
-                WebServerLog.Add(ServerLogType.FatalError, GetType(), "write logs", e.ToString());
+                logger.LogCritical(WriteLogsEventId, e, "Failed to write monitor logs");
                 await writer.WriteLineAsync(e.ToString()).ConfigureAwait(false);
             }
             await writer.FlushAsync().ConfigureAwait(false);

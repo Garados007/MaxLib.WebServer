@@ -1,4 +1,5 @@
 ﻿using MaxLib.Collections;
+using Microsoft.Extensions.Logging;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -19,6 +20,13 @@ namespace MaxLib.WebServer
     /// </summary>
     public class Server : IDisposable
     {
+        static readonly ILogger logger = WebServerLog.LoggerFactory.CreateLogger<Server>();
+        static readonly EventId StartUpEventId = new(0, "StartUp");
+        static readonly EventId ConnectionEventId = new(0, "Connection");
+        static readonly EventId UnhandledExceptionEventId = new(0, "Unhandled Exception");
+        static readonly EventId RuntimeExceptionEventId = new(0, "runtime exception");
+        static readonly EventId CancelEventId = new(0, "cancel");
+
         /// <summary>
         /// The added <see cref="WebService" /> divided in their <see cref="ServerStage" />. These
         /// are called in their order for handling user requests.
@@ -107,7 +115,7 @@ namespace MaxLib.WebServer
         /// <returns>true if found; otherwise false</returns>
         public virtual bool ContainsWebService(WebService webService)
         {
-            if (webService == null) 
+            if (webService == null)
                 return false;
             return WebServiceGroups[webService.Stage].Contains(webService);
         }
@@ -118,7 +126,7 @@ namespace MaxLib.WebServer
         /// <param name="webService">the web service to remove</param>
         public virtual void RemoveWebService(WebService webService)
         {
-            if (webService == null) 
+            if (webService == null)
                 return;
             WebServiceGroups[webService.Stage].Remove(webService);
         }
@@ -151,7 +159,7 @@ namespace MaxLib.WebServer
         /// </summary>
         public virtual void Start()
         {
-            WebServerLog.Add(ServerLogType.Information, GetType(), "StartUp", "Start Server on Port {0}", Settings.Port);
+            logger.LogInformation(StartUpEventId, "Start Server on Port {Port}", Settings.Port);
             ServerExecution = true;
             Listener = new TcpListener(new IPEndPoint(Settings.IPFilter, Settings.Port));
             Listener.Start();
@@ -168,16 +176,16 @@ namespace MaxLib.WebServer
         /// </summary>
         public virtual void Stop()
         {
-            WebServerLog.Add(ServerLogType.Information, GetType(), "StartUp", "Stopped Server");
+            logger.LogInformation(StartUpEventId, "Stopped Server");
             ServerExecution = false;
             ServerThread?.Join();
         }
-        
+
         protected virtual void ServerMainTask()
         {
             if (Listener == null)
                 return;
-            WebServerLog.Add(ServerLogType.Information, GetType(), "StartUp", "Server successfully started");
+            logger.LogInformation(StartUpEventId, "Server successfully started");
             var watch = new Stopwatch();
             while (ServerExecution)
             {
@@ -196,10 +204,10 @@ namespace MaxLib.WebServer
                     HttpConnection kas;
                     try { kas = KeepAliveConnections[i]; }
                     catch { continue; }
-                    if (kas == null) 
+                    if (kas == null)
                         continue;
 
-                    if ((kas.NetworkClient != null && !kas.NetworkClient.Connected) || 
+                    if ((kas.NetworkClient != null && !kas.NetworkClient.Connected) ||
                         (kas.LastWorkTime != -1 &&
                             kas.LastWorkTime + Settings.ConnectionTimeout < Environment.TickCount
                         )
@@ -213,7 +221,7 @@ namespace MaxLib.WebServer
                         continue;
                     }
 
-                    if (kas.NetworkClient != null && kas.NetworkClient.Available > 0 && 
+                    if (kas.NetworkClient != null && kas.NetworkClient.Available > 0 &&
                         kas.LastWorkTime != -1
                     )
                     {
@@ -222,7 +230,7 @@ namespace MaxLib.WebServer
                 }
 
                 //Warten
-                if (Listener.Pending()) 
+                if (Listener.Pending())
                     continue;
                 var delay = Settings.ConnectionDelay;
                 if (delay > TimeSpan.Zero)
@@ -235,11 +243,11 @@ namespace MaxLib.WebServer
             }
             watch.Stop();
             Listener.Stop();
-            for (int i = 0; i < AllConnections.Count; ++i) 
+            for (int i = 0; i < AllConnections.Count; ++i)
                 AllConnections[i].NetworkClient?.Close();
             AllConnections.Clear();
             KeepAliveConnections.Clear();
-            WebServerLog.Add(ServerLogType.Information, GetType(), "StartUp", "Server successfully stopped");
+            logger.LogInformation(StartUpEventId, "Server successfully stopped");
         }
 
         protected virtual void ClientConnected(TcpClient client)
@@ -267,11 +275,7 @@ namespace MaxLib.WebServer
                 try { await ClientStartListen(connection).ConfigureAwait(false); }
                 catch (Exception e)
                 {
-                    WebServerLog.Add(
-                        ServerLogType.FatalError, 
-                        GetType(), 
-                        "Unhandled Exception", 
-                        $"{e.GetType().FullName}: {e.Message} in {e.StackTrace}");
+                    logger.LogCritical(UnhandledExceptionEventId, e, "Unhandled exception");
                 }
             }
         }
@@ -282,13 +286,12 @@ namespace MaxLib.WebServer
             connection.LastWorkTime = -1;
             if (connection.NetworkClient != null && connection.NetworkClient.Connected)
             {
-                WebServerLog.Add(ServerLogType.Information, GetType(), "Connection", "Listen to Connection {0}", 
+                logger.LogInformation(ConnectionEventId, "Listen to Connection {RemoteEndPoint}",
                     connection.NetworkClient?.Client.RemoteEndPoint);
                 var task = PrepairProgressTask(connection);
                 if (task == null)
                 {
-                    WebServerLog.Add(ServerLogType.Information, GetType(), "Connection",
-                        $"Cannot establish data stream to {connection.Ip}");
+                    logger.LogInformation(ConnectionEventId, "Cannot establish data stream to {Ip}", connection.Ip);
                     RemoveConnection(connection);
                     return;
                 }
@@ -302,7 +305,7 @@ namespace MaxLib.WebServer
                 catch (Exception e)
                 {
                     task.Monitor.Current.Log("Unhandled exception: {0}", e);
-                    WebServerLog.Add(ServerLogType.Error, GetType(), "runtime exception", $"unhandled exception: {e}");
+                    logger.LogError(RuntimeExceptionEventId, e, "Unhandled exception");
                     throw;
                 }
                 finally
@@ -324,7 +327,7 @@ namespace MaxLib.WebServer
 
                 if (task.Request.FieldConnection == HttpConnectionType.KeepAlive)
                 {
-                    if (!KeepAliveConnections.Contains(connection)) 
+                    if (!KeepAliveConnections.Contains(connection))
                         KeepAliveConnections.Add(connection);
                 }
                 else RemoveConnection(connection);
@@ -350,7 +353,7 @@ namespace MaxLib.WebServer
             {
                 using var watch = task.Monitor.Watch(this, $"Web Service Group: {task.CurrentStage}");
                 await WebServiceGroups[task.CurrentStage].Execute(task).ConfigureAwait(false);
-                if (task.CurrentStage == terminationState) 
+                if (task.CurrentStage == terminationState)
                     break;
                 task.CurrentStage = task.NextStage;
                 task.NextStage = task.NextStage == ServerStage.FINAL_STAGE
@@ -426,9 +429,9 @@ namespace MaxLib.WebServer
 #endif
         public async Task RunAsync(
             bool cancelFromConsoleEvent = true,
-#if NET5_0_OR_GREATER        
+#if NET5_0_OR_GREATER
             bool cancelFromAssemblyUnload = true,
-#endif            
+#endif
             bool cancelFromConsoleInput = false
         )
         {
@@ -441,29 +444,18 @@ namespace MaxLib.WebServer
                     if (token != RunToken)
                         return;
                     e.Cancel = true;
-                    WebServerLog.Add(
-                        ServerLogType.Information,
-                        GetType(),
-                        "cancel",
-                        "console cancel received: {0}",
-                        e.SpecialKey
-                    );
+                    logger.LogInformation(CancelEventId, "Console cancel received: {SpecialKey}", e.SpecialKey);
                     if (!token.IsCancellationRequested)
                         token.Cancel();
                 };
-            
+
 #if NET5_0_OR_GREATER
             if (cancelFromAssemblyUnload)
                 System.Runtime.Loader.AssemblyLoadContext.Default.Unloading += _ =>
                 {
                     if (token != RunToken)
                         return;
-                    WebServerLog.Add(
-                        ServerLogType.Information,
-                        GetType(),
-                        "cancel",
-                        "assembly unload received"
-                    );
+                    logger.LogInformation(CancelEventId, "Assembly unload received");
                     if (!token.IsCancellationRequested)
                         token.Cancel();
                 };
@@ -475,16 +467,11 @@ namespace MaxLib.WebServer
                     if (token != RunToken)
                         return;
                     while (Console.Read() != (int)'q');
-                    WebServerLog.Add(
-                        ServerLogType.Information,
-                        GetType(),
-                        "cancel",
-                        "console key q received"
-                    );
+                    logger.LogInformation(CancelEventId, "Console key 'q' received");
                     if (!token.IsCancellationRequested)
                         token.Cancel();
                 });
-            
+
             if (!ServerExecution)
                 Start();
 
