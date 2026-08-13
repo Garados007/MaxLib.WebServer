@@ -1,4 +1,5 @@
 ﻿using System;
+using Microsoft.Extensions.Logging;
 using System.Collections.Generic;
 using System.IO;
 using System.Threading.Tasks;
@@ -12,6 +13,11 @@ namespace MaxLib.WebServer.WebSocket
 {
     public abstract class WebSocketConnection : IDisposable, IAsyncDisposable
     {
+        // Not cached per-type: this class is an arbitrary-subclass extension point, and this
+        // logger lookup only happens on the (rare) network-error path below, so resolving the
+        // concrete subclass's own logger category here costs nothing in practice.
+        static readonly EventId WebSocketEventId = new(0, "WebSocket");
+
         public Stream NetworkStream { get; }
         private readonly SemaphoreSlim lockStream = new SemaphoreSlim(0, 1);
 
@@ -128,7 +134,7 @@ namespace MaxLib.WebServer.WebSocket
                                 long maxSize = payloadQueue.Sum(x => (long)x.Length);
                                 if (maxSize > int.MaxValue)
                                 {
-                                    await Close(CloseReason.TooBigMessage, 
+                                    await Close(CloseReason.TooBigMessage,
                                         $"the payload of all frames add up to {maxSize}. Only {int.MaxValue} is allowed."
                                     ).ConfigureAwait(false);
                                 }
@@ -176,17 +182,16 @@ namespace MaxLib.WebServer.WebSocket
             await lockStream.WaitAsync().ConfigureAwait(false);
             if (frame.OpCode == OpCode.Close)
                 SendCloseSignal = true;
-            try 
+            try
             {
-                await frame.Write(NetworkStream).ConfigureAwait(false); 
+                await frame.Write(NetworkStream).ConfigureAwait(false);
                 lockStream.Release();
             }
             catch (IOException e)
             {
                 if (frame.OpCode != OpCode.Ping && frame.OpCode != OpCode.Pong)
-                    WebServerLog.Add(ServerLogType.Information, GetType(), "WebSocket",
-                        $"Unexpected network error: frame={frame.OpCode} error={e}"
-                    );
+                    WebServerLog.LoggerFactory.CreateLogger(GetType())
+                        .LogInformation(WebSocketEventId, e, "Unexpected network error: frame={OpCode}", frame.OpCode);
                 var alreadyReceived = ReceivedCloseSignal;
                 ReceivedCloseSignal = true;
                 SendCloseSignal = true;

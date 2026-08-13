@@ -4,6 +4,7 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Threading.Tasks;
+using Microsoft.Extensions.Logging;
 
 #nullable enable
 
@@ -11,6 +12,9 @@ namespace MaxLib.WebServer.Post
 {
     public partial class UrlEncodedData : IPostData
     {
+        static readonly ILogger logger = WebServerLog.LoggerFactory.CreateLogger<UrlEncodedData>();
+        static readonly EventId SetPostEventId = new(0, "SetPost");
+
         public string MimeType => WebServer.MimeType.ApplicationXWwwFromUrlencoded;
 
         public Dictionary<string, string> Parameter { get; }
@@ -48,13 +52,12 @@ namespace MaxLib.WebServer.Post
             Encoding? encoding = null;
             if (match.Success)
                 try
-                { 
+                {
                     encoding = Encoding.GetEncoding(match.Groups["charset"].Value);
                 }
                 catch (Exception e)
                 {
-                    WebServerLog.Add(ServerLogType.Error, GetType(), "SetPost", 
-                        $"invalid encoding {match.Groups["charset"].Value}: {e}");
+                    logger.LogError(SetPostEventId, e, "Invalid encoding {Charset}", match.Groups["charset"].Value);
                 }
             encoding ??= Encoding.UTF8;
             var buffer = new byte[content.UnreadData];

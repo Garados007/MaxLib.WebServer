@@ -1,4 +1,5 @@
 ﻿using System;
+using Microsoft.Extensions.Logging;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
@@ -11,6 +12,12 @@ namespace MaxLib.WebServer.WebSocket
     /// </summary>
     public abstract class EventBase
     {
+        // Not cached per-type: this class is an arbitrary-subclass extension point, and these
+        // logger lookups only happen on the (rare) JSON error path, so resolving the concrete
+        // subclass's own logger category here costs nothing in practice.
+        static readonly EventId ReadJsonEventId = new(0, "read json");
+        static readonly EventId WriteJsonEventId = new(0, "write json");
+
         /// <summary>
         /// The name of the event to identify
         /// </summary>
@@ -55,7 +62,8 @@ namespace MaxLib.WebServer.WebSocket
             try { ReadJsonContent(json); }
             catch (JsonException e)
             {
-                WebServerLog.Add(ServerLogType.Error, GetType(), "read json", "error: {0}", e);
+                WebServerLog.LoggerFactory.CreateLogger(GetType())
+                    .LogError(ReadJsonEventId, e, "Error reading JSON content");
                 return null;
             }
             return this;
@@ -74,7 +82,8 @@ namespace MaxLib.WebServer.WebSocket
             try { WriteJson(writer); }
             catch (JsonException e)
             {
-                WebServerLog.Add(ServerLogType.Error, GetType(), "write json", "error: {0}", e);
+                WebServerLog.LoggerFactory.CreateLogger(GetType())
+                    .LogError(WriteJsonEventId, e, "Error writing JSON content");
                 return null;
             }
             writer.Flush();

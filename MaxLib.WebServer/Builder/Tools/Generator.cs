@@ -3,12 +3,16 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using System.Threading.Tasks;
+using Microsoft.Extensions.Logging;
 
 namespace MaxLib.WebServer.Builder.Tools
 {
     public static class Generator
     {
 #region Logs
+
+        static readonly ILogger logger = WebServerLog.LoggerFactory.CreateLogger(typeof(Generator));
+        static readonly EventId GenerateClassEventId = new(0, "generate class");
 
         /// <summary>
         /// The flags that specify the errors the generator will report to the log output.
@@ -19,11 +23,8 @@ namespace MaxLib.WebServer.Builder.Tools
         {
             const GeneratorLogFlag code = GeneratorLogFlag.TypeAbstract;
             if ((LogBuildWarnings & code) == code && set)
-                WebServerLog.Add(
-                    ServerLogType.Information,
-                    typeof(Generator),
-                    "generate class",
-                    "[{0:X4}] Type {1} ignored because it's abstract",
+                logger.LogInformation(GenerateClassEventId,
+                    "[{Code:X4}] Type {Type} ignored because it's abstract",
                     (int)code,
                     type
                 );
@@ -33,11 +34,8 @@ namespace MaxLib.WebServer.Builder.Tools
         {
             const GeneratorLogFlag code = GeneratorLogFlag.TypeGeneric;
             if ((LogBuildWarnings & code) == code && set)
-                WebServerLog.Add(
-                    ServerLogType.Information,
-                    typeof(Generator),
-                    "generate class",
-                    "[{0:X4}] Type {1} ignored because it's generic",
+                logger.LogInformation(GenerateClassEventId,
+                    "[{Code:X4}] Type {Type} ignored because it's generic",
                     (int)code,
                     type
                 );
@@ -47,11 +45,8 @@ namespace MaxLib.WebServer.Builder.Tools
         {
             const GeneratorLogFlag code = GeneratorLogFlag.TypeNoConstructor;
             if ((LogBuildWarnings & code) == code)
-                WebServerLog.Add(
-                    ServerLogType.Information,
-                    typeof(Generator),
-                    "generate class",
-                    "[{0:X4}] Type {1} ignored because it has no parameterless constructor",
+                logger.LogInformation(GenerateClassEventId,
+                    "[{Code:X4}] Type {Type} ignored because it has no parameterless constructor",
                     (int)code,
                     type
                 );
@@ -61,11 +56,8 @@ namespace MaxLib.WebServer.Builder.Tools
         {
             const GeneratorLogFlag code = GeneratorLogFlag.MethodAbstract;
             if ((LogBuildWarnings & code) == code && set)
-                WebServerLog.Add(
-                    ServerLogType.Information,
-                    typeof(Generator),
-                    "generate class",
-                    "[{0:X4}] Method {1} ignored because it's abstract",
+                logger.LogInformation(GenerateClassEventId,
+                    "[{Code:X4}] Method {Method} ignored because it's abstract",
                     (int)code,
                     method
                 );
@@ -75,11 +67,8 @@ namespace MaxLib.WebServer.Builder.Tools
         {
             const GeneratorLogFlag code = GeneratorLogFlag.MethodGeneric;
             if ((LogBuildWarnings & code) == code && set)
-                WebServerLog.Add(
-                    ServerLogType.Information,
-                    typeof(Generator),
-                    "generate class",
-                    "[{0:X4}] Method {1} ignored because it's generic",
+                logger.LogInformation(GenerateClassEventId,
+                    "[{Code:X4}] Method {Method} ignored because it's generic",
                     (int)code,
                     method
                 );
@@ -89,11 +78,9 @@ namespace MaxLib.WebServer.Builder.Tools
         {
             const GeneratorLogFlag code = GeneratorLogFlag.MethodNotPublic;
             if ((LogBuildWarnings & code) == code && set)
-                WebServerLog.Add(
-                    ServerLogType.Information,
-                    typeof(Generator),
-                    "generate class",
-                    "[{0:X4}] Method {1} ignored because it's not public",
+                logger.LogInformation(GenerateClassEventId,
+                    "[{Code:X4}] Method {Method} ignored because it's not public",
+                    (int)code,
                     method
                 );
         }
@@ -102,11 +89,8 @@ namespace MaxLib.WebServer.Builder.Tools
         {
             const GeneratorLogFlag code = GeneratorLogFlag.MethodDeclaredInObject;
             if ((LogBuildWarnings & code) == code)
-                WebServerLog.Add(
-                    ServerLogType.Information,
-                    typeof(Generator),
-                    "generate class",
-                    "[{0:X4}] Method {1} ignored because is was declared in {2} or {3}",
+                logger.LogInformation(GenerateClassEventId,
+                    "[{Code:X4}] Method {Method} ignored because is was declared in {ObjectType} or {ServiceType}",
                     (int)code,
                     method,
                     typeof(object),
@@ -118,11 +102,8 @@ namespace MaxLib.WebServer.Builder.Tools
         {
             const GeneratorLogFlag code = GeneratorLogFlag.ParamMissingConverterInstance;
             if ((LogBuildWarnings & code) == code)
-                WebServerLog.Add(
-                    ServerLogType.Information,
-                    typeof(Generator),
-                    "generate class",
-                    "[{0:X4}] Method {1} ignored because parameter {2} has no converter instance set for attribute {3}",
+                logger.LogInformation(GenerateClassEventId,
+                    "[{Code:X4}] Method {Method} ignored because parameter {Parameter} has no converter instance set for attribute {Attribute}",
                     (int)code,
                     method,
                     param,
@@ -134,11 +115,8 @@ namespace MaxLib.WebServer.Builder.Tools
         {
             const GeneratorLogFlag code = GeneratorLogFlag.ParamNoConverterFound;
             if ((LogBuildWarnings & code) == code)
-                WebServerLog.Add(
-                    ServerLogType.Information,
-                    typeof(Generator),
-                    "generate class",
-                    "[{0:X4}] Method {1} ignored because converter {2} cannot convert the type of parameter {3}",
+                logger.LogInformation(GenerateClassEventId,
+                    "[{Code:X4}] Method {Method} ignored because converter {Converter} cannot convert the type of parameter {Parameter}",
                     (int)code,
                     method,
                     converter,
@@ -150,11 +128,8 @@ namespace MaxLib.WebServer.Builder.Tools
         {
             const GeneratorLogFlag code = GeneratorLogFlag.ParamNoCoreConverterFound;
             if ((LogBuildWarnings & code) == code)
-                WebServerLog.Add(
-                    ServerLogType.Information,
-                    typeof(Generator),
-                    "generate class",
-                    "[{0:X4}] Method {1} ignored because the core generator cannot convert the type of parameter {2}",
+                logger.LogInformation(GenerateClassEventId,
+                    "[{Code:X4}] Method {Method} ignored because the core generator cannot convert the type of parameter {Parameter}",
                     (int)code,
                     method,
                     param
@@ -165,11 +140,8 @@ namespace MaxLib.WebServer.Builder.Tools
         {
             const GeneratorLogFlag code = GeneratorLogFlag.ResultInvalidConverterType;
             if ((LogBuildWarnings & code) == code)
-                WebServerLog.Add(
-                    ServerLogType.Information,
-                    typeof(Generator),
-                    "generate class",
-                    "[{0:X4}] Method {1} ignored because the result data converter {2} has an invalid type provided",
+                logger.LogInformation(GenerateClassEventId,
+                    "[{Code:X4}] Method {Method} ignored because the result data converter {Attribute} has an invalid type provided",
                     (int)code,
                     method,
                     attr
@@ -180,11 +152,8 @@ namespace MaxLib.WebServer.Builder.Tools
         {
             const GeneratorLogFlag code = GeneratorLogFlag.ResultCannotCreateConverterInstance;
             if ((LogBuildWarnings & code) == code)
-                WebServerLog.Add(
-                    ServerLogType.Information,
-                    typeof(Generator),
-                    "generate class",
-                    "[{0:X4}] Method {1} ignored because there cannot be created an instance for the result data converter {2}",
+                logger.LogInformation(GenerateClassEventId,
+                    "[{Code:X4}] Method {Method} ignored because there cannot be created an instance for the result data converter {Converter}",
                     (int)code,
                     method,
                     attr.Converter
@@ -195,11 +164,8 @@ namespace MaxLib.WebServer.Builder.Tools
         {
             const GeneratorLogFlag code = GeneratorLogFlag.ResultNoConverter;
             if ((LogBuildWarnings & code) == code)
-                WebServerLog.Add(
-                    ServerLogType.Information,
-                    typeof(Generator),
-                    "generate class",
-                    "[{0:X4}] Method {1} ignored because for the result type is no suitable converter found or set",
+                logger.LogInformation(GenerateClassEventId,
+                    "[{Code:X4}] Method {Method} ignored because for the result type is no suitable converter found or set",
                     (int)code,
                     method
                 );
@@ -223,7 +189,7 @@ namespace MaxLib.WebServer.Builder.Tools
                 LogTypeGeneric(type, type.IsGenericType);
                 return null;
             }
-            
+
             var constructor = type.GetConstructor(Type.EmptyTypes);
             if (constructor == null)
             {
@@ -262,13 +228,13 @@ namespace MaxLib.WebServer.Builder.Tools
                 LogMethodNotPublic(method, !method.IsPublic);
                 return null;
             }
-            
+
             if (method.DeclaringType == typeof(object) || method.DeclaringType == typeof(Service))
             {
                 LogMethodDeclaredInObject(method);
                 return null;
             }
-            
+
             var rules = method.GetCustomAttributes<Tools.RuleAttributeBase>().ToList();
             var parameter = new List<Runtime.IParameter>();
             foreach (var parInfo in method.GetParameters())
@@ -281,7 +247,7 @@ namespace MaxLib.WebServer.Builder.Tools
             var result = GenerateResult(method);
             if (result == null)
                 return null;
-            
+
             var priority = method.GetCustomAttribute<PriorityAttribute>();
             return new Runtime.MethodService(rules, parameter, method, result,
                 priority != null ? priority.Priority : WebServicePriority.Normal
@@ -347,7 +313,7 @@ namespace MaxLib.WebServer.Builder.Tools
                 converter = (Tools.IDataConverter)constructed;
             }
             else converter = dataConverter;
-            
+
             var resultMethod = GenerateResult(converter, method.ReturnType);
             if (resultMethod == null)
             {
@@ -426,7 +392,7 @@ namespace MaxLib.WebServer.Builder.Tools
             var conv = converter.GetConverter(type);
             if (conv is null)
                 return null;
-            return (task, value) => 
+            return (task, value) =>
             {
                 if (value != null)
                 {

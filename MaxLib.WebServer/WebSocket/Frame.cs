@@ -1,4 +1,5 @@
 ﻿using System;
+using Microsoft.Extensions.Logging;
 using System.IO;
 using System.Text;
 using System.Threading.Tasks;
@@ -9,6 +10,9 @@ namespace MaxLib.WebServer.WebSocket
 {
     public class Frame
     {
+        static readonly ILogger logger = WebServerLog.LoggerFactory.CreateLogger<Frame>();
+        static readonly EventId WebSocketEventId = new(0, "WebSocket");
+
         public bool FinalFrame { get; set; } = true;
 
         public OpCode OpCode { get; set; }
@@ -30,7 +34,7 @@ namespace MaxLib.WebServer.WebSocket
             ArgumentNullException.ThrowIfNull(output);
             Memory<byte> buffer = new byte[8];
             buffer.Span[0] = (byte)((byte)OpCode | (FinalFrame ? 0x80 : 0x00));
-            buffer.Span[1] = (byte)(Payload.Length < 126 ? Payload.Length : 
+            buffer.Span[1] = (byte)(Payload.Length < 126 ? Payload.Length :
                 (Payload.Length <= ushort.MaxValue ? 126 : 127)
             );
             await output.WriteAsync(buffer[ .. 2]).ConfigureAwait(false);
@@ -86,7 +90,7 @@ namespace MaxLib.WebServer.WebSocket
                         throw new TooLargePayloadException();
                     else return null;
                 }
-                
+
                 if (frame.HasMaskingKey)
                 {
                     if (await input.ReadAsync(buffer[..4]).ConfigureAwait(false) != 4)
@@ -106,7 +110,7 @@ namespace MaxLib.WebServer.WebSocket
             }
             catch (Exception e)
             {
-                WebServerLog.Add(ServerLogType.Information, typeof(Frame), "WebSocket", $"cannot read frame: {e}");
+                logger.LogInformation(WebSocketEventId, e, "Cannot read frame");
                 return null;
             }
         }

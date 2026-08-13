@@ -5,6 +5,7 @@ using System.Net.Http;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
+using Microsoft.Extensions.Logging;
 
 #nullable enable
 
@@ -16,6 +17,8 @@ namespace MaxLib.WebServer
     /// </summary>
     public static partial class MimeType
     {
+        static readonly ILogger logger = WebServerLog.LoggerFactory.CreateLogger(typeof(MimeType));
+        static readonly EventId LoadMimeEventId = new(0, "load mime");
 
         public const string ApplicationXWwwFromUrlencoded = "application/x-www-form-urlencoded";
         /// <summary>
@@ -107,7 +110,7 @@ namespace MaxLib.WebServer
         /// </summary>
         public const string MultipartEncrypted = "multipart/encrypted";
         /// <summary>
-        /// multipart data from a HTTP formular (z.B. File-Upload) 
+        /// multipart data from a HTTP formular (z.B. File-Upload)
         /// </summary>
         public const string MultipartFormData = "multipart/form-data";
         /// <summary>
@@ -197,7 +200,7 @@ namespace MaxLib.WebServer
         /// http://svn.apache.org/repos/asf/httpd/httpd/trunk/docs/conf/mime.types
         /// </a>
         /// <br/>
-        /// If <paramref name="useLocalCache"/> is true it uses the cache file at 
+        /// If <paramref name="useLocalCache"/> is true it uses the cache file at
         /// <c>./mime-cache.json</c>.
         /// </summary>
         /// <param name="useLocalCache">true if to use the cache file</param>
@@ -214,7 +217,7 @@ namespace MaxLib.WebServer
             var mimeTypes = new Dictionary<string, string>();
             if (useLocalCache && File.Exists(localCachePath))
             {
-                WebServerLog.Add(ServerLogType.Debug, typeof(MimeType), "load mime", "load mime cache");
+                logger.LogDebug(LoadMimeEventId, "load mime cache");
                 using var file = new FileStream(localCachePath, FileMode.Open,
                     FileAccess.Read, FileShare.Read
                 );
@@ -224,11 +227,11 @@ namespace MaxLib.WebServer
                     mimeTypes[entry.Name] =  entry.Value.GetString()!;
                 }
 
-                WebServerLog.Add(ServerLogType.Debug, typeof(MimeType), "load mime", "mime cache loaded");
+                logger.LogDebug(LoadMimeEventId, "mime cache loaded");
             }
             else
             {
-                WebServerLog.Add(ServerLogType.Debug, typeof(MimeType), "load mime", "Update Mime Cachce");
+                logger.LogDebug(LoadMimeEventId, "Update Mime Cachce");
                 using var client = new HttpClient();
                 var reader = new StringReader(await client.GetStringAsync(
                     @"http://svn.apache.org/repos/asf/httpd/httpd/trunk/docs/conf/mime.types"
@@ -256,7 +259,7 @@ namespace MaxLib.WebServer
                     writer.WriteEndObject();
                     await writer.FlushAsync().ConfigureAwait(false);
                 }
-                WebServerLog.Add(ServerLogType.Debug, typeof(MimeType), "load mime", "Mime Cache updated");
+                logger.LogDebug(LoadMimeEventId, "Mime Cache updated");
             }
             MimeType.mimeTypes = mimeTypes;
         }

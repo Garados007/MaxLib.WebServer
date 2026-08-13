@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Text;
 using System.Threading.Tasks;
+using Microsoft.Extensions.Logging;
 
 #nullable enable
 
@@ -13,6 +14,10 @@ namespace MaxLib.WebServer.Services
     /// </summary>
     public class LocalIOMapper : WebService
     {
+        static readonly ILogger logger = WebServerLog.LoggerFactory.CreateLogger<LocalIOMapper>();
+        static readonly EventId MapFileEventId = new(0, "map file");
+
+
         /// <summary>
         /// A mapping rule that can produce a document for the requested path
         /// </summary>
@@ -84,7 +89,7 @@ namespace MaxLib.WebServer.Services
                 try { fileInfo = new FileInfo(localPath); }
                 catch (Exception e)
                 {
-                    WebServerLog.Add(ServerLogType.Error, GetType(), "map file", $"invalid path: {e}");
+                    logger.LogError(MapFileEventId, e, "Invalid path");
                     return false;
                 }
                 if (!fileInfo.Exists)
@@ -167,7 +172,7 @@ namespace MaxLib.WebServer.Services
                 try { directoryInfo = new DirectoryInfo(localPath); }
                 catch (Exception e)
                 {
-                    WebServerLog.Add(ServerLogType.Error, GetType(), "map file", $"invalid path: {e}");
+                    logger.LogError(MapFileEventId, e, "Invalid path");
                     return false;
                 }
                 if (!directoryInfo.Exists)
@@ -230,7 +235,7 @@ namespace MaxLib.WebServer.Services
         /// <summary>
         /// Create a new local IO mapper that can map resources from the local io.
         /// </summary>
-        public LocalIOMapper() 
+        public LocalIOMapper()
             : base(ServerStage.CreateDocument)
         {
         }
@@ -259,7 +264,7 @@ namespace MaxLib.WebServer.Services
         {
             _ = urlPath ?? throw new ArgumentNullException(nameof(urlPath));
             Add(new FileMappingRule(
-                urlPath.Split('/', StringSplitOptions.RemoveEmptyEntries), 
+                urlPath.Split('/', StringSplitOptions.RemoveEmptyEntries),
                 localBasePath
             ));
         }
