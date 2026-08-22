@@ -138,6 +138,79 @@ using var server = new Server(new WebServerSettings(8000, 5000));
 // ...
 ```
 
+## WebSocket Events
+
+`MaxLib.WebServer.WebSocket` includes `EventBase`/`EventFactory`, a small typed-message
+layer on top of raw WebSocket frames. Events are plain classes, and
+`System.Text.Json`'s native polymorphic serialization takes care of reading/writing
+the `"$type"` discriminator and the rest of the payload — no custom converters needed.
+
+### Registering events
+
+Subclass `EventBase` with public properties, create an `EventFactory`, and register
+your event types before using it:
+
+```csharp
+using MaxLib.WebServer.WebSocket;
+
+public class ChatMessage : EventBase
+{
+    public string Text { get; set; } = "";
+}
+
+var factory = new EventFactory();
+factory.Add<ChatMessage>();              // wire "$type" defaults to the class name
+// factory.Add<ChatMessage>("chat.msg"); // or pick an explicit wire name
+
+// pass `factory` into your EventConnection subclass, then:
+// await SendFrame(new ChatMessage { Text = "hi" });
+```
+
+All event types must be registered before the factory's first use (its registry is
+sealed on first serialize/deserialize) — register everything once at startup.
+
+### Automatic registration
+
+There is no attribute-scanning or assembly discovery: declaring an `EventBase`
+subclass alone does not register it. Every event type must be added explicitly via
+`Add<T>()`/`Add<T>(string)`/`Add(string, Type)`.
+
+### Customizing the wire format
+
+Use standard `System.Text.Json` attributes directly on your event's properties:
+
+```csharp
+public class ChatMessage : EventBase
+{
+    [JsonPropertyName("text")]
+    public string Text { get; set; } = "";
+
+    [JsonIgnore]
+    public DateTime ReceivedAt { get; set; }
+}
+```
+
+For settings that should apply to every event on a factory (a naming policy, a
+converter for a shared type), pass a `JsonSerializerOptions` into the constructor:
+
+```csharp
+var factory = new EventFactory(new JsonSerializerOptions
+{
+    PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+});
+```
+
+See Microsoft's [System.Text.Json property customization documentation](https://learn.microsoft.com/en-us/dotnet/standard/serialization/system-text-json/customize-properties)
+for the full set of supported attributes and options.
+
+### Multiple factories
+
+Each `EventFactory` instance has its own independent type registry and
+`JsonSerializerOptions` — nothing is shared statically between instances. Create one
+factory per protocol/endpoint that needs a different set of event types (or different
+wire settings), and give each `EventConnection` subclass the factory instance
+appropriate to it.
+
 ## Example
 
 - [example/MaxLib.WebServer.Example](example/MaxLib.WebServer.Example)

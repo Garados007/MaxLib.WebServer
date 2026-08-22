@@ -27,7 +27,7 @@ namespace MaxLib.WebServer.WebSocket
         protected virtual async Task SendFrame(EventBase @event)
         {
             ArgumentNullException.ThrowIfNull(@event);
-            var frame = @event.ToFrame();
+            var frame = EventFactory.ToFrame(@event);
             if (frame != null)
                 await SendFrame(frame).ConfigureAwait(false);
         }
