@@ -100,4 +100,83 @@ namespace MaxLib.WebServer.Test.Builder.Debugger
 
         public int ResultNoConverterMethod() => 1;
     }
+
+    public class DupHighFixture : Service
+    {
+        [Path("/dup")]
+        [Priority(WebServicePriority.High)]
+        public HttpDataSource M() => new HttpStringDataSource("high");
+    }
+
+    public class DupLowFixture : Service
+    {
+        [Path("/dup")]
+        [Priority(WebServicePriority.Low)]
+        public HttpDataSource M() => new HttpStringDataSource("low");
+    }
+
+    public class GetOnlyFixture : Service
+    {
+        [Path("/only-get")]
+        [Method("GET")]
+        public HttpDataSource M() => new HttpStringDataSource("got");
+    }
+
+    [Path("/grouped", Prefix = true)]
+    public class GroupedFixture : Service
+    {
+        [Path("/grouped/only")]
+        public HttpDataSource M() => new HttpStringDataSource("grouped");
+    }
+
+    [Path("/inner-dup", Prefix = true)]
+    public class InnerDupFixture : Service
+    {
+        [Path("/inner-dup/x")]
+        [Priority(WebServicePriority.High)]
+        public HttpDataSource A() => new HttpStringDataSource("a");
+
+        [Path("/inner-dup/x")]
+        [Priority(WebServicePriority.Low)]
+        public HttpDataSource B() => new HttpStringDataSource("b");
+    }
+
+    [Path("/none-matches", Prefix = true)]
+    public class NoMatchingChildFixture : Service
+    {
+        [Path("/none-matches/only")]
+        [Method("POST")]
+        public HttpDataSource M() => new HttpStringDataSource("x");
+    }
+
+    public class CoreParamFixture : Service
+    {
+        [Path("/core-param")]
+        public HttpDataSource M(System.Net.IPEndPoint endpoint) => new HttpStringDataSource(endpoint.ToString());
+    }
+
+    public sealed class AlwaysFailRuleAttribute : RuleAttributeBase
+    {
+        public override bool CanWorkWith(WebProgressTask task, System.Collections.Generic.Dictionary<string, object?> vars)
+            => false;
+
+        public override string ToString() => "AlwaysFail";
+    }
+
+    public class NonExplainableRuleFixture : Service
+    {
+        [AlwaysFailRule]
+        [Path("/non-explainable")]
+        public HttpDataSource M() => new HttpStringDataSource("x");
+    }
+
+    public class AlwaysRejectService : WebService
+    {
+        public AlwaysRejectService() : base(ServerStage.CreateDocument) { }
+
+        public override bool CanWorkWith(WebProgressTask task) => false;
+
+        public override System.Threading.Tasks.Task ProgressTask(WebProgressTask task)
+            => System.Threading.Tasks.Task.CompletedTask;
+    }
 }
