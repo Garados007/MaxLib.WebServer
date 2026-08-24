@@ -7,6 +7,12 @@ namespace MaxLib.WebServer.Builder.Runtime
     {
         public List<Tools.RuleAttributeBase> Rules { get; }
 
+        /// <summary>
+        /// The type this group was generated from, if it was built by
+        /// <see cref="Tools.Generator.GenerateClass(Type)" />. Null for a hand-assembled group.
+        /// </summary>
+        public Type? SourceType { get; set; }
+
         public ServiceGroup(List<Tools.RuleAttributeBase> rules)
         {
             Rules = rules;

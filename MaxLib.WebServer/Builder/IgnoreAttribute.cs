@@ -14,5 +14,7 @@ namespace MaxLib.WebServer.Builder
         public IgnoreAttribute()
         {
         }
+
+        public override string ToString() => "Ignore";
     }
 }

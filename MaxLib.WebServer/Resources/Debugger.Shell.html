@@ -1,0 +1,587 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>MaxLib.WebServer Builder Debugger</title>
+<style>
+  :root {
+    color-scheme: light dark;
+    --bg: #ffffff; --fg: #1a1a1a; --muted: #666666; --border: #dddddd;
+    --accepted: #1a7f37; --ignored: #9a6700; --failed: #cf222e; --notreached: #999999;
+    --chip-bg: #f0f0f0;
+    --param: #0969da; --return: #8250df; --type: #57606a; --attr: #bf3989;
+    --param-bg: rgba(9,105,218,0.12); --return-bg: rgba(130,80,223,0.12);
+    --type-bg: rgba(87,96,106,0.12); --attr-bg: rgba(191,57,137,0.12);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #1a1a1a; --fg: #e6e6e6; --muted: #9a9a9a; --border: #3a3a3a; --chip-bg: #2a2a2a;
+      --param: #6cb6ff; --return: #d2a8ff; --type: #8b949e; --attr: #ff9bce;
+      --param-bg: rgba(108,182,255,0.18); --return-bg: rgba(210,168,255,0.18);
+      --type-bg: rgba(139,148,158,0.18); --attr-bg: rgba(255,155,206,0.18);
+    }
+  }
+  body { font-family: system-ui, sans-serif; background: var(--bg); color: var(--fg); margin: 0; padding: 1.5rem; }
+  h1 { font-size: 1.3rem; margin: 0 0 0.25rem 0; }
+  h2 { font-size: 1.05rem; margin: 1.5rem 0 0.5rem 0; }
+  h3 { font-size: 0.95rem; margin: 1rem 0 0.35rem 0; color: var(--muted); }
+  p.sub { color: var(--muted); margin: 0 0 1rem 0; }
+  input, select, button { font: inherit; padding: 0.35rem 0.5rem; border: 1px solid var(--border); border-radius: 4px; background: var(--bg); color: var(--fg); }
+  button { cursor: pointer; }
+  .toolbar { display: flex; gap: 0.5rem; margin-bottom: 0.5rem; }
+  #search { width: 100%; max-width: 28rem; margin-bottom: 0.75rem; }
+
+  .filters { display: flex; flex-wrap: wrap; gap: 1.2rem; margin-bottom: 0.75rem; padding: 0.6rem 0.75rem; border: 1px solid var(--border); border-radius: 6px; }
+  .filter-group { display: flex; flex-direction: column; gap: 0.3rem; }
+  .filter-group-toggle { font-weight: 700; text-transform: capitalize; display: flex; align-items: center; gap: 0.35rem; cursor: pointer; }
+  .filter-list { display: flex; flex-direction: column; gap: 0.2rem; padding-left: 1.3rem; }
+  .filter-item { display: flex; align-items: center; gap: 0.35rem; font-size: 0.8rem; cursor: pointer; }
+
+  .node { border: 1px solid var(--border); border-radius: 6px; margin: 0.25rem 0; }
+  .node .node { margin-left: 1.1rem; }
+  .node > summary, .node > .node-header {
+    display: flex; align-items: flex-start; gap: 0.35rem; padding: 0.35rem 0.5rem;
+  }
+  .node > summary { cursor: pointer; list-style: none; }
+  .node > summary::-webkit-details-marker { display: none; }
+  .marker {
+    flex: 0 0 1.1em;
+    display: inline-block;
+    text-align: center;
+    color: var(--muted);
+    transition: transform 0.12s ease;
+  }
+  details.node[open] > summary > .marker { transform: rotate(90deg); }
+  details.node.no-visible-children > summary > .marker { visibility: hidden; }
+  details.node.no-visible-children > summary { cursor: default; }
+  .node-body { flex: 1 1 auto; min-width: 0; }
+
+  .title-row { display: flex; gap: 0.4rem; align-items: baseline; flex-wrap: wrap; }
+  .kind { font-size: 0.75rem; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: 0.02em; }
+  .kind.kind-param { color: var(--param); font-size: 1rem; font-weight: 700; text-transform: none; }
+  .kind.kind-return { color: var(--return); font-size: 1rem; font-weight: 700; text-transform: none; }
+  .name { font-weight: 600; }
+  .type-hint, .signature { font-family: ui-monospace, SFMono-Regular, Consolas, monospace; font-size: 0.85rem; color: var(--muted); }
+  .chip { font-size: 0.75rem; padding: 0.05rem 0.4rem; border-radius: 4px; background: var(--chip-bg); color: var(--muted); font-family: ui-monospace, SFMono-Regular, Consolas, monospace; }
+
+  .badge { font-size: 0.75rem; padding: 0.1rem 0.4rem; border-radius: 999px; background: var(--chip-bg); }
+  .badge.accepted { color: var(--accepted); }
+  .badge.ignored { color: var(--ignored); }
+  .badge.failed { color: var(--failed); }
+  .badge.notReached { color: var(--notreached); }
+  .badge.rejected { color: var(--failed); }
+
+  .message { color: var(--muted); font-size: 0.9rem; margin: 0.3rem 0 0 0; }
+  .ident { font-family: ui-monospace, SFMono-Regular, Consolas, monospace; padding: 0 0.2rem; border-radius: 3px; }
+  .ident-type { color: var(--type); background: var(--type-bg); }
+  .ident-method { color: var(--fg); background: var(--chip-bg); font-weight: 600; }
+  .ident-param { color: var(--param); background: var(--param-bg); }
+  .ident-return { color: var(--return); background: var(--return-bg); }
+  .ident-attr { color: var(--attr); background: var(--attr-bg); }
+
+  .reasons { margin: 0.3rem 0 0 1.2rem; padding: 0; font-size: 0.9rem; color: var(--muted); }
+  form#simForm { display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: flex-end; margin-bottom: 0.75rem; }
+  form#simForm label { display: flex; flex-direction: column; font-size: 0.8rem; color: var(--muted); gap: 0.15rem; }
+  #headerRows { display: flex; flex-direction: column; gap: 0.25rem; margin: 0.5rem 0; }
+  #headerRows .row { display: flex; gap: 0.25rem; }
+  #matched { font-weight: 600; margin-top: 0.5rem; }
+  #routeResult, #reportTree { margin-top: 0.5rem; }
+  .stage-section { margin-bottom: 1rem; }
+  .hidden { display: none !important; }
+  footer { margin-top: 3rem; padding-top: 1rem; border-top: 1px solid var(--border); font-size: 0.85rem; color: var(--muted); }
+  footer code { font-family: ui-monospace, SFMono-Regular, Consolas, monospace; }
+</style>
+</head>
+<body>
+  <h1>MaxLib.WebServer &mdash; Builder Debugger</h1>
+  <p class="sub">Why a scanned type/method was skipped, and why a request does (or doesn't) reach a service.</p>
+
+  <h2>Build report</h2>
+  <div class="toolbar">
+    <button type="button" id="expandAllReport">Expand all</button>
+    <button type="button" id="collapseAllReport">Collapse all</button>
+  </div>
+  <input id="search" type="text" placeholder="Filter by name, message or reason&hellip;">
+  <div id="reportFilters" class="filters"></div>
+  <div id="reportTree">Loading&hellip;</div>
+
+  <h2>Request routing simulator</h2>
+  <form id="simForm">
+    <label>Method
+      <select id="simMethod">
+        <option>GET</option><option>POST</option><option>PUT</option>
+        <option>PATCH</option><option>DELETE</option><option>HEAD</option>
+      </select>
+    </label>
+    <label>Path
+      <input id="simPath" type="text" value="/" style="min-width:20rem">
+    </label>
+    <label>Stage
+      <select id="simStage">
+        <option value="">All stages</option>
+        <option>ReadRequest</option><option>ParseRequest</option><option>CreateDocument</option>
+        <option>ProcessDocument</option><option>CreateResponse</option><option>SendResponse</option><option>Cleanup</option>
+      </select>
+    </label>
+    <button type="submit">Simulate</button>
+  </form>
+  <div id="headerRows"></div>
+  <button type="button" id="addHeader">+ header</button>
+  <div class="toolbar">
+    <button type="button" id="expandAllRoute">Expand all</button>
+    <button type="button" id="collapseAllRoute">Collapse all</button>
+  </div>
+  <div id="matched"></div>
+  <div id="routeResult"></div>
+
+  <footer>
+    <p>
+      API: <a href="api/build-report">build report (JSON)</a>
+      &middot; <a href="api/route?method=GET&amp;path=/">request simulator (JSON)</a>,
+      accepting <code>method</code>, <code>path</code>, an optional <code>stage</code>
+      (all stages are simulated if omitted), and <code>h.&lt;name&gt;=&lt;value&gt;</code>
+      for simulated headers.
+    </p>
+  </footer>
+
+<script>
+(function () {
+  var BASE = window.__debuggerBasePath || "";
+  var uncheckedReasons = new Set();
+
+  function shortType(full) {
+    if (!full) return "?";
+    var idx = Math.max(full.lastIndexOf("."), full.lastIndexOf("+"));
+    return idx >= 0 ? full.slice(idx + 1) : full;
+  }
+
+  function shortenQualifiedNames(text) {
+    return text.replace(/(?:[A-Za-z_]\w*\.)+([A-Za-z_]\w*)/g, "$1");
+  }
+
+  // Server-side messages mark identifiers as {{kind|text}} (see Generator.Mark) so they can be
+  // styled here instead of drowning in a wall of plain text.
+  function formatMessage(msg) {
+    var frag = document.createDocumentFragment();
+    if (!msg) return frag;
+    var re = /\{\{(\w+)\|([^}]*)\}\}/g;
+    var last = 0, m;
+    while ((m = re.exec(msg))) {
+      if (m.index > last) frag.appendChild(document.createTextNode(msg.slice(last, m.index)));
+      var span = document.createElement("span");
+      span.className = "ident ident-" + m[1];
+      span.textContent = m[2];
+      frag.appendChild(span);
+      last = re.lastIndex;
+    }
+    if (last < msg.length) frag.appendChild(document.createTextNode(msg.slice(last)));
+    return frag;
+  }
+
+  function kindMeta(kind) {
+    switch (kind) {
+      case "param": return { symbol: "→", cls: "kind-param" };
+      case "return": return { symbol: "←", cls: "kind-return" };
+      case "method": return { symbol: "method", cls: "kind-method" };
+      default: return { symbol: "type", cls: "kind-type" };
+    }
+  }
+
+  function reportChildren(node) {
+    var out = [];
+    (node.parameters || []).forEach(function (p) { out.push([p, "param"]); });
+    if (node.result) out.push([node.result, "return"]);
+    (node.methods || []).forEach(function (m) { out.push([m, "method"]); });
+    (node.nestedTypes || []).forEach(function (t) { out.push([t, "type"]); });
+    return out;
+  }
+
+  // MethodInfo.ToString() (e.g. "HttpDataSource Foo(Int32, System.String)") is embedded as the
+  // first {{method|...}} marker of every method's message, whether it was built or rejected -
+  // reuse it as the signature instead of guessing from parameters/result, which are only
+  // populated for methods that got far enough to have them (a rejected-early method like
+  // Dispose()/GetType() would otherwise show a misleading "() : void" for every one of them).
+  function methodSignature(node) {
+    var m = node.message && /\{\{method\|([^}]*)\}\}/.exec(node.message);
+    return m ? shortenQualifiedNames(m[1]) : "(?)";
+  }
+
+  // The attributes (or their inherited/default value) that shaped this node, shown as small
+  // chips alongside the status badge: class/method-level rules (Path, Method, ...), a method's
+  // explicit dispatch priority, a parameter's resolution source, or a result's converter. Every
+  // source already starts with an uppercase letter (rule/parameter ToString(), a converter class
+  // name), so the chips need no casing normalization here.
+  function attrChips(node, kind) {
+    var chips = (node.rules || []).slice();
+    if (kind === "method" && node.priority) chips.push("Priority: " + node.priority);
+    if (kind === "param" && node.source) chips.push(node.source);
+    if (kind === "return" && node.converter) chips.push(node.converter);
+    return chips;
+  }
+
+  // Always reserves the same width whether or not it holds a glyph, so a leaf node's name lines
+  // up with a collapsible node's name instead of shifting depending on marker presence.
+  function makeMarker(isCollapsible) {
+    var marker = document.createElement("span");
+    marker.className = "marker";
+    if (isCollapsible) marker.textContent = "▶";
+    return marker;
+  }
+
+  function renderReportNode(node, kind) {
+    var children = reportChildren(node);
+    var hasChildren = children.length > 0;
+    var el = document.createElement(hasChildren ? "details" : "div");
+    el.className = "node";
+    if (hasChildren) el.open = node.status !== "accepted";
+    el.dataset.searchText = (node.name + " " + node.message + " " + node.reason).toLowerCase();
+    el.dataset.reason = node.reason || "";
+
+    var header = document.createElement(hasChildren ? "summary" : "div");
+    header.className = "node-header";
+    header.appendChild(makeMarker(hasChildren));
+
+    var body = document.createElement("div");
+    body.className = "node-body";
+
+    var titleRow = document.createElement("div");
+    titleRow.className = "title-row";
+
+    var km = kindMeta(kind);
+    var kindEl = document.createElement("span");
+    kindEl.className = "kind " + km.cls;
+    kindEl.textContent = km.symbol;
+    titleRow.appendChild(kindEl);
+
+    var name = document.createElement("span");
+    name.className = "name";
+    name.textContent = node.name;
+    titleRow.appendChild(name);
+
+    if (kind === "method") {
+      var sig = document.createElement("span");
+      sig.className = "signature";
+      sig.textContent = methodSignature(node);
+      titleRow.appendChild(sig);
+    } else if (kind === "param" && node.parameterType) {
+      var pt = document.createElement("span");
+      pt.className = "type-hint";
+      pt.textContent = shortType(node.parameterType);
+      titleRow.appendChild(pt);
+    } else if (kind === "return" && node.returnType) {
+      var rt = document.createElement("span");
+      rt.className = "type-hint";
+      rt.textContent = shortType(node.returnType);
+      titleRow.appendChild(rt);
+    }
+
+    attrChips(node, kind).forEach(function (text) {
+      var chip = document.createElement("span");
+      chip.className = "chip";
+      chip.textContent = text;
+      titleRow.appendChild(chip);
+    });
+
+    var badge = document.createElement("span");
+    badge.className = "badge " + node.status;
+    badge.textContent = node.status + (node.reason && node.reason !== "accepted" ? " · " + node.reason : "");
+    titleRow.appendChild(badge);
+
+    body.appendChild(titleRow);
+
+    if (node.message) {
+      var msg = document.createElement("p");
+      msg.className = "message";
+      msg.appendChild(formatMessage(node.message));
+      body.appendChild(msg);
+    }
+    if (node.exceptionMessage) {
+      var ex = document.createElement("p");
+      ex.className = "message";
+      ex.textContent = "Exception: " + node.exceptionMessage;
+      body.appendChild(ex);
+    }
+
+    header.appendChild(body);
+    el.appendChild(header);
+    children.forEach(function (c) { el.appendChild(renderReportNode(c[0], c[1])); });
+    return el;
+  }
+
+  function collectReasons(roots) {
+    var map = {};
+    function visit(node) {
+      if (node.reason) map[node.reason] = node.status;
+      reportChildren(node).forEach(function (c) { visit(c[0]); });
+    }
+    roots.forEach(visit);
+    return map;
+  }
+
+  // One checkbox per reason actually present in this report, grouped by status (accepted/
+  // ignored/failed) with a group checkbox that flips every member at once.
+  function buildReportFilters(roots) {
+    var reasonMap = collectReasons(roots);
+    var groups = {};
+    Object.keys(reasonMap).sort().forEach(function (reason) {
+      var status = reasonMap[reason];
+      (groups[status] = groups[status] || []).push(reason);
+    });
+
+    var container = document.getElementById("reportFilters");
+    container.innerHTML = "";
+    ["accepted", "ignored", "failed"].forEach(function (status) {
+      var reasons = groups[status];
+      if (!reasons || !reasons.length) return;
+
+      var group = document.createElement("div");
+      group.className = "filter-group";
+
+      var groupLabel = document.createElement("label");
+      groupLabel.className = "filter-group-toggle";
+      var groupCb = document.createElement("input");
+      groupCb.type = "checkbox";
+      groupCb.checked = true;
+      groupLabel.appendChild(groupCb);
+      groupLabel.appendChild(document.createTextNode(" " + status));
+      group.appendChild(groupLabel);
+
+      var list = document.createElement("div");
+      list.className = "filter-list";
+      var memberCbs = [];
+
+      function syncGroupCheckbox() {
+        var checkedCount = memberCbs.filter(function (c) { return c.checked; }).length;
+        groupCb.checked = checkedCount === memberCbs.length;
+        groupCb.indeterminate = checkedCount > 0 && checkedCount < memberCbs.length;
+      }
+
+      reasons.forEach(function (reason) {
+        var label = document.createElement("label");
+        label.className = "filter-item badge " + status;
+        var cb = document.createElement("input");
+        cb.type = "checkbox";
+        cb.checked = true;
+        cb.addEventListener("change", function () {
+          if (cb.checked) uncheckedReasons.delete(reason); else uncheckedReasons.add(reason);
+          syncGroupCheckbox();
+          applyReportFilters();
+        });
+        memberCbs.push(cb);
+        label.appendChild(cb);
+        label.appendChild(document.createTextNode(" " + reason));
+        list.appendChild(label);
+      });
+
+      groupCb.addEventListener("change", function () {
+        memberCbs.forEach(function (c) { c.checked = groupCb.checked; });
+        reasons.forEach(function (reason) {
+          if (groupCb.checked) uncheckedReasons.delete(reason); else uncheckedReasons.add(reason);
+        });
+        groupCb.indeterminate = false;
+        applyReportFilters();
+      });
+
+      group.appendChild(list);
+      container.appendChild(group);
+    });
+  }
+
+  // A node stays visible if it matches (search text AND isn't filtered out by reason) OR any
+  // descendant does - otherwise a matching child would be hidden along with a non-matching
+  // parent. A details node that ends up with no visible children looks like a leaf (marker
+  // hidden via .no-visible-children) instead of offering to expand into nothing.
+  function filterNode(el, q) {
+    var reasonOk = !el.dataset.reason || !uncheckedReasons.has(el.dataset.reason);
+    var searchOk = q === "" || (el.dataset.searchText || "").indexOf(q) >= 0;
+    var ownVisible = reasonOk && searchOk;
+    var hasChildNodes = false;
+    var anyChildVisible = false;
+    Array.prototype.forEach.call(el.children, function (c) {
+      if (c.classList && c.classList.contains("node")) {
+        hasChildNodes = true;
+        if (filterNode(c, q)) anyChildVisible = true;
+      }
+    });
+    var visible = ownVisible || anyChildVisible;
+    el.classList.toggle("hidden", !visible);
+    if (q !== "" && visible && el.tagName === "DETAILS") el.open = true;
+    if (el.tagName === "DETAILS") el.classList.toggle("no-visible-children", hasChildNodes && !anyChildVisible);
+    return visible;
+  }
+
+  function applyReportFilters() {
+    var q = document.getElementById("search").value.trim().toLowerCase();
+    Array.prototype.forEach.call(document.getElementById("reportTree").children, function (top) {
+      if (top.classList.contains("node")) filterNode(top, q);
+    });
+  }
+
+  function loadReport() {
+    fetch(BASE + "/api/build-report").then(function (r) { return r.json(); }).then(function (report) {
+      var root = document.getElementById("reportTree");
+      root.innerHTML = "";
+      var roots = report.roots || [];
+      roots.forEach(function (t) { root.appendChild(renderReportNode(t, "type")); });
+      if (roots.length === 0) {
+        root.textContent = "No build report was provided to this DebuggerService instance.";
+      }
+      buildReportFilters(roots);
+      applyReportFilters();
+    }).catch(function (e) {
+      document.getElementById("reportTree").textContent = "Failed to load build report: " + e;
+    });
+  }
+
+  document.getElementById("search").addEventListener("input", applyReportFilters);
+
+  document.getElementById("expandAllReport").addEventListener("click", function () {
+    document.querySelectorAll("#reportTree details.node").forEach(function (d) { d.open = true; });
+  });
+  document.getElementById("collapseAllReport").addEventListener("click", function () {
+    document.querySelectorAll("#reportTree details.node").forEach(function (d) { d.open = false; });
+  });
+
+  function addHeaderRow() {
+    var row = document.createElement("div");
+    row.className = "row";
+    row.innerHTML = '<input type="text" placeholder="Header name" class="hName">' +
+      '<input type="text" placeholder="Value" class="hValue">' +
+      '<button type="button" class="hRemove">&times;</button>';
+    row.querySelector(".hRemove").addEventListener("click", function () { row.remove(); });
+    document.getElementById("headerRows").appendChild(row);
+    return row;
+  }
+  document.getElementById("addHeader").addEventListener("click", addHeaderRow);
+
+  function renderRouteNode(node) {
+    var children = node.children || [];
+    var hasChildren = children.length > 0;
+    var el = document.createElement(hasChildren ? "details" : "div");
+    el.className = "node";
+    if (hasChildren) el.open = node.outcome !== "accepted";
+
+    var header = document.createElement(hasChildren ? "summary" : "div");
+    header.className = "node-header";
+    header.appendChild(makeMarker(hasChildren));
+
+    var body = document.createElement("div");
+    body.className = "node-body";
+
+    var titleRow = document.createElement("div");
+    titleRow.className = "title-row";
+    var name = document.createElement("span");
+    name.className = "name";
+    name.textContent = node.label;
+    titleRow.appendChild(name);
+    if (node.source) {
+      var src = document.createElement("span");
+      src.className = "type-hint";
+      src.textContent = shortenQualifiedNames(node.source);
+      titleRow.appendChild(src);
+    }
+    var badge = document.createElement("span");
+    badge.className = "badge " + node.outcome;
+    badge.textContent = node.outcome;
+    titleRow.appendChild(badge);
+    body.appendChild(titleRow);
+
+    if (node.reasons && node.reasons.length) {
+      var ul = document.createElement("ul");
+      ul.className = "reasons";
+      node.reasons.forEach(function (r) {
+        var li = document.createElement("li");
+        li.appendChild(formatMessage(r));
+        ul.appendChild(li);
+      });
+      body.appendChild(ul);
+    }
+
+    header.appendChild(body);
+    el.appendChild(header);
+    children.forEach(function (c) { el.appendChild(renderRouteNode(c)); });
+    return el;
+  }
+
+  function runSimulation() {
+    var params = new URLSearchParams();
+    params.set("method", document.getElementById("simMethod").value);
+    params.set("path", document.getElementById("simPath").value);
+    var stage = document.getElementById("simStage").value;
+    if (stage) params.set("stage", stage);
+    document.querySelectorAll("#headerRows .row").forEach(function (row) {
+      var name = row.querySelector(".hName").value.trim();
+      if (name) params.set("h." + name, row.querySelector(".hValue").value);
+    });
+    fetch(BASE + "/api/route?" + params.toString()).then(function (r) { return r.json(); }).then(function (reports) {
+      var result = document.getElementById("routeResult");
+      result.innerHTML = "";
+      var matchedAny = false;
+      reports.forEach(function (report) {
+        var section = document.createElement("div");
+        section.className = "stage-section";
+        var h = document.createElement("h3");
+        h.textContent = report.stage + ": " + (report.matchedLabel ? "matched " + report.matchedLabel : "no match");
+        section.appendChild(h);
+        if (report.matchedLabel) matchedAny = true;
+        if (!report.services || report.services.length === 0) {
+          var none = document.createElement("p");
+          none.className = "message";
+          none.textContent = "No services registered for this stage.";
+          section.appendChild(none);
+        } else {
+          report.services.forEach(function (n) { section.appendChild(renderRouteNode(n)); });
+        }
+        if (report.monitorTrace) {
+          var pre = document.createElement("pre");
+          pre.textContent = report.monitorTrace;
+          section.appendChild(pre);
+        }
+        result.appendChild(section);
+      });
+      document.getElementById("matched").textContent = matchedAny
+        ? "" : "No service matched this request in any stage.";
+    }).catch(function (e) {
+      document.getElementById("routeResult").textContent = "Failed to simulate request: " + e;
+    });
+  }
+
+  document.getElementById("simForm").addEventListener("submit", function (e) {
+    e.preventDefault();
+    runSimulation();
+  });
+
+  document.getElementById("expandAllRoute").addEventListener("click", function () {
+    document.querySelectorAll("#routeResult details.node").forEach(function (d) { d.open = true; });
+  });
+  document.getElementById("collapseAllRoute").addEventListener("click", function () {
+    document.querySelectorAll("#routeResult details.node").forEach(function (d) { d.open = false; });
+  });
+
+  // Deep-linking: a page like Debugger.html?path=/foo/bar&method=POST&stage=CreateDocument
+  // pre-fills and immediately runs the simulator - lets other pages (e.g. an index/nav page)
+  // link straight into "why doesn't this request work" instead of just to the tool itself.
+  (function applyDeepLink() {
+    var params = new URLSearchParams(window.location.search);
+    var path = params.get("path");
+    if (path === null) return;
+    document.getElementById("simPath").value = path;
+    var method = params.get("method");
+    if (method) document.getElementById("simMethod").value = method.toUpperCase();
+    var stage = params.get("stage");
+    if (stage) document.getElementById("simStage").value = stage;
+    params.forEach(function (value, key) {
+      if (key.indexOf("h.") === 0) {
+        var row = addHeaderRow();
+        row.querySelector(".hName").value = key.slice(2);
+        row.querySelector(".hValue").value = value;
+      }
+    });
+    runSimulation();
+  })();
+
+  loadReport();
+})();
+</script>
+</body>
+</html>

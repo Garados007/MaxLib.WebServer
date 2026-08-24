@@ -27,11 +27,14 @@ namespace MaxLib.WebServer.Builder
         /// <summary>
         /// Create a new converter that can convert JSON data into the property value
         /// </summary>
-        public JsonConverterAttribute() 
+        public JsonConverterAttribute()
             : base(typeof(JsonConverterAttribute), false)
         {
             Instance = this;
         }
+
+        public override string ToString() =>
+            CustomConverter != null ? $"JsonConverter: {CustomConverter.Name}" : "JsonConverter";
 
         public Func<object?, object?>? GetConverter(Type source, Type target)
         {

@@ -7,7 +7,6 @@ using System.Linq;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Text.Json.Serialization.Metadata;
-using System.Threading;
 
 #nullable enable
 
@@ -28,7 +27,7 @@ namespace MaxLib.WebServer.WebSocket
         static readonly EventId WriteJsonEventId = new(0, "write json");
 
         readonly Dictionary<string, Type> registry = [];
-        readonly Lock sealLock = new();
+        readonly object sealLock = new();
         readonly JsonSerializerOptions? seedOptions;
         JsonSerializerOptions? sealedOptions;
 

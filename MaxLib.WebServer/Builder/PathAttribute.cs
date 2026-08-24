@@ -8,7 +8,7 @@ namespace MaxLib.WebServer.Builder
     /// <summary>
     /// Limits the call to a specific URL path. You can also assign variables here.
     /// </summary>
-    public sealed class PathAttribute : Tools.RuleAttributeBase
+    public sealed class PathAttribute : Tools.RuleAttributeBase, Debugger.IExplainableRule
     {
 
         private readonly List<(string, bool)> parts = new List<(string, bool)>();
@@ -78,6 +78,31 @@ namespace MaxLib.WebServer.Builder
                 }
             }
             return Prefix || url.Length == parts.Count;
+        }
+
+        bool Debugger.IExplainableRule.CanWorkWith(WebProgressTask task, Dictionary<string, object?> vars, out string? reason)
+        {
+            var url = task.Request.Location.DocumentPathTiles;
+            for (int i = 0; i < parts.Count && i < url.Length; ++i)
+            {
+                var (match, isVar) = parts[i];
+                if (isVar)
+                {
+                    vars[match] = url[i];
+                }
+                else if (!string.Equals(match, url[i], StringComparison))
+                {
+                    reason = $"URL segment {i} was '{url[i]}', expected '{match}'";
+                    return false;
+                }
+            }
+            if (!Prefix && url.Length != parts.Count)
+            {
+                reason = $"the URL has {url.Length} segment(s), expected exactly {parts.Count}";
+                return false;
+            }
+            reason = null;
+            return true;
         }
     }
 }

@@ -19,5 +19,7 @@ namespace MaxLib.WebServer.Builder
         {
             Mime = mime;
         }
+
+        public override string ToString() => $"Mime: {Mime}";
     }
 }

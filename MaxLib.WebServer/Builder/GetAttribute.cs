@@ -38,5 +38,7 @@ namespace MaxLib.WebServer.Builder
                 return new Result<object?>();
             return new Result<object?>(value);
         }
+
+        public override string ToString() => Name != null ? $"Get: {Name}" : "Get";
     }
 }

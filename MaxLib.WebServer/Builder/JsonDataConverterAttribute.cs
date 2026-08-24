@@ -52,6 +52,9 @@ namespace MaxLib.WebServer.Builder
             CustomConverter = customConverter;
         }
 
+        public override string ToString() =>
+            CustomConverter != null ? $"JsonDataConverter: {CustomConverter.Name}" : "JsonDataConverter";
+
         public Func<object, HttpDataSource?>? GetConverter(Type data)
         {
             Func<Utf8JsonWriter, object, bool>? writer = null;
