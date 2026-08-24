@@ -24,5 +24,7 @@ namespace MaxLib.WebServer.Builder
             );
             return new Result<object?>(reader.ReadToEnd());
         }
+
+        public override string ToString() => "TextPost";
     }
 }

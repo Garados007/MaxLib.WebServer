@@ -16,5 +16,7 @@ namespace MaxLib.WebServer.Builder
         {
             Priority = priority;
         }
+
+        public override string ToString() => $"Priority: {Priority}";
     }
 }

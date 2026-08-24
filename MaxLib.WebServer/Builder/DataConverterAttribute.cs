@@ -42,5 +42,7 @@ namespace MaxLib.WebServer.Builder
                     Instance = null;
                 }
         }
+
+        public override string ToString() => $"DataConverter: {Converter.Name}";
     }
 }
