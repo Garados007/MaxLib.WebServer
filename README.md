@@ -215,6 +215,11 @@ appropriate to it.
 
 - [example/MaxLib.WebServer.Example](example/MaxLib.WebServer.Example)
     - create a basic webserver
+- [example/MaxLib.WebServer.Builder.Debugger.Example](example/MaxLib.WebServer.Builder.Debugger.Example)
+    - a mix of working and deliberately misconfigured `Builder.Service` types, an index
+      page linking to every endpoint, and the `Builder.Debugger.DebuggerService` wired up
+      to explain what got built (or skipped/failed) and why a given request would or
+      wouldn't reach a service
 
 ## Contributing
 
