@@ -28,10 +28,12 @@ namespace MaxLib.WebServer.Chunked
         public override bool CanWorkWith(WebProgressTask task)
         {
             ArgumentNullException.ThrowIfNull(task);
+#pragma warning disable CS0618 // Remote.MarshalSource is obsolete; support kept until its removal
             return !OnlyWithLazy || (task.Document.DataSources.Count > 0 &&
                 task.Document.DataSources.Any((s) => s is LazySource ||
                     (s is Remote.MarshalSource ms && ms.IsLazy)
                 )) || task.Document.DataSources.Any(s => s.Length() is null);
+#pragma warning restore CS0618
         }
 
         public override async Task ProgressTask(WebProgressTask task)
@@ -103,6 +105,7 @@ namespace MaxLib.WebServer.Chunked
             if (source is LazySource lazySource)
                 foreach (var s in lazySource.GetAllSources())
                     await SendChunk(writer, stream, s).ConfigureAwait(false);
+#pragma warning disable CS0618 // Remote.MarshalSource is obsolete; support kept until its removal
             else if (source is Remote.MarshalSource ms && ms.IsLazy)
             {
                 var lazySources = ms.GetAllSources();
@@ -110,6 +113,7 @@ namespace MaxLib.WebServer.Chunked
                     foreach (var s in lazySources)
                         await SendChunk(writer, stream, s).ConfigureAwait(false);
             }
+#pragma warning restore CS0618
             else if (source is HttpChunkedStream)
             {
                 await stream.FlushAsync().ConfigureAwait(false);

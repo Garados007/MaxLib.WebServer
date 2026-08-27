@@ -22,10 +22,12 @@ namespace MaxLib.WebServer.Chunked
         public override bool CanWorkWith(WebProgressTask task)
         {
             ArgumentNullException.ThrowIfNull(task);
+#pragma warning disable CS0618 // Remote.MarshalSource is obsolete; support kept until its removal
             return !OnlyWithLazy || (task.Document.DataSources.Count > 0 &&
                 task.Document.DataSources.Any((s) => s is LazySource ||
                     (s is Remote.MarshalSource ms && ms.IsLazy)
                 )) || task.Document.DataSources.Any(s => s.Length() is null);
+#pragma warning restore CS0618
         }
 
         public override async Task ProgressTask(WebProgressTask task)
