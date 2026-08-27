@@ -65,6 +65,15 @@ namespace MaxLib.WebServer.Post
 
             public virtual void Dispose()
             {
+                if (TempFile != null && TempFile.Exists)
+                    try
+                    {
+                        TempFile.Delete();
+                    }
+                    catch (Exception)
+                    {
+                        logger.LogInformation(PostEventId, "Cannot delete temp file");
+                    }
                 GC.SuppressFinalize(this);
             }
         }
@@ -222,7 +231,9 @@ namespace MaxLib.WebServer.Post
         /// is not secure enough.
         /// <br/>
         /// Any temp file that is not moved away until the processing of the request is finished
-        /// will automatically deleted from <see cref="Services.HttpResponseCreator" />.
+        /// is automatically deleted by <see cref="FormEntry.Dispose" /> once the request's
+        /// <see cref="HttpPost" /> is disposed — which <see cref="Services.HttpResponseCreator" />
+        /// does after the response has been fully sent.
         /// <br/>
         /// This stream is only used for storing the data from the POST request. After that this
         /// will automatically disposed. The entries contain only the references to the files as

@@ -1,4 +1,5 @@
 using System;
+using System.IO;
 using System.Text;
 using System.Threading.Tasks;
 using MaxLib.WebServer.Services;
@@ -145,6 +146,43 @@ namespace MaxLib.WebServer.Test.Services
                 Assert.AreEqual(1, data.Entries.Count);
                 Assert.IsTrue(data.Entries[0].Content.HasValue);
                 CollectionAssert.AreEqual(contentBytes, data.Entries[0].Content.Value.ToArray());
+            }
+        }
+
+        [TestMethod]
+        public async Task TestRequestParser_MultipartPost_TempFileIsDeletedOnDispose()
+        {
+            var content =
+                "-----1234\r\n" +
+                "Content-Disposition: form-data; name=\"file\"; filename=\"test.txt\"\r\n" +
+                "Content-Type: text/plain\r\n" +
+                "\r\n" +
+                "Hello World\r\n" +
+                "-----1234--\r\n";
+            var sb = new StringBuilder();
+            sb.AppendLine("POST /test.html HTTP/1.1");
+            sb.AppendLine("Host: testdomain.local");
+            sb.AppendLine($"Content-Length: {content.Length}");
+            sb.AppendLine("Content-Type: multipart/form-data; boundary=---1234");
+            sb.AppendLine();
+            sb.Append(content);
+            using (var output = test.SetStream(sb.ToString()))
+            {
+                await new HttpRequestParser().ProgressTask(test.Task).ConfigureAwait(false);
+                Assert.IsTrue(test.Request.Post.Data is Post.MultipartFormData);
+                var data = (Post.MultipartFormData)test.Request.Post.Data;
+                Assert.AreEqual(1, data.Entries.Count);
+                var entry = data.Entries[0];
+                Assert.IsTrue(entry is Post.MultipartFormData.FormDataFile);
+                Assert.IsNotNull(entry.TempFile);
+                Assert.IsTrue(entry.TempFile!.Exists);
+                var path = entry.TempFile.FullName;
+
+                // this is what HttpResponseCreator triggers (via HttpPost.Dispose()) once
+                // the response has been fully sent - the temp file must not be left behind
+                data.Dispose();
+
+                Assert.IsFalse(File.Exists(path));
             }
         }
 
