@@ -315,7 +315,11 @@ namespace MaxLib.WebServer.Services
         /// <param name="path">the input path to shorten</param>
         /// <returns>the shortened path or null if invalid input</returns>
         /// <remarks>
-        /// Invalid paths are paths that starts with ".." like "../foo/bar".
+        /// Invalid paths are paths that starts with ".." like "../foo/bar", as well as any
+        /// tile that contains a path separator (<c>/</c> or <c>\</c>) or that is itself rooted
+        /// (e.g. an absolute path or a drive reference smuggled into a single, decoded tile).
+        /// Such tiles could otherwise be used to escape the configured base directory when
+        /// combined with <see cref="Path.Combine(string[])"/>, so they are rejected outright.
         /// </remarks>
         /// <example>
         /// // always true
@@ -338,6 +342,10 @@ namespace MaxLib.WebServer.Services
                     offset--;
                     continue;
                 }
+                if (path[i].Contains('/', StringComparison.Ordinal)
+                    || path[i].Contains('\\', StringComparison.Ordinal)
+                    || Path.IsPathRooted(path[i]))
+                    return null;
                 output.Span[offset] = path[i];
                 offset++;
             }
