@@ -25,12 +25,27 @@ Some of the current features of the web server are:
   to use.
 - Asynchronous handling of requests. Every part of the pipeline works with awaitable Tasks.
 - REST Api builder. You can directly bind your methods to the handlers.
-- Chunked transport. The server understands chunked data streams and can produce these.
+- Chunked transport. The server understands chunked data streams and can produce these on
+  responses. Chunked **request** bodies are not supported yet — see "HTTP protocol limitations"
+  below.
 - Lazy handling of requests. The server allows you to produce the content while you are sending the
   response. No need to wait.
 - Deliver contents from your local drive (e.g. HDD)
 - Session keeping. You can identify the user later.
 - ...
+
+## HTTP protocol limitations
+
+- **Chunked request bodies (`Transfer-Encoding`) are not supported.** The request parser only
+  reads a body when `Content-Length` is present, and there is no chunked-request decoder. Silently
+  treating a `Transfer-Encoding: chunked` request as bodiless would desync the connection and — if
+  the server sits behind a front-end proxy that honors `Transfer-Encoding` — can enable HTTP request
+  smuggling. As a mitigation, any request carrying a `Transfer-Encoding` header (alone, or together
+  with `Content-Length`) is rejected outright with `501 Not Implemented` before its body is read.
+  Since that body is left unread on the socket, the connection is also closed afterwards instead
+  of kept alive, so those unread bytes can't be misread as the start of the next request. This is
+  a temporary measure; proper chunked request decoding, so such requests can be accepted instead
+  of rejected, is planned for a future major version.
 
 ## Getting Started
 

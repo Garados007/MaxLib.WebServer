@@ -109,5 +109,44 @@ namespace MaxLib.WebServer.Test.Services
                 );
             }
         }
+
+        [TestMethod]
+        public async Task TestRequestParser_TransferEncodingIsRejected()
+        {
+            var sb = new StringBuilder();
+            sb.AppendLine("POST /test.html HTTP/1.1");
+            sb.AppendLine("Host: testdomain.local");
+            sb.AppendLine("Transfer-Encoding: chunked");
+            sb.AppendLine();
+            sb.Append("0\r\n\r\n");
+            using (var output = test.SetStream(sb.ToString()))
+            {
+                await new HttpRequestParser().ProgressTask(test.Task).ConfigureAwait(false);
+                Assert.AreEqual(HttpStateCode.NotImplemented, test.GetStatusCode());
+                // the chunked body was never read off the socket; the connection must not
+                // be kept alive, or those bytes would be parsed as the next request's header
+                Assert.AreEqual(HttpConnectionType.Close, test.Request.FieldConnection);
+            }
+        }
+
+        [TestMethod]
+        public async Task TestRequestParser_TransferEncodingWithContentLengthIsRejected()
+        {
+            var content = "foo=bar";
+            var sb = new StringBuilder();
+            sb.AppendLine("POST /test.html HTTP/1.1");
+            sb.AppendLine("Host: testdomain.local");
+            sb.AppendLine($"Content-Length: {content.Length}");
+            sb.AppendLine("Transfer-Encoding: chunked");
+            sb.AppendLine("Content-Type: application/x-www-form-urlencoded");
+            sb.AppendLine();
+            sb.Append(content);
+            using (var output = test.SetStream(sb.ToString()))
+            {
+                await new HttpRequestParser().ProgressTask(test.Task).ConfigureAwait(false);
+                Assert.AreEqual(HttpStateCode.NotImplemented, test.GetStatusCode());
+                Assert.AreEqual(HttpConnectionType.Close, test.Request.FieldConnection);
+            }
+        }
     }
 }
