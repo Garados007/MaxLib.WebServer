@@ -10,14 +10,15 @@ jobs:
   build:
 
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     permissions:
       contents: read
       statuses: write
 
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v4
     - name: Setup .NET Core
-      uses: actions/setup-dotnet@v1
+      uses: actions/setup-dotnet@v4
       with:
         dotnet-version: |
           10.0
@@ -33,7 +34,7 @@ jobs:
         name: build-fail-artifact
         path: ${{ github.workspace }}
     - name: Test
-      run: dotnet test --no-restore --collect:"XPlat Code Coverage" --results-directory ./TestResults
+      run: dotnet test --configuration Release --no-build --collect:"XPlat Code Coverage" --results-directory ./TestResults
     - name: Upload Test Fail Artifacts
       uses: actions/upload-artifact@v4
       if: failure()
@@ -56,6 +57,9 @@ jobs:
         name: coverage-report
         path: coveragereport
     - name: Set coverage commit status
+      # GITHUB_TOKEN is read-only for pull_request events from forks, so this
+      # write would fail there regardless of the `statuses: write` permission above.
+      if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository
       env:
         GH_TOKEN: ${{ github.token }}
       run: |
