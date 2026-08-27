@@ -73,6 +73,51 @@ namespace MaxLib.WebServer.Services
         public long MaxHeaderLength { get; set; } = 1_000_000; // 1 MB
 
         /// <summary>
+        /// The maximum request body size (in byte) that is automatically accepted without
+        /// consulting <see cref="ContentLengthLimitExceeded" />. A request whose declared
+        /// <c>Content-Length</c> exceeds this value triggers that callback (if one is registered)
+        /// to obtain a possibly higher limit for this specific request; if no callback is
+        /// registered, or the limit it returns is still exceeded, the request is rejected with
+        /// <see cref="HttpStateCode.RequestEntityTooLarge" /> and its connection is closed (the
+        /// client's body is never read, so the connection can't safely be reused). Set this to a
+        /// negative value to disable this base limit. Default is 100 MB (100 000 000 byte).
+        /// </summary>
+        public long MaxContentLength { get; set; } = 100_000_000; // 100 MB
+
+        /// <summary>
+        /// Called when an incoming request's declared <c>Content-Length</c> (the second argument)
+        /// exceeds <see cref="MaxContentLength" />. Return the content length limit to apply for
+        /// this specific request instead — or <c>null</c> to allow any size. If this is not set,
+        /// any request exceeding <see cref="MaxContentLength" /> is rejected outright. This allows
+        /// e.g. raising the limit for specific paths, users, or temporarily, without changing the
+        /// default for every other request.
+        /// </summary>
+        public Func<WebProgressTask, long, ValueTask<long?>>? ContentLengthLimitExceeded { get; set; }
+
+        /// <summary>
+        /// The fixed base component ("x") of the read timeout applied while receiving a request's
+        /// body. The full timeout is this value plus a size-dependent component derived from
+        /// <see cref="MinimumContentTransferRate" /> — see there for details. Unlike <see
+        /// cref="MaxContentLength" />, this value applies uniformly to every request and cannot be
+        /// overridden per-request. Default is 5 seconds.
+        /// </summary>
+        public TimeSpan ContentReadBaseTimeout { get; set; } = TimeSpan.FromSeconds(5);
+
+        /// <summary>
+        /// The minimum transmission speed (in byte/s) a client is assumed to sustain while sending
+        /// a request body. Used to derive the size-dependent component ("y") of the body read
+        /// timeout: <c>y = Content-Length / MinimumContentTransferRate</c>. The full timeout for a
+        /// request is <see cref="ContentReadBaseTimeout" /> + y, so a larger declared body is given
+        /// proportionally more time to arrive, while a client that stalls mid-upload is still
+        /// bounded rather than blocking the reader forever. Set this to zero or a negative value to
+        /// disable the size-dependent component (every request then only gets <see
+        /// cref="ContentReadBaseTimeout" />). Unlike <see cref="MaxContentLength" />, this value
+        /// applies uniformly to every request and cannot be overridden per-request. Default is
+        /// 16 000 byte/s (16 kB/s).
+        /// </summary>
+        public double MinimumContentTransferRate { get; set; } = 16_000; // 16 kB/s
+
+        /// <summary>
         /// This <see cref="WebService" /> reads the request and put their data in the current
         /// <see cref="WebProgressTask" />.
         /// </summary>
@@ -243,7 +288,7 @@ namespace MaxLib.WebServer.Services
             return true;
         }
 
-        protected virtual ValueTask<bool> LoadContent(WebProgressTask task, NetworkReader reader)
+        protected virtual async ValueTask<bool> LoadContent(WebProgressTask task, NetworkReader reader)
         {
             ArgumentNullException.ThrowIfNull(task);
 
@@ -262,22 +307,48 @@ namespace MaxLib.WebServer.Services
                 // connection alive would let those bytes be parsed as the header of the
                 // next request, so force the connection closed after this response
                 task.Request.FieldConnection = HttpConnectionType.Close;
-                return new ValueTask<bool>(false);
+                return false;
             }
 
             if (!task.Request.HeaderParameter.TryGetValue("Content-Length", out string? strLength))
-                return new ValueTask<bool>(true);
+                return true;
 
-            if (!int.TryParse(strLength, out int length) || length < 0)
+            if (!long.TryParse(strLength, out long length) || length < 0)
             {
                 logger.LogError(HeaderEventId, "Bad Request, invalid content length");
                 task.Response.StatusCode = HttpStateCode.BadRequest;
                 task.NextStage = ServerStage.CreateResponse;
-                return new ValueTask<bool>(false);
+                return false;
             }
 
-#pragma warning disable CA2000 // ownership transfers via SetPost into HttpPost.Content, disposed by HttpPost.Dispose()
-            var content = new IO.ContentStream(reader, length);
+            if (MaxContentLength >= 0 && length > MaxContentLength)
+            {
+                var allowedLength = ContentLengthLimitExceeded != null
+                    ? await ContentLengthLimitExceeded(task, length).ConfigureAwait(false)
+                    : MaxContentLength;
+                // allowedLength == null means the callback lifted the limit entirely
+                if (allowedLength != null && length > allowedLength.Value)
+                {
+                    logger.LogError(HeaderEventId, "Request Entity Too Large");
+                    task.Response.StatusCode = HttpStateCode.RequestEntityTooLarge;
+                    task.NextStage = ServerStage.CreateResponse;
+                    // the client's body is never read, so leftover bytes would corrupt
+                    // the next request on a reused connection
+                    task.Request.FieldConnection = HttpConnectionType.Close;
+                    return false;
+                }
+            }
+
+            // bound how long this request's body is given to arrive: a fixed base
+            // component plus a size-dependent one, so a stalled client can't pin the
+            // reader (and later, the drain-on-dispose) forever, regardless of how large
+            // (but still accepted) its declared Content-Length is
+            var timeout = ContentReadBaseTimeout + (MinimumContentTransferRate > 0
+                ? TimeSpan.FromSeconds(length / MinimumContentTransferRate)
+                : TimeSpan.Zero);
+
+#pragma warning disable CA2000 // ownership transfers via SetPost into HttpPost.Content, disposed by HttpPost.Dispose()/DisposeAsync()
+            var content = new IO.ContentStream(reader, length, timeout);
 
             task.Request.Post.SetPost(
                 task,
@@ -287,7 +358,7 @@ namespace MaxLib.WebServer.Services
             );
 #pragma warning restore CA2000
 
-            return new ValueTask<bool>(true);
+            return true;
         }
 
         public override async Task ProgressTask(WebProgressTask task)
@@ -295,8 +366,14 @@ namespace MaxLib.WebServer.Services
             _ = task ?? throw new ArgumentNullException(nameof(task));
             _ = task.NetworkStream ?? throw new ArgumentNullException(nameof(task));
 
-#pragma warning disable CA2000 // must not dispose: reader is captured by a lazily-read ContentStream and consumed after this method returns; also wraps the live connection stream
-            var reader = new NetworkReader(task.NetworkStream);
+            // leaveOpen: true — this reader wraps the live connection stream, whose
+            // lifetime is owned by the Server/HttpConnection (it is reused across
+            // Keep-Alive requests). ContentStream now disposes the NetworkReader it
+            // is given once the request body has been drained; without leaveOpen
+            // that would close the connection stream after every request that had a
+            // body, defeating Keep-Alive.
+#pragma warning disable CA2000 // must not dispose: reader is captured by a lazily-read ContentStream and consumed after this method returns
+            var reader = new NetworkReader(task.NetworkStream, leaveOpen: true);
 #pragma warning restore CA2000
             StringBuilder? debugBuilder = null;
 

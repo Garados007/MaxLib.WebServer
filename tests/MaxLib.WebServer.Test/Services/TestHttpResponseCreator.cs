@@ -1,4 +1,4 @@
-﻿using MaxLib.WebServer.Services;
+using MaxLib.WebServer.Services;
 using MaxLib.WebServer.Testing;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using System.Threading.Tasks;

@@ -1,10 +1,11 @@
+using System;
 using System.Threading.Tasks;
 
 #nullable enable
 
 namespace MaxLib.WebServer.Post
 {
-    public sealed class UnknownPostData : IPostData
+    public sealed class UnknownPostData : IPostData, IAsyncDisposable
     {
         public IO.ContentStream Data { get; private set; }
 
@@ -30,6 +31,11 @@ namespace MaxLib.WebServer.Post
         public void Dispose()
         {
             Data.Discard();
+        }
+
+        public async ValueTask DisposeAsync()
+        {
+            await Data.DiscardAsync().ConfigureAwait(false);
         }
     }
 }

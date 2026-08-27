@@ -47,6 +47,37 @@ Some of the current features of the web server are:
   a temporary measure; proper chunked request decoding, so such requests can be accepted instead
   of rejected, is planned for a future major version.
 
+## Request body size and read timeout
+
+`HttpRequestParser` bounds both how large a request body it accepts and how long it waits for
+one to arrive, so that an unbounded `Content-Length` combined with a client that stalls
+mid-upload can't pin a thread-pool thread forever (draining an unconsumed body on dispose is
+fully asynchronous — see `HttpPost.DisposeAsync()` — and bounded by the same timeout).
+
+- **`MaxContentLength`** (default 100 MB) is the body size every request is accepted under
+  without further checks. A request whose `Content-Length` exceeds it is rejected with
+  `413 Request Entity Too Large` — unless you set `ContentLengthLimitExceeded`.
+- **`ContentLengthLimitExceeded`** is an optional callback invoked with the current request and
+  its declared `Content-Length` whenever `MaxContentLength` is exceeded. Return a higher limit to
+  apply for just that request (e.g. based on the route or authenticated user), or `null` to allow
+  any size. If the callback isn't set, or the limit it returns is still exceeded, the request is
+  rejected the same way.
+- **`ContentReadBaseTimeout`** (default 5 s) and **`MinimumContentTransferRate`** (default
+  16 000 byte/s) together bound how long a request's body is given to arrive: the full timeout is
+  `ContentReadBaseTimeout + Content-Length / MinimumContentTransferRate`, so larger (but still
+  accepted) bodies get proportionally more time, while a stalled client is still bounded rather
+  than blocking the reader indefinitely. Unlike the size limit, this always applies uniformly —
+  there is no per-request override.
+
+Whenever a request is rejected for being too large, the connection is closed instead of kept
+alive, since the client's bytes are left completely unread. A body read that instead times out
+mid-request never closes the connection by itself — that could pre-empt a response the server was
+about to send on it, e.g. one reporting that very timeout — it only ever does once the response
+has actually been transmitted and any leftover POST data is being discarded to ready the
+connection for reuse (in `HttpSender`, right after sending); if that final drain times out, the
+connection is closed there instead of kept alive, since its position in the byte stream is by then
+unknown.
+
 ## Getting Started
 
 This will add MaxLib.WebServer to your project and create a basic server with basic functions.

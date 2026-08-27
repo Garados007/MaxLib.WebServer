@@ -12,11 +12,17 @@ namespace MaxLib.WebServer.Services
     /// <summary>
     /// WebServiceType.SendResponse: Sendet Response und Dokument, wenn vorhanden, an den Clienten.
     /// </summary>
+    /// <remarks>
+    /// Also discards any unread POST data once the response has been fully sent, readying the
+    /// connection for the next request. See <see cref="HttpResponseCreator" /> for why this
+    /// happens here and not earlier.
+    /// </remarks>
     public class HttpSender : WebService
     {
         static readonly ILogger logger = WebServerLog.LoggerFactory.CreateLogger<HttpSender>();
         static readonly EventId StatusCodeEventId = new(0, "StatusCode");
         static readonly EventId SendEventId = new(0, "Send");
+        static readonly EventId DisposeEventId = new(0, "Dispose");
 
         /// <summary>
         /// WebServiceType.SendResponse: Sendet Response und Dokument, wenn vorhanden, an den Clienten.
@@ -145,6 +151,22 @@ namespace MaxLib.WebServer.Services
             {
                 logger.LogError(SendEventId, "Connection closed by remote host.");
                 return;
+            }
+
+            // the response has been fully sent at this point, so it is now safe to discard
+            // any unread POST data (readying the connection for the next request) and, if
+            // that stalls past its configured timeout, to close the underlying connection —
+            // doing either any earlier could have prevented the response above from ever
+            // reaching the client (e.g. a timeout status meant to report exactly this)
+            try
+            {
+                await task.Request.Post.DisposeAsync().ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+                logger.LogWarning(DisposeEventId,
+                    "Timed out while disposing request content; closing the connection");
+                task.Request.FieldConnection = HttpConnectionType.Close;
             }
         }
 
