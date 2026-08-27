@@ -210,6 +210,34 @@ factory per protocol/endpoint that needs a different set of event types (or diff
 wire settings), and give each `EventConnection` subclass the factory instance
 appropriate to it.
 
+### Handling invalid incoming events
+
+A client can send a frame that isn't a valid event: malformed JSON, an
+unregistered `"$type"`, or JSON that doesn't match the shape of the type it
+names. `EventFactory.Parse(Frame)` reports these as one of three exception types
+(`MalformedEventJsonException`, `UnknownEventTypeException`,
+`InvalidEventPayloadException`, all deriving from `EventParseException`), and
+`EventConnection` routes each to its own overridable handler instead of dropping
+the frame silently:
+
+```csharp
+public class Connection : EventConnection
+{
+    // ...
+
+    protected override Task ReceivedUnknownEvent(Frame frame, UnknownEventTypeException exception)
+    {
+        // e.g. tell the client what went wrong instead of just logging it
+        return SendFrame(new ErrorEvent { Message = exception.Message });
+    }
+}
+```
+
+The default implementation of each handler (`ReceivedMalformedEvent`,
+`ReceivedUnknownEvent`, `ReceivedInvalidEventPayload`) just logs the error, so
+overriding only the ones you care about is safe — the rest keep their previous
+behavior.
+
 ## Example
 
 - [example/MaxLib.WebServer.Example](example/MaxLib.WebServer.Example)
