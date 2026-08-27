@@ -73,14 +73,17 @@ namespace MaxLib.WebServer.Test.Services
         [TestMethod]
         public async Task TestRequestParser_MultipartPost()
         {
+            // a real HTTP client always terminates every line - including the last one
+            // before a boundary - with a literal CRLF; that CRLF belongs to the boundary
+            // delimiter per RFC 2046 §5.1.1, not to the part's content, and must not show
+            // up in the parsed content
+            var content =
+                "-----1234\r\n" +
+                "Content-Type: text/plain\r\n" +
+                "\r\n" +
+                "Hello World\r\n" +
+                "-----1234--\r\n";
             var sb = new StringBuilder();
-            sb.AppendLine("-----1234");
-            sb.AppendLine("Content-Type: text/plain");
-            sb.AppendLine();
-            sb.Append("Hello World");
-            sb.AppendLine("-----1234--");
-            var content = sb.ToString();
-            sb.Clear();
             sb.AppendLine("POST /test.html HTTP/1.1");
             sb.AppendLine("Host: testdomain.local");
             sb.AppendLine($"Content-Length: {content.Length}");
@@ -107,6 +110,41 @@ namespace MaxLib.WebServer.Test.Services
                 Assert.AreEqual("Hello World",
                     Encoding.UTF8.GetString(data.Entries[0].Content.Value.ToArray())
                 );
+            }
+        }
+
+        [TestMethod]
+        public async Task TestRequestParser_MultipartPost_BinaryContentIsNotCorrupted()
+        {
+            // every byte value 0x00-0x7F, including embedded CR/LF bytes that are not part
+            // of a boundary delimiter - the parser must not stop early on those, and must
+            // return the content byte-for-byte with no trailing CRLF appended or stripped
+            var contentBytes = new byte[128];
+            for (var i = 0; i < contentBytes.Length; ++i)
+                contentBytes[i] = (byte)i;
+            var binaryPart = new string(Array.ConvertAll(contentBytes, b => (char)b));
+
+            var content =
+                "-----1234\r\n" +
+                "Content-Type: application/octet-stream\r\n" +
+                "\r\n" +
+                binaryPart + "\r\n" +
+                "-----1234--\r\n";
+            var sb = new StringBuilder();
+            sb.AppendLine("POST /test.html HTTP/1.1");
+            sb.AppendLine("Host: testdomain.local");
+            sb.AppendLine($"Content-Length: {content.Length}");
+            sb.AppendLine("Content-Type: multipart/form-data; boundary=---1234");
+            sb.AppendLine();
+            sb.Append(content);
+            using (var output = test.SetStream(sb.ToString()))
+            {
+                await new HttpRequestParser().ProgressTask(test.Task).ConfigureAwait(false);
+                Assert.IsTrue(test.Request.Post.Data is Post.MultipartFormData);
+                var data = (Post.MultipartFormData)test.Request.Post.Data;
+                Assert.AreEqual(1, data.Entries.Count);
+                Assert.IsTrue(data.Entries[0].Content.HasValue);
+                CollectionAssert.AreEqual(contentBytes, data.Entries[0].Content.Value.ToArray());
             }
         }
 
