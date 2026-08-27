@@ -246,6 +246,25 @@ namespace MaxLib.WebServer.Services
         protected virtual ValueTask<bool> LoadContent(WebProgressTask task, NetworkReader reader)
         {
             ArgumentNullException.ThrowIfNull(task);
+
+            // Transfer-Encoding request bodies are not supported (there is no chunked
+            // decoder), and honoring Content-Length while ignoring Transfer-Encoding (or
+            // vice versa) enables request smuggling against a front-end proxy that
+            // interprets the two differently (RFC 7230 §3.3.3). Reject outright until
+            // chunked request decoding is implemented; this also covers a request that
+            // sends both headers at once.
+            if (task.Request.HeaderParameter.ContainsKey("Transfer-Encoding"))
+            {
+                logger.LogError(HeaderEventId, "Transfer-Encoding is not supported");
+                task.Response.StatusCode = HttpStateCode.NotImplemented;
+                task.NextStage = ServerStage.CreateResponse;
+                // the request's body (if any) is left unread on the socket; keeping the
+                // connection alive would let those bytes be parsed as the header of the
+                // next request, so force the connection closed after this response
+                task.Request.FieldConnection = HttpConnectionType.Close;
+                return new ValueTask<bool>(false);
+            }
+
             if (!task.Request.HeaderParameter.TryGetValue("Content-Length", out string? strLength))
                 return new ValueTask<bool>(true);
 
