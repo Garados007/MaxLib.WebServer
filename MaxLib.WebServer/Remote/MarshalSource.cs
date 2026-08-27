@@ -6,7 +6,19 @@ using System.Threading.Tasks;
 
 namespace MaxLib.WebServer.Remote
 {
+    /// <summary>
+    /// Marshals an <see cref="HttpDataSource" /> across an <see cref="AppDomain" /> boundary.
+    /// </summary>
+    /// <remarks>
+    /// Cross-<see cref="AppDomain" /> remoting via <see cref="MarshalByRefObject" /> is not
+    /// supported on .NET (Core) 5+ and does not function on this library's net8.0/net10.0
+    /// targets - <see cref="AppDomain.CreateDomain(string)" /> throws
+    /// <see cref="PlatformNotSupportedException" /> at runtime. This type is kept for source
+    /// compatibility only and will be removed in a future major version.
+    /// </remarks>
     [Serializable]
+    [Obsolete("Cross-AppDomain remoting is not supported on .NET (Core) 5+ and this type does " +
+        "not function on net8.0/net10.0. It will be removed in a future major version.")]
     public class MarshalSource : HttpDataSource
     {
         public bool IsLazy => Container.IsLazy();

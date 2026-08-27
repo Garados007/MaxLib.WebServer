@@ -7,6 +7,15 @@ using System.Threading.Tasks;
 
 namespace MaxLib.WebServer.Remote
 {
+    /// <summary>
+    /// Backing <see cref="MarshalByRefObject" /> for <see cref="MarshalSource" />.
+    /// </summary>
+    /// <remarks>
+    /// See the remarks on <see cref="MarshalSource" /> - this type shares the same
+    /// cross-AppDomain limitation and will be removed alongside it.
+    /// </remarks>
+    [Obsolete("Cross-AppDomain remoting is not supported on .NET (Core) 5+ and this type does " +
+        "not function on net8.0/net10.0. It will be removed in a future major version.")]
     internal class MarshalContainer : MarshalByRefObject
     {
         public HttpDataSource? Origin { get; private set; }

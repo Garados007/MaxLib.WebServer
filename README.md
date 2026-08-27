@@ -28,7 +28,6 @@ Some of the current features of the web server are:
 - Chunked transport. The server understands chunked data streams and can produce these.
 - Lazy handling of requests. The server allows you to produce the content while you are sending the
   response. No need to wait.
-- Work with components that belongs to another AppDomain with Marshaling.
 - Deliver contents from your local drive (e.g. HDD)
 - Session keeping. You can identify the user later.
 - ...
