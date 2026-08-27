@@ -1,4 +1,5 @@
 using System;
+using System.Security.Cryptography;
 using System.Threading.Tasks;
 
 #nullable enable
@@ -19,8 +20,6 @@ namespace MaxLib.WebServer.Sessions
 
         public override bool CanWorkWith(WebProgressTask task)
             => true;
-
-        Random random = new Random();
 
         public string CookiePath { get; set; } = "/";
 
@@ -65,7 +64,7 @@ namespace MaxLib.WebServer.Sessions
             var key = new byte[16];
             while (true)
             {
-                random.NextBytes(key);
+                RandomNumberGenerator.Fill(key);
                 var stringKey = Convert.ToBase64String(key);
                 if (await IsKeyAvailable(stringKey).ConfigureAwait(false))
                     return stringKey;
