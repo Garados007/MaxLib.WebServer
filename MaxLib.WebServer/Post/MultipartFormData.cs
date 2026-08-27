@@ -144,14 +144,28 @@ namespace MaxLib.WebServer.Post
             var match = boundaryRegex().Match(options);
             var boundary = match.Success ? match.Groups["name"].Value : "";
             boundary = $"--{boundary}";
-            ReadOnlyMemory<byte> rawBoundary = Encoding.UTF8.GetBytes(boundary);
+            ReadOnlyMemory<byte> rawBoundary = Encoding.UTF8.GetBytes("\r\n" + boundary);
 
             Entries.Clear();
             using var reader = new NetworkReader(content, null, true);
 
             // parse the content
+            var firstPart = true;
             while (true)
             {
+                if (!firstPart)
+                {
+                    // consume the CRLF that precedes this boundary; it was left unread by
+                    // the previous ReadUntilAsync call, since it is now part of the search
+                    // marking above rather than the previous part's content. The very
+                    // first boundary of the body has no preceding CRLF to consume (per RFC
+                    // 2046, it may be the first line of the body).
+                    var crlf = await reader.ReadBytesAsync(2).ConfigureAwait(false);
+                    if (crlf.Length != 2 || crlf[0] != (byte)'\r' || crlf[1] != (byte)'\n')
+                        break;
+                }
+                firstPart = false;
+
                 // expect boundary
                 if (await reader.ReadLineAsync().ConfigureAwait(false) != boundary)
                     break;
