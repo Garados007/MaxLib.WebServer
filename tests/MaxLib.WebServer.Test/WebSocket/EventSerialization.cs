@@ -84,13 +84,46 @@ namespace MaxLib.WebServer.Test.WebSocket
         }
 
         [TestMethod]
-        public void ParseUnregisteredTypeThrowsJsonException()
+        public void ParseUnregisteredTypeThrowsUnknownEventTypeException()
         {
             var factory = new EventFactory();
             factory.Add<PingEvent>();
             var frame = FrameFromJson("{\"$type\":\"NotRegistered\"}");
 
-            Assert.ThrowsExactly<JsonException>(() => factory.Parse(frame));
+            var e = Assert.ThrowsExactly<UnknownEventTypeException>(() => factory.Parse(frame));
+            Assert.AreEqual("NotRegistered", e.EventTypeName);
+        }
+
+        [TestMethod]
+        public void ParseMissingTypeDiscriminatorThrowsUnknownEventTypeException()
+        {
+            var factory = new EventFactory();
+            factory.Add<PingEvent>();
+            var frame = FrameFromJson("{\"sequence\":1}");
+
+            var e = Assert.ThrowsExactly<UnknownEventTypeException>(() => factory.Parse(frame));
+            Assert.IsNull(e.EventTypeName);
+        }
+
+        [TestMethod]
+        public void ParseMalformedJsonThrowsMalformedEventJsonException()
+        {
+            var factory = new EventFactory();
+            factory.Add<PingEvent>();
+            var frame = FrameFromJson("{ this is not json");
+
+            Assert.ThrowsExactly<MalformedEventJsonException>(() => factory.Parse(frame));
+        }
+
+        [TestMethod]
+        public void ParseValidTypeWithBadPayloadThrowsInvalidEventPayloadException()
+        {
+            var factory = new EventFactory();
+            factory.Add<PingEvent>();
+            var frame = FrameFromJson("{\"$type\":\"PingEvent\",\"Sequence\":\"not-a-number\"}");
+
+            var e = Assert.ThrowsExactly<InvalidEventPayloadException>(() => factory.Parse(frame));
+            Assert.AreEqual("PingEvent", e.EventTypeName);
         }
 
         [TestMethod]
@@ -99,6 +132,17 @@ namespace MaxLib.WebServer.Test.WebSocket
             var factory = new EventFactory();
             factory.Add<PingEvent>();
             var frame = FrameFromJson("{\"$type\":\"NotRegistered\"}");
+
+            Assert.IsFalse(factory.TryParse(frame, out var @event));
+            Assert.IsNull(@event);
+        }
+
+        [TestMethod]
+        public void TryParseMalformedJsonReturnsFalse()
+        {
+            var factory = new EventFactory();
+            factory.Add<PingEvent>();
+            var frame = FrameFromJson("{ this is not json");
 
             Assert.IsFalse(factory.TryParse(frame, out var @event));
             Assert.IsNull(@event);

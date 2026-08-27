@@ -23,7 +23,6 @@ namespace MaxLib.WebServer.WebSocket
     public class EventFactory
     {
         static readonly ILogger logger = WebServerLog.LoggerFactory.CreateLogger<EventFactory>();
-        static readonly EventId ParseErrorEventId = new(0, "parse error");
         static readonly EventId WriteJsonEventId = new(0, "write json");
 
         readonly Dictionary<string, Type> registry = [];
@@ -123,12 +122,71 @@ namespace MaxLib.WebServer.WebSocket
             return options;
         }
 
+        /// <summary>
+        /// Parses a <see cref="Frame" /> payload into the <see cref="EventBase" /> its "$type"
+        /// discriminator names.
+        /// </summary>
+        /// <exception cref="MalformedEventJsonException">
+        /// The payload is not syntactically valid JSON.
+        /// </exception>
+        /// <exception cref="UnknownEventTypeException">
+        /// The payload's "$type" discriminator is missing or does not match any event type
+        /// registered via <see cref="Add{T}()" />/<see cref="Add(string, Type)" />.
+        /// </exception>
+        /// <exception cref="InvalidEventPayloadException">
+        /// The "$type" discriminator names a registered event type, but the payload could not be
+        /// mapped onto it.
+        /// </exception>
         public EventBase? Parse(Frame frame)
         {
             _ = frame ?? throw new ArgumentNullException(nameof(frame));
-            return JsonSerializer.Deserialize<EventBase>(frame.Payload.Span, Options);
+            try
+            {
+                return JsonSerializer.Deserialize<EventBase>(frame.Payload.Span, Options);
+            }
+            catch (Exception e) when (e is JsonException or NotSupportedException)
+            {
+                // Deserialize() already did the real parsing work above; this only runs on the
+                // (rare) failure path, to classify *why* it failed. Re-parsing the payload here
+                // to inspect "$type" is wasted work on every successful message otherwise.
+                throw ClassifyParseFailure(frame, e);
+            }
         }
 
+        EventParseException ClassifyParseFailure(Frame frame, Exception original)
+        {
+            JsonDocument doc;
+            try
+            {
+                doc = JsonDocument.Parse(frame.Payload);
+            }
+            catch (JsonException e)
+            {
+                return new MalformedEventJsonException(e);
+            }
+
+            string? typeName;
+            using (doc)
+            {
+                typeName = doc.RootElement.ValueKind == JsonValueKind.Object &&
+                    doc.RootElement.TryGetProperty("$type", out var typeProp) &&
+                    typeProp.ValueKind == JsonValueKind.String
+                        ? typeProp.GetString()
+                        : null;
+            }
+
+            if (typeName == null || !registry.ContainsKey(typeName))
+                return new UnknownEventTypeException(typeName);
+
+            return new InvalidEventPayloadException(typeName, original);
+        }
+
+        /// <summary>
+        /// Like <see cref="Parse(Frame)" />, but reports a parse failure as a <see langword="false" />
+        /// return instead of a thrown <see cref="EventParseException" />. Use <see cref="Parse(Frame)" />
+        /// directly (or override the handlers on <see cref="EventConnection" />) when the reason for
+        /// the failure matters.
+        /// </summary>
         public bool TryParse(Frame frame, [NotNullWhen(true)] out EventBase? @event)
         {
             _ = frame ?? throw new ArgumentNullException(nameof(frame));
@@ -137,9 +195,8 @@ namespace MaxLib.WebServer.WebSocket
                 @event = Parse(frame);
                 return @event != null;
             }
-            catch (Exception e)
+            catch (EventParseException)
             {
-                logger.LogError(ParseErrorEventId, e, "Error parsing WebSocket frame");
                 @event = null;
                 return false;
             }
