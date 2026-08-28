@@ -8,7 +8,7 @@ using MaxLib.WebServer.Post;
 namespace MaxLib.WebServer
 {
     [Serializable]
-    public class HttpPost : IDisposable
+    public class HttpPost : IDisposable, IAsyncDisposable
     {
         public string? MimeType { get; private set; }
 
@@ -103,6 +103,36 @@ namespace MaxLib.WebServer
                 });
             }
             Content?.Dispose();
+        }
+
+        /// <summary>
+        /// Disposes the resolved <see cref="IPostData" /> (if one was ever requested via <see
+        /// cref="Data" />/<see cref="DataAsync" />) and the underlying request content, without
+        /// blocking a thread on a synchronous socket read while doing so. Prefer this over <see
+        /// cref="Dispose" />, which cannot wait for the (possibly still in-flight) <see
+        /// cref="IPostData" /> to finish parsing before disposing it.
+        /// </summary>
+        /// <remarks>
+        /// Only call this once nothing further needs the request's connection — in
+        /// particular, only after any response on it has already been sent (see <see
+        /// cref="Services.HttpSender" />, which does exactly this). If the underlying drain
+        /// is cancelled (e.g. a read timeout), <see cref="IO.ContentStream.DisposeAsync" />
+        /// closes that connection; doing so any earlier could prevent a response from ever
+        /// reaching the client.
+        /// </remarks>
+        public async ValueTask DisposeAsync()
+        {
+            GC.SuppressFinalize(this);
+            if (LazyData != null && LazyData.IsValueCreated)
+            {
+                var data = await LazyData.Value.ConfigureAwait(false);
+                if (data is IAsyncDisposable asyncDisposable)
+                    await asyncDisposable.DisposeAsync().ConfigureAwait(false);
+                else
+                    data.Dispose();
+            }
+            if (Content != null)
+                await Content.DisposeAsync().ConfigureAwait(false);
         }
     }
 }
