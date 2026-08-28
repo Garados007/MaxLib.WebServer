@@ -25,6 +25,7 @@ namespace MaxLib.WebServer
         static readonly EventId ConnectionEventId = new(0, "Connection");
         static readonly EventId UnhandledExceptionEventId = new(0, "Unhandled Exception");
         static readonly EventId RuntimeExceptionEventId = new(0, "runtime exception");
+        static readonly EventId FallbackResponseEventId = new(0, "Fallback response");
         static readonly EventId CancelEventId = new(0, "cancel");
 
         /// <summary>
@@ -296,8 +297,25 @@ namespace MaxLib.WebServer
                     return;
                 }
 
-                var start = task.Monitor.Enabled ? DateTime.UtcNow : DateTime.MinValue;
+                await ProcessTask(task, connection).ConfigureAwait(false);
+            }
+            else RemoveConnection(connection);
+        }
 
+        /// <summary>
+        /// Runs <paramref name="task"/> through the whole service chain and then applies the
+        /// resulting connection bookkeeping (Keep-Alive registration, protocol switch, or
+        /// removal).
+        /// </summary>
+        protected virtual async Task ProcessTask(WebProgressTask task, HttpConnection connection)
+        {
+            _ = task ?? throw new ArgumentNullException(nameof(task));
+            _ = connection ?? throw new ArgumentNullException(nameof(connection));
+
+            var start = task.Monitor.Enabled ? DateTime.UtcNow : DateTime.MinValue;
+
+            try
+            {
                 try
                 {
                     await ExecuteTaskChain(task).ConfigureAwait(false);
@@ -306,36 +324,75 @@ namespace MaxLib.WebServer
                 {
                     task.Monitor.Current.Log("Unhandled exception: {0}", e);
                     logger.LogError(RuntimeExceptionEventId, e, "Unhandled exception");
-                    throw;
+                    await SendFallbackErrorResponse(task).ConfigureAwait(false);
                 }
-                finally
-                {
+            }
+            finally
+            {
 
-                    if (Settings.MonitoringOutputDirectory is string monitorOut && task.Monitor.Enabled)
-                        await task.Monitor.Save(monitorOut, start, task).ConfigureAwait(false);
+                if (Settings.MonitoringOutputDirectory is string monitorOut && task.Monitor.Enabled)
+                    await task.Monitor.Save(monitorOut, start, task).ConfigureAwait(false);
 
-                }
+            }
 
-                if (task.SwitchProtocolHandler != null)
-                {
-                    KeepAliveConnections.Remove(connection);
-                    AllConnections.Remove(connection);
-                    task.Dispose();
-                    _ = task.SwitchProtocolHandler();
-                    return;
-                }
-
-                if (task.Request.FieldConnection == HttpConnectionType.KeepAlive)
-                {
-                    if (!KeepAliveConnections.Contains(connection))
-                        KeepAliveConnections.Add(connection);
-                }
-                else RemoveConnection(connection);
-
-                connection.LastWorkTime = Environment.TickCount;
+            if (task.SwitchProtocolHandler != null)
+            {
+                KeepAliveConnections.Remove(connection);
+                AllConnections.Remove(connection);
                 task.Dispose();
+                _ = task.SwitchProtocolHandler();
+                return;
+            }
+
+            if (task.Request.FieldConnection == HttpConnectionType.KeepAlive)
+            {
+                if (!KeepAliveConnections.Contains(connection))
+                    KeepAliveConnections.Add(connection);
             }
             else RemoveConnection(connection);
+
+            connection.LastWorkTime = Environment.TickCount;
+            task.Dispose();
+        }
+
+        /// <summary>
+        /// Best-effort recovery for an exception that escaped <see cref="ExecuteTaskChain" />
+        /// without ever being turned into a response. If the response hasn't started sending yet
+        /// (<see cref="ServerStage.SendResponse" /> hasn't run), this discards whatever partial
+        /// document was built so far, forces a <see cref="HttpStateCode.InternalServerError" />
+        /// status, and replays <see cref="ServerStage.CreateResponse" /> through <see
+        /// cref="ServerStage.Cleanup" /> to actually build and send that response. The connection
+        /// is always marked to close afterwards, because its state is unknown (a handler could have
+        /// consumed part of the request body, for example) and reusing it for a further request
+        /// isn't safe.
+        /// </summary>
+        /// <remarks>
+        /// If <see cref="ServerStage.SendResponse" /> already ran (or is running) when the
+        /// exception happened, bytes may already be on the wire, so no further response is
+        /// attempted. Doing so could corrupt whatever was already sent.
+        /// </remarks>
+        protected virtual async Task SendFallbackErrorResponse(WebProgressTask task)
+        {
+            _ = task ?? throw new ArgumentNullException(nameof(task));
+
+            task.Request.FieldConnection = HttpConnectionType.Close;
+            if (task.CurrentStage >= ServerStage.SendResponse || task.NetworkStream == null)
+                return;
+
+            task.Document.Dispose();
+            task.Response.StatusCode = HttpStateCode.InternalServerError;
+            task.CurrentStage = ServerStage.CreateResponse;
+            task.NextStage = ServerStage.SendResponse;
+
+            try
+            {
+                await ExecuteTaskChain(task).ConfigureAwait(false);
+            }
+            catch (Exception e)
+            {
+                logger.LogError(FallbackResponseEventId, e,
+                    "Failed to send a fallback error response after an unhandled exception");
+            }
         }
 
         protected void RemoveConnection(HttpConnection connection)
