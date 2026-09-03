@@ -131,22 +131,16 @@ namespace MaxLib.WebServer.WebSocket
                             else
                             {
                                 payloadQueue.Enqueue(frame.Payload);
-                                long maxSize = payloadQueue.Sum(x => (long)x.Length);
-                                if (maxSize > int.MaxValue)
+                                var payload = TryReassembleFragmentedPayload(payloadQueue);
+                                if (payload == null)
                                 {
+                                    long maxSize = payloadQueue.Sum(x => (long)x.Length);
                                     await Close(CloseReason.TooBigMessage,
                                         $"the payload of all frames add up to {maxSize}. Only {int.MaxValue} is allowed."
                                     ).ConfigureAwait(false);
+                                    return;
                                 }
-                                Memory<byte> payload = new byte[maxSize];
-                                int start = 0;
-                                while (payloadQueue.Count > 0)
-                                {
-                                    var item = payloadQueue.Dequeue();
-                                    item.CopyTo(payload.Slice(start, item.Length));
-                                    start += item.Length;
-                                }
-                                frame.Payload = payload;
+                                frame.Payload = payload.Value;
                                 frame.OpCode = code;
                                 await ReceivedFrame(frame).ConfigureAwait(false);
                             }
@@ -172,6 +166,30 @@ namespace MaxLib.WebServer.WebSocket
 
             await Task.WhenAll(receiver, pinger).ConfigureAwait(false);
             Closed?.Invoke(this, EventArgs.Empty);
+        }
+
+        /// <summary>
+        /// Reassembles the queued fragments of the current message into one contiguous buffer. A
+        /// <see cref="Memory{T}" /> can never represent more than <see cref="int.MaxValue" />
+        /// bytes, so if the queued payloads add up to more than that, this returns <c>null</c>. The
+        /// queue is left untouched in that case, so the caller can still inspect it (e.g. to report
+        /// the total size back to the client) before discarding it.
+        /// </summary>
+        internal static Memory<byte>? TryReassembleFragmentedPayload(Queue<Memory<byte>> payloadQueue)
+        {
+            _ = payloadQueue ?? throw new ArgumentNullException(nameof(payloadQueue));
+            long maxSize = payloadQueue.Sum(x => (long)x.Length);
+            if (maxSize > int.MaxValue)
+                return null;
+            Memory<byte> payload = new byte[maxSize];
+            int start = 0;
+            while (payloadQueue.Count > 0)
+            {
+                var item = payloadQueue.Dequeue();
+                item.CopyTo(payload.Slice(start, item.Length));
+                start += item.Length;
+            }
+            return payload;
         }
 
         protected virtual async Task SendFrame(Frame frame)
