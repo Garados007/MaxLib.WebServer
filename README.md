@@ -26,57 +26,13 @@ Some of the current features of the web server are:
 - Asynchronous handling of requests. Every part of the pipeline works with awaitable Tasks.
 - REST Api builder. You can directly bind your methods to the handlers.
 - Chunked transport. The server understands chunked data streams and can produce these on
-  responses. Chunked **request** bodies are not supported yet — see "HTTP protocol limitations"
+  responses. Chunked **request** bodies are not supported yet - see "HTTP protocol limitations"
   below.
 - Lazy handling of requests. The server allows you to produce the content while you are sending the
   response. No need to wait.
 - Deliver contents from your local drive (e.g. HDD)
 - Session keeping. You can identify the user later.
 - ...
-
-## HTTP protocol limitations
-
-- **Chunked request bodies (`Transfer-Encoding`) are not supported.** The request parser only
-  reads a body when `Content-Length` is present, and there is no chunked-request decoder. Silently
-  treating a `Transfer-Encoding: chunked` request as bodiless would desync the connection and — if
-  the server sits behind a front-end proxy that honors `Transfer-Encoding` — can enable HTTP request
-  smuggling. As a mitigation, any request carrying a `Transfer-Encoding` header (alone, or together
-  with `Content-Length`) is rejected outright with `501 Not Implemented` before its body is read.
-  Since that body is left unread on the socket, the connection is also closed afterwards instead
-  of kept alive, so those unread bytes can't be misread as the start of the next request. This is
-  a temporary measure; proper chunked request decoding, so such requests can be accepted instead
-  of rejected, is planned for a future major version.
-
-## Request body size and read timeout
-
-`HttpRequestParser` bounds both how large a request body it accepts and how long it waits for
-one to arrive, so that an unbounded `Content-Length` combined with a client that stalls
-mid-upload can't pin a thread-pool thread forever (draining an unconsumed body on dispose is
-fully asynchronous — see `HttpPost.DisposeAsync()` — and bounded by the same timeout).
-
-- **`MaxContentLength`** (default 100 MB) is the body size every request is accepted under
-  without further checks. A request whose `Content-Length` exceeds it is rejected with
-  `413 Request Entity Too Large` — unless you set `ContentLengthLimitExceeded`.
-- **`ContentLengthLimitExceeded`** is an optional callback invoked with the current request and
-  its declared `Content-Length` whenever `MaxContentLength` is exceeded. Return a higher limit to
-  apply for just that request (e.g. based on the route or authenticated user), or `null` to allow
-  any size. If the callback isn't set, or the limit it returns is still exceeded, the request is
-  rejected the same way.
-- **`ContentReadBaseTimeout`** (default 5 s) and **`MinimumContentTransferRate`** (default
-  16 000 byte/s) together bound how long a request's body is given to arrive: the full timeout is
-  `ContentReadBaseTimeout + Content-Length / MinimumContentTransferRate`, so larger (but still
-  accepted) bodies get proportionally more time, while a stalled client is still bounded rather
-  than blocking the reader indefinitely. Unlike the size limit, this always applies uniformly —
-  there is no per-request override.
-
-Whenever a request is rejected for being too large, the connection is closed instead of kept
-alive, since the client's bytes are left completely unread. A body read that instead times out
-mid-request never closes the connection by itself — that could pre-empt a response the server was
-about to send on it, e.g. one reporting that very timeout — it only ever does once the response
-has actually been transmitted and any leftover POST data is being discarded to ready the
-connection for reuse (in `HttpSender`, right after sending); if that final drain times out, the
-connection is closed there instead of kept alive, since its position in the byte stream is by then
-unknown.
 
 ## Getting Started
 
@@ -157,7 +113,9 @@ After that you can run your programm and open the page
 
 > More information about the new builder system can be found [here](https://github.com/Garados007/MaxLib.WebServer/wiki/Builder-System)
 
-## Logging
+## Advanced usage
+
+### Logging
 
 `MaxLib.WebServer` logs exclusively through the standard
 [`Microsoft.Extensions.Logging.ILogger`](https://learn.microsoft.com/en-us/dotnet/core/extensions/logging)
@@ -183,14 +141,45 @@ using var server = new Server(new WebServerSettings(8000, 5000));
 // ...
 ```
 
-## WebSocket Events
+### Request body size and read timeout
+
+`HttpRequestParser` bounds both how large a request body it accepts and how long it waits for
+one to arrive, so that an unbounded `Content-Length` combined with a client that stalls
+mid-upload can't pin a thread-pool thread forever (draining an unconsumed body on dispose is
+fully asynchronous - see `HttpPost.DisposeAsync()` - and bounded by the same timeout).
+
+- **`MaxContentLength`** (default 100 MB) is the body size every request is accepted under
+  without further checks. A request whose `Content-Length` exceeds it is rejected with
+  `413 Request Entity Too Large` - unless you set `ContentLengthLimitExceeded`.
+- **`ContentLengthLimitExceeded`** is an optional callback invoked with the current request and
+  its declared `Content-Length` whenever `MaxContentLength` is exceeded. Return a higher limit to
+  apply for just that request (e.g. based on the route or authenticated user), or `null` to allow
+  any size. If the callback isn't set, or the limit it returns is still exceeded, the request is
+  rejected the same way.
+- **`ContentReadBaseTimeout`** (default 5 s) and **`MinimumContentTransferRate`** (default
+  16 000 byte/s) together bound how long a request's body is given to arrive: the full timeout is
+  `ContentReadBaseTimeout + Content-Length / MinimumContentTransferRate`, so larger (but still
+  accepted) bodies get proportionally more time, while a stalled client is still bounded rather
+  than blocking the reader indefinitely. Unlike the size limit, this always applies uniformly -
+  there is no per-request override.
+
+Whenever a request is rejected for being too large, the connection is closed instead of kept
+alive, since the client's bytes are left completely unread. A body read that instead times out
+mid-request never closes the connection by itself - that could pre-empt a response the server was
+about to send on it, e.g. one reporting that very timeout - it only ever does once the response
+has actually been transmitted and any leftover POST data is being discarded to ready the
+connection for reuse (in `HttpSender`, right after sending); if that final drain times out, the
+connection is closed there instead of kept alive, since its position in the byte stream is by then
+unknown.
+
+### WebSocket Events
 
 `MaxLib.WebServer.WebSocket` includes `EventBase`/`EventFactory`, a small typed-message
 layer on top of raw WebSocket frames. Events are plain classes, and
 `System.Text.Json`'s native polymorphic serialization takes care of reading/writing
-the `"$type"` discriminator and the rest of the payload — no custom converters needed.
+the `"$type"` discriminator and the rest of the payload - no custom converters needed.
 
-### Registering events
+#### Registering events
 
 Subclass `EventBase` with public properties, create an `EventFactory`, and register
 your event types before using it:
@@ -212,15 +201,15 @@ factory.Add<ChatMessage>();              // wire "$type" defaults to the class n
 ```
 
 All event types must be registered before the factory's first use (its registry is
-sealed on first serialize/deserialize) — register everything once at startup.
+sealed on first serialize/deserialize) - register everything once at startup.
 
-### Automatic registration
+#### Automatic registration
 
 There is no attribute-scanning or assembly discovery: declaring an `EventBase`
 subclass alone does not register it. Every event type must be added explicitly via
 `Add<T>()`/`Add<T>(string)`/`Add(string, Type)`.
 
-### Customizing the wire format
+#### Customizing the wire format
 
 Use standard `System.Text.Json` attributes directly on your event's properties:
 
@@ -248,15 +237,15 @@ var factory = new EventFactory(new JsonSerializerOptions
 See Microsoft's [System.Text.Json property customization documentation](https://learn.microsoft.com/en-us/dotnet/standard/serialization/system-text-json/customize-properties)
 for the full set of supported attributes and options.
 
-### Multiple factories
+#### Multiple factories
 
 Each `EventFactory` instance has its own independent type registry and
-`JsonSerializerOptions` — nothing is shared statically between instances. Create one
+`JsonSerializerOptions` - nothing is shared statically between instances. Create one
 factory per protocol/endpoint that needs a different set of event types (or different
 wire settings), and give each `EventConnection` subclass the factory instance
 appropriate to it.
 
-### Handling invalid incoming events
+#### Handling invalid incoming events
 
 A client can send a frame that isn't a valid event: malformed JSON, an
 unregistered `"$type"`, or JSON that doesn't match the shape of the type it
@@ -281,7 +270,7 @@ public class Connection : EventConnection
 
 The default implementation of each handler (`ReceivedMalformedEvent`,
 `ReceivedUnknownEvent`, `ReceivedInvalidEventPayload`) just logs the error, so
-overriding only the ones you care about is safe — the rest keep their previous
+overriding only the ones you care about is safe - the rest keep their previous
 behavior.
 
 ## Example
