@@ -26,8 +26,7 @@ Some of the current features of the web server are:
 - Asynchronous handling of requests. Every part of the pipeline works with awaitable Tasks.
 - REST Api builder. You can directly bind your methods to the handlers.
 - Chunked transport. The server understands chunked data streams and can produce these on
-  responses. Chunked **request** bodies are not supported yet - see "HTTP protocol limitations"
-  below.
+  responses. Chunked **request** bodies are not supported yet.
 - Lazy handling of requests. The server allows you to produce the content while you are sending the
   response. No need to wait.
 - Deliver contents from your local drive (e.g. HDD)
