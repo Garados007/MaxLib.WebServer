@@ -2,7 +2,9 @@ using MaxLib.WebServer.Sessions;
 using MaxLib.WebServer.Testing;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using System;
+using System.IO;
 using System.Linq;
+using System.Net.Security;
 using System.Threading.Tasks;
 
 namespace MaxLib.WebServer.Test.Sessions
@@ -142,6 +144,95 @@ namespace MaxLib.WebServer.Test.Sessions
             Assert.AreSame(rotated, test.Task.Session);
             Assert.AreEqual("hello", rotated["marker"]);
             Assert.IsTrue(service.Sessions.ContainsKey(newKey));
+        }
+
+        [TestMethod]
+        public async Task TestSessionCookieDefaultsToLaxRulesOverPlainConnection()
+        {
+            var server = new TestWebServer();
+            var service = new MemorySessionService();
+            server.AddWebService(service);
+            var test = new TestTask(server)
+            {
+                CurrentStage = ServerStage.ParseRequest,
+                TerminationStage = ServerStage.ParseRequest,
+            };
+            // WebServerTaskCreator already sets a plain MemoryStream - not an SslStream
+
+            await service.ProgressTask(test.Task).ConfigureAwait(false);
+
+            var cookie = test.GetAddedCookies().Single().Item2;
+            Assert.IsTrue(cookie.HttpOnly);
+            Assert.IsFalse(cookie.Secure);
+            Assert.AreEqual(HttpCookie.SameSiteMode.Lax, cookie.SameSite);
+        }
+
+        [TestMethod]
+        public async Task TestSessionCookieDefaultsToStrictRulesOverAnEncryptedConnection()
+        {
+            var server = new TestWebServer();
+            var service = new MemorySessionService();
+            server.AddWebService(service);
+            var test = new TestTask(server)
+            {
+                CurrentStage = ServerStage.ParseRequest,
+                TerminationStage = ServerStage.ParseRequest,
+            };
+            test.Task.NetworkStream = new SslStream(new MemoryStream());
+
+            await service.ProgressTask(test.Task).ConfigureAwait(false);
+
+            var cookie = test.GetAddedCookies().Single().Item2;
+            Assert.IsTrue(cookie.HttpOnly);
+            Assert.IsTrue(cookie.Secure);
+            Assert.AreEqual(HttpCookie.SameSiteMode.Strict, cookie.SameSite);
+        }
+
+        [TestMethod]
+        public async Task TestCookieSecurityStrictAppliesEvenOverAPlainConnection()
+        {
+            // e.g. behind a reverse proxy that terminates TLS - this server only ever sees
+            // plain HTTP, so auto-detection alone could never produce a Secure cookie
+            var server = new TestWebServer();
+            var service = new MemorySessionService
+            {
+                CookieSecurity = CookieSecurityMode.Strict,
+            };
+            server.AddWebService(service);
+            var test = new TestTask(server)
+            {
+                CurrentStage = ServerStage.ParseRequest,
+                TerminationStage = ServerStage.ParseRequest,
+            };
+
+            await service.ProgressTask(test.Task).ConfigureAwait(false);
+
+            var cookie = test.GetAddedCookies().Single().Item2;
+            Assert.IsTrue(cookie.Secure);
+            Assert.AreEqual(HttpCookie.SameSiteMode.Strict, cookie.SameSite);
+        }
+
+        [TestMethod]
+        public async Task TestCookieSecurityLaxAppliesEvenOverAnEncryptedConnection()
+        {
+            var server = new TestWebServer();
+            var service = new MemorySessionService
+            {
+                CookieSecurity = CookieSecurityMode.Lax,
+            };
+            server.AddWebService(service);
+            var test = new TestTask(server)
+            {
+                CurrentStage = ServerStage.ParseRequest,
+                TerminationStage = ServerStage.ParseRequest,
+            };
+            test.Task.NetworkStream = new SslStream(new MemoryStream());
+
+            await service.ProgressTask(test.Task).ConfigureAwait(false);
+
+            var cookie = test.GetAddedCookies().Single().Item2;
+            Assert.IsFalse(cookie.Secure);
+            Assert.AreEqual(HttpCookie.SameSiteMode.Lax, cookie.SameSite);
         }
     }
 }

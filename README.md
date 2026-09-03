@@ -141,6 +141,38 @@ using var server = new Server(new WebServerSettings(8000, 5000));
 // ...
 ```
 
+### Sessions
+
+`MaxLib.WebServer.Sessions` identifies returning users via a `Session` cookie, without you
+having to manage that cookie yourself. Add a session service - `MemorySessionService` for a
+simple in-process store, or subclass `SessionServiceBase` for your own backing store - and read
+or write per-user data through `task.Session`:
+
+```csharp
+using MaxLib.WebServer.Sessions;
+
+server.AddWebService(new MemorySessionService());
+```
+
+```csharp
+// inside any WebService that runs after the session service (ServerStage.ParseRequest or later)
+var session = task.Session!;
+var visits = session.TryGetValue("visits", out var v) ? (int)v! : 0;
+session["visits"] = visits + 1;
+```
+
+The service issues a fresh session id (and its cookie) the first time a client is seen, and
+reuses it on every later request that presents that same cookie back.
+
+**Hardening:** call `RotateSessionKey(task)` right after any change in privilege - most
+importantly, right after a successful login - so that a session id an attacker may have set on
+the client beforehand (before the user authenticated) becomes worthless afterwards. The session
+cookie itself already defaults to `HttpOnly`, and to `Secure`/`SameSite=Strict` whenever this
+server observes the connection as encrypted (`SameSite=Lax` and no `Secure` otherwise) - if a
+reverse proxy (e.g. nginx) terminates TLS in front of this server instead, that auto-detection
+never sees an HTTPS connection, so set `CookieSecurity = CookieSecurityMode.Strict` on your
+session service explicitly to still get the stricter, HTTPS-only cookie attributes.
+
 ### Request body size and read timeout
 
 `HttpRequestParser` bounds both how large a request body it accepts and how long it waits for

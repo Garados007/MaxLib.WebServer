@@ -1,4 +1,5 @@
 using System;
+using System.Net.Security;
 using System.Security.Cryptography;
 using System.Threading.Tasks;
 
@@ -6,12 +7,42 @@ using System.Threading.Tasks;
 
 namespace MaxLib.WebServer.Sessions
 {
+    /// <summary>
+    /// Controls the <c>HttpOnly</c>/<c>Secure</c>/<c>SameSite</c> attributes
+    /// <see cref="SessionServiceBase" /> issues its session cookie with.
+    /// </summary>
+    public enum CookieSecurityMode
+    {
+        /// <summary>
+        /// Detect per request whether the connection is encrypted (<see
+        /// cref="WebProgressTask.NetworkStream" /> is an <see cref="SslStream" />) and use
+        /// <see cref="Strict" /> rules over it, <see cref="Lax" /> rules otherwise. This is
+        /// only accurate if this server terminates TLS itself (<c>SecureWebServer</c>/
+        /// <c>DualSecureWebServer</c>) - if a reverse proxy in front of it does instead, every
+        /// connection this library ever sees is plain HTTP, and <see cref="Strict" /> should be
+        /// set explicitly.
+        /// </summary>
+        Auto,
+        /// <summary>
+        /// Always issue the session cookie with <c>HttpOnly</c>, <c>Secure</c>, and
+        /// <c>SameSite=Strict</c>, regardless of what this server itself observes. Use this if a
+        /// reverse proxy (e.g. nginx) terminates TLS in front of it, since <see cref="Auto" />
+        /// would otherwise never detect an HTTPS connection.
+        /// </summary>
+        Strict,
+        /// <summary>
+        /// Always issue the session cookie with just <c>HttpOnly</c> and
+        /// <c>SameSite=Lax</c> - no <c>Secure</c> flag, so it also works over plain HTTP.
+        /// </summary>
+        Lax,
+    }
+
     public abstract class SessionServiceBase : WebService
     {
-        public SessionServiceBase() 
+        public SessionServiceBase()
             : base(ServerStage.ParseRequest)
         {
-            // HttpHeaderPostParser has a default priority of VeryHigh. This needs to be executed 
+            // HttpHeaderPostParser has a default priority of VeryHigh. This needs to be executed
             // right after it but before others.
             Priority = (WebServicePriority)(
                 ((int)WebServicePriority.VeryHigh + (int)WebServicePriority.High) / 2
@@ -24,6 +55,14 @@ namespace MaxLib.WebServer.Sessions
         public string CookiePath { get; set; } = "/";
 
         public TimeSpan MaxAge { get; set; } = TimeSpan.FromDays(30);
+
+        /// <summary>
+        /// Controls the security attributes of the issued session cookie. Defaults to
+        /// <see cref="CookieSecurityMode.Auto" />, which is only accurate if this server
+        /// terminates TLS itself; set <see cref="CookieSecurityMode.Strict" /> if a reverse
+        /// proxy does that instead. See the "Sessions" section in <c>README.md</c>.
+        /// </summary>
+        public CookieSecurityMode CookieSecurity { get; set; } = CookieSecurityMode.Auto;
 
         public override async Task ProgressTask(WebProgressTask task)
         {
@@ -66,13 +105,23 @@ namespace MaxLib.WebServer.Sessions
 
         private void SetSessionCookie(WebProgressTask task, string key)
         {
+            _ = task ?? throw new ArgumentNullException(nameof(task));
+            var strict = CookieSecurity switch
+            {
+                CookieSecurityMode.Strict => true,
+                CookieSecurityMode.Lax => false,
+                _ => task.NetworkStream is SslStream,
+            };
             task.Request.Cookie.AddedCookies["Session"] =
                 new HttpCookie.Cookie(
                     "Session",
                     key,
                     DateTime.UtcNow + MaxAge,
                     (int)MaxAge.TotalSeconds,
-                    CookiePath
+                    CookiePath,
+                    httpOnly: true,
+                    secure: strict,
+                    sameSite: strict ? HttpCookie.SameSiteMode.Strict : HttpCookie.SameSiteMode.Lax
                 );
         }
 
