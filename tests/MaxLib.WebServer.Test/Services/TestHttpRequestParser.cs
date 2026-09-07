@@ -72,6 +72,108 @@ namespace MaxLib.WebServer.Test.Services
         }
 
         [TestMethod]
+        public async Task TestRequestParser_OctetStreamPostIsReadIntoARawPostData()
+        {
+            var content = "arbitrary binary-ish content";
+            var sb = new StringBuilder();
+            sb.AppendLine("POST /test.html HTTP/1.1");
+            sb.AppendLine("Host: testdomain.local");
+            sb.AppendLine($"Content-Length: {content.Length}");
+            sb.AppendLine("Content-Type: application/octet-stream");
+            sb.AppendLine();
+            sb.Append(content);
+            using (var output = test.SetStream(sb.ToString()))
+            {
+                await new HttpRequestParser().ProgressTask(test.Task).ConfigureAwait(false);
+                Assert.AreEqual(MimeType.ApplicationOctetStream, test.Request.Post.MimeType);
+                Assert.IsTrue(test.Request.Post.Data is Post.RawPostData);
+                var data = (Post.RawPostData)test.Request.Post.Data;
+                Assert.IsTrue(data.Entry.Content.HasValue);
+                Assert.AreEqual(content, Encoding.UTF8.GetString(data.Entry.Content.Value.Span));
+                Assert.IsNull(data.Entry.TempFile);
+            }
+        }
+
+        [TestMethod]
+        public async Task TestRequestParser_JsonPostIsReadIntoARawPostData()
+        {
+            var content = "{\"hello\":\"world\"}";
+            var sb = new StringBuilder();
+            sb.AppendLine("POST /test.html HTTP/1.1");
+            sb.AppendLine("Host: testdomain.local");
+            sb.AppendLine($"Content-Length: {content.Length}");
+            sb.AppendLine("Content-Type: application/json");
+            sb.AppendLine();
+            sb.Append(content);
+            using (var output = test.SetStream(sb.ToString()))
+            {
+                await new HttpRequestParser().ProgressTask(test.Task).ConfigureAwait(false);
+                Assert.AreEqual(MimeType.ApplicationJson, test.Request.Post.MimeType);
+                Assert.IsTrue(test.Request.Post.Data is Post.RawPostData);
+                var data = (Post.RawPostData)test.Request.Post.Data;
+                Assert.AreEqual(content, Encoding.UTF8.GetString(data.Entry.Content!.Value.Span));
+            }
+        }
+
+        [TestMethod]
+        public async Task TestRequestParser_UnrecognizedContentTypeIsReadIntoARawPostData()
+        {
+            // the framework used to leave a body with no dedicated IPostData entirely unread
+            // (see post-unknownpostdata-dispose-race.md) - it must now actually be consumed
+            var content = "whatever-this-is";
+            var sb = new StringBuilder();
+            sb.AppendLine("POST /test.html HTTP/1.1");
+            sb.AppendLine("Host: testdomain.local");
+            sb.AppendLine($"Content-Length: {content.Length}");
+            sb.AppendLine("Content-Type: application/x-something-unknown");
+            sb.AppendLine();
+            sb.Append(content);
+            using (var output = test.SetStream(sb.ToString()))
+            {
+                await new HttpRequestParser().ProgressTask(test.Task).ConfigureAwait(false);
+                Assert.IsTrue(test.Request.Post.Data is Post.RawPostData);
+                var data = (Post.RawPostData)test.Request.Post.Data;
+                Assert.AreEqual(content, Encoding.UTF8.GetString(data.Entry.Content!.Value.Span));
+            }
+        }
+
+        [TestMethod]
+        public async Task TestRequestParser_LargeRawBodySpillsToATempFileAndIsDeletedOnDispose()
+        {
+            var originalLimit = Post.RawPostData.MaximumCacheSize;
+            try
+            {
+                Post.RawPostData.MaximumCacheSize = 10;
+                var content = "this content is longer than the configured 10-byte limit";
+                var sb = new StringBuilder();
+                sb.AppendLine("POST /test.html HTTP/1.1");
+                sb.AppendLine("Host: testdomain.local");
+                sb.AppendLine($"Content-Length: {content.Length}");
+                sb.AppendLine("Content-Type: application/octet-stream");
+                sb.AppendLine();
+                sb.Append(content);
+                using (var output = test.SetStream(sb.ToString()))
+                {
+                    await new HttpRequestParser().ProgressTask(test.Task).ConfigureAwait(false);
+                    Assert.IsTrue(test.Request.Post.Data is Post.RawPostData);
+                    var data = (Post.RawPostData)test.Request.Post.Data;
+                    Assert.IsFalse(data.Entry.Content.HasValue);
+                    Assert.IsNotNull(data.Entry.TempFile);
+                    Assert.IsTrue(data.Entry.TempFile!.Exists);
+                    Assert.AreEqual(content, File.ReadAllText(data.Entry.TempFile.FullName));
+
+                    var path = data.Entry.TempFile.FullName;
+                    data.Dispose();
+                    Assert.IsFalse(File.Exists(path));
+                }
+            }
+            finally
+            {
+                Post.RawPostData.MaximumCacheSize = originalLimit;
+            }
+        }
+
+        [TestMethod]
         public async Task TestRequestParser_MultipartPost()
         {
             // a real HTTP client always terminates every line - including the last one

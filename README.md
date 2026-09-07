@@ -197,6 +197,28 @@ Without a `ChunkedSender` registered, a response containing an unknown-length da
 rejected with `500 Internal Server Error` (logged) instead of being sent with a wrong
 `Content-Length`.
 
+### Reading POST data
+
+`task.Request.Post.Data` (or the awaitable `DataAsync`) gives you a parsed `IPostData` for the
+request body, chosen by `Content-Type`:
+
+- `application/x-www-form-urlencoded` → `Post.UrlEncodedData` (`.Parameter`, a `Dictionary<string, string>`)
+- `multipart/form-data` → `Post.MultipartFormData` (`.Entries`, a list of parts - each with `.Content`
+  or, once uploaded files get large enough, a `.TempFile` instead)
+- `application/json`, `application/octet-stream`, anything else unrecognized, or a missing
+  `Content-Type` entirely → `Post.RawPostData`, storing the whole body as one nameless entry
+  (`.Entry.Content` or `.Entry.TempFile`, on the same size threshold as a multipart part)
+
+Every one of these actually reads and stores the body - none of them leave it as an unread
+reference to the live connection. If you're building a Builder endpoint (see "Create own
+service" above), `[TextPost]` binds a `string` parameter to a `RawPostData` body decoded as UTF-8,
+without you having to touch `Post.Data` yourself:
+
+```csharp
+[Path("/echo"), Method("POST")]
+public string Echo([TextPost] string body) => body;
+```
+
 ### Request body size and read timeout
 
 `HttpRequestParser` bounds both how large a request body it accepts and how long it waits for
