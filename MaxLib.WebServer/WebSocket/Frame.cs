@@ -34,9 +34,9 @@ namespace MaxLib.WebServer.WebSocket
             ArgumentNullException.ThrowIfNull(output);
             Memory<byte> buffer = new byte[8];
             buffer.Span[0] = (byte)((byte)OpCode | (FinalFrame ? 0x80 : 0x00));
-            buffer.Span[1] = (byte)(Payload.Length < 126 ? Payload.Length :
+            buffer.Span[1] = (byte)((HasMaskingKey ? 0x80 : 0x00) | (Payload.Length < 126 ? Payload.Length :
                 (Payload.Length <= ushort.MaxValue ? 126 : 127)
-            );
+            ));
             await output.WriteAsync(buffer[ .. 2]).ConfigureAwait(false);
             if (Payload.Length >= 126 && Payload.Length <= ushort.MaxValue)
             {

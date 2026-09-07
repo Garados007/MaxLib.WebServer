@@ -107,5 +107,40 @@ namespace MaxLib.WebServer.Test.WebSocket
             Assert.IsFalse(frame.HasMaskingKey);
             Assert.AreEqual(65536, frame.Payload.Length);
         }
+
+        [TestMethod]
+        public async Task WriteThenReadRoundTripsAMaskedFrame()
+        {
+            // Frame.Write used to write the mask key bytes for a masked frame but never set the
+            // "payload is masked" bit in the length byte itself, so a frame written after
+            // ApplyMask() didn't actually come back as masked when read back.
+            var frame = new Frame { OpCode = OpCode.Text, Payload = Encoding.UTF8.GetBytes("Hello") };
+            frame.ApplyMask();
+
+            using var stream = new MemoryStream();
+            await frame.Write(stream).ConfigureAwait(false);
+            stream.Position = 0;
+            var readBack = await Frame.TryRead(stream).ConfigureAwait(false);
+
+            Assert.IsNotNull(readBack);
+            Assert.IsTrue(readBack!.HasMaskingKey);
+            readBack.UnapplyMask();
+            Assert.AreEqual("Hello", readBack.TextPayload);
+        }
+
+        [TestMethod]
+        public async Task WriteThenReadRoundTripsAnUnmaskedFrame()
+        {
+            var frame = new Frame { OpCode = OpCode.Text, Payload = Encoding.UTF8.GetBytes("Hello") };
+
+            using var stream = new MemoryStream();
+            await frame.Write(stream).ConfigureAwait(false);
+            stream.Position = 0;
+            var readBack = await Frame.TryRead(stream).ConfigureAwait(false);
+
+            Assert.IsNotNull(readBack);
+            Assert.IsFalse(readBack!.HasMaskingKey);
+            Assert.AreEqual("Hello", readBack.TextPayload);
+        }
     }
 }

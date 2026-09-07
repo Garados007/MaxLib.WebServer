@@ -51,13 +51,7 @@ namespace MaxLib.WebServer.Test.WebSocket
             if (masked)
                 frame.ApplyMask();
             await frame.Write(stream).ConfigureAwait(false);
-            var bytes = stream.ToArray();
-            // Frame.Write has a separate, pre-existing bug: it writes the mask key bytes for a
-            // masked frame but never sets the "payload is masked" bit in the length byte itself
-            // (byte[1]'s top bit) - outside today's scope, so patch it here rather than there.
-            if (masked)
-                bytes[1] |= 0x80;
-            return bytes;
+            return stream.ToArray();
         }
 
         private static async Task<CloseReason?> DecodeSentCloseReasonAsync(byte[] sent)
