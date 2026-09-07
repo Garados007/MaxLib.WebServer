@@ -50,12 +50,15 @@ namespace MaxLib.WebServer
         internal Func<Task>? SwitchProtocolHandler { get; private set; }
 
         /// <summary>
-        /// A call to this method notify the web server that this connection will switch protocols 
-        /// after all steps are finished. The web server will remove this connection from its 
+        /// A call to this method notify the web server that this connection will switch protocols
+        /// after all steps are finished. The web server will remove this connection from its
         /// watch list and call <paramref name="handler"/> after its finished.
         /// <br />
-        /// You as the caller are responsible to safely cleanup the connection it is no more
-        /// used.
+        /// You as the caller are responsible to safely cleanup the connection once it is no
+        /// longer used - <see cref="WebSocket.WebSocketEndpoint{T}" /> already does this
+        /// automatically for its own connections once they close (see its
+        /// <c>DisposeConnectionsOnClose</c>), but any other protocol switch must handle this
+        /// itself.
         /// </summary>
         /// <param name="handler">
         /// This handler will be called after the server has no more control of this connection.
