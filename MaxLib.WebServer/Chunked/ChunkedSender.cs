@@ -56,9 +56,9 @@ namespace MaxLib.WebServer.Chunked
                 var e = header.HeaderParameter.ElementAt(i);
                 if (e.Key == "Content-Length")
                     continue;
-                await writer.WriteAsync(e.Key).ConfigureAwait(false);
+                await writer.WriteAsync(WebServerUtils.RemoveCrLf(e.Key)).ConfigureAwait(false);
                 await writer.WriteAsync(": ").ConfigureAwait(false);
-                await writer.WriteLineAsync(e.Value).ConfigureAwait(false);
+                await writer.WriteLineAsync(WebServerUtils.RemoveCrLf(e.Value)).ConfigureAwait(false);
             }
             foreach (var cookie in task.Request.Cookie.AddedCookies) //Cookies
             {

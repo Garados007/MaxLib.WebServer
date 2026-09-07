@@ -3,6 +3,7 @@ using MaxLib.WebServer.Testing;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using System;
 using System.IO;
+using System.Net.Sockets;
 using System.Threading.Tasks;
 
 #nullable enable
@@ -77,6 +78,41 @@ namespace MaxLib.WebServer.Test
                 "no fallback response may be written once SendResponse has already started");
             Assert.AreEqual(HttpConnectionType.Close, test.Request.FieldConnection);
             Assert.IsFalse(server.AllConnections.Contains(connection));
+        }
+
+        [TestMethod]
+        public void TestTryAdmitConnectionAllowsConnectionsWhenNoLimitIsConfigured()
+        {
+            var server = new TestWebServer();
+            using var client = new TcpClient();
+
+            Assert.IsTrue(server.RunTryAdmitConnection(client));
+        }
+
+        [TestMethod]
+        public void TestTryAdmitConnectionRejectsOnceTheConfiguredLimitIsReached()
+        {
+            var server = new TestWebServer
+            {
+                Settings = { MaxConcurrentConnections = 1 },
+            };
+            server.AllConnections.Add(new HttpConnection());
+            using var client = new TcpClient();
+
+            Assert.IsFalse(server.RunTryAdmitConnection(client));
+        }
+
+        [TestMethod]
+        public void TestTryAdmitConnectionAllowsConnectionsBelowTheConfiguredLimit()
+        {
+            var server = new TestWebServer
+            {
+                Settings = { MaxConcurrentConnections = 2 },
+            };
+            server.AllConnections.Add(new HttpConnection());
+            using var client = new TcpClient();
+
+            Assert.IsTrue(server.RunTryAdmitConnection(client));
         }
     }
 }

@@ -135,7 +135,10 @@ namespace MaxLib.WebServer
                     sb.Append(MaxAge);
                 }
                 sb.Append(";Path=");
-                sb.Append(Path);
+                // Path legitimately contains "/" (unlike Name/Value, it is not fully
+                // URI-encoded), so only strip the one thing that can never be legitimate in a
+                // cookie attribute - a raw CRLF - rather than escaping the whole value.
+                sb.Append(WebServerUtils.RemoveCrLf(Path.ToString()));
                 if (HttpOnly)
                     sb.Append(";HttpOnly");
                 if (Secure)

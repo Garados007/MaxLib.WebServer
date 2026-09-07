@@ -58,6 +58,9 @@ namespace MaxLib.WebServer.Testing
         public Task RunProcessTask(WebProgressTask task, HttpConnection connection)
             => ProcessTask(task, connection);
 
+        public bool RunTryAdmitConnection(TcpClient client)
+            => TryAdmitConnection(client);
+
         public new void RemoveConnection(HttpConnection connection)
             => base.RemoveConnection(connection);
 

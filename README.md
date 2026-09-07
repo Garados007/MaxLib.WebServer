@@ -172,12 +172,46 @@ reverse proxy (e.g. nginx) terminates TLS in front of this server instead, that 
 never sees an HTTPS connection, so set `CookieSecurity = CookieSecurityMode.Strict` on your
 session service explicitly to still get the stricter, HTTPS-only cookie attributes.
 
+### Chunked responses
+
+Most `HttpDataSource` implementations know their length up front, and `HttpResponseCreator`
+computes `Content-Length` from that. A source that doesn't (e.g. `Chunked.HttpChunkedStream`,
+wrapping a stream whose size isn't known ahead of time) reports `Length() == null` instead - if
+`HttpResponseCreator` computed `Content-Length` from that the same way, it would silently
+undercount it while still writing the full body, desyncing the connection for any client or
+proxy relying on that header for framing.
+
+To actually send such a response correctly, register `Chunked.ChunkedResponseCreator` and
+`Chunked.ChunkedSender` alongside the default services - typically with `onlyWithLazy: true`, so
+they only take over responses that need it (unknown-length or lazy data sources) and leave
+ordinary responses to the default `Content-Length` path:
+
+```csharp
+using MaxLib.WebServer.Chunked;
+
+server.AddWebService(new ChunkedResponseCreator(onlyWithLazy: true));
+server.AddWebService(new ChunkedSender(onlyWithLazy: true));
+```
+
+Without a `ChunkedSender` registered, a response containing an unknown-length data source is
+rejected with `500 Internal Server Error` (logged) instead of being sent with a wrong
+`Content-Length`.
+
 ### Request body size and read timeout
 
 `HttpRequestParser` bounds both how large a request body it accepts and how long it waits for
 one to arrive, so that an unbounded `Content-Length` combined with a client that stalls
 mid-upload can't pin a thread-pool thread forever (draining an unconsumed body on dispose is
-fully asynchronous - see `HttpPost.DisposeAsync()` - and bounded by the same timeout).
+fully asynchronous - see `HttpPost.DisposeAsync()` - and bounded by the same timeout). It also
+bounds how long a client is given to actually send its request in the first place:
+
+- **`MaxConnectionDelay`** (default 5 s) is how long the parser waits for the very first byte of
+  a request to arrive before giving up. Set it to zero or negative to disable this wait.
+- **`MaxHeaderReadTime`** (default 10 s) bounds the *rest* of the request-line-and-header phase
+  as a whole, once that first byte has arrived - not a per-line timeout. Without it, a client
+  that trickles its request one byte (or one header line) at a time - the classic "Slowloris"
+  attack - could hold the connection open indefinitely just by satisfying
+  `MaxConnectionDelay`'s wait first. Set it to zero or negative to disable it.
 
 - **`MaxContentLength`** (default 100 MB) is the body size every request is accepted under
   without further checks. A request whose `Content-Length` exceeds it is rejected with
@@ -202,6 +236,22 @@ has actually been transmitted and any leftover POST data is being discarded to r
 connection for reuse (in `HttpSender`, right after sending); if that final drain times out, the
 connection is closed there instead of kept alive, since its position in the byte stream is by then
 unknown.
+
+### Connection limits
+
+`WebServerSettings.MaxConcurrentConnections` bounds how many connections (`Server.AllConnections`)
+the server accepts at once - a new connection beyond that limit is rejected outright (its socket
+closed immediately, without being processed at all) instead of being left to compete for
+thread-pool/memory resources indefinitely alongside every other admitted connection. Defaults to
+`-1` (no limit, the previous behavior); applies to both the plain and TLS-terminating listeners
+(`SecureWebServer`, `DualSecureWebServer`), since they share the same connection bookkeeping.
+
+```csharp
+using var server = new Server(new WebServerSettings(8000, 5000)
+{
+    MaxConcurrentConnections = 1000,
+});
+```
 
 ### WebSocket Events
 

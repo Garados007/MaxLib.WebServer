@@ -47,5 +47,16 @@ namespace MaxLib.WebServer.Test
             );
             StringAssert.Contains(cookie.ToString(), $";SameSite={expected}");
         }
+
+        [TestMethod]
+        public void TestToStringStripsCrLfFromPathButKeepsSlashesIntact()
+        {
+            // Path is not URL-encoded like Name/Value (it legitimately contains "/"), but a raw
+            // CRLF must never reach the wire - see http-header-crlf-injection.md
+            var cookie = new HttpCookie.Cookie(
+                "name", "value", new DateTime(9999, 12, 31), -1, "/foo\r\nSet-Cookie: evil=1/bar"
+            );
+            Assert.AreEqual("name=value;Path=/fooSet-Cookie: evil=1/bar", cookie.ToString());
+        }
     }
 }

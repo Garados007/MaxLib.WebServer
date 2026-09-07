@@ -171,5 +171,22 @@ namespace MaxLib.WebServer.Test
             // hardcoded to the "0,000" 4-digit case.
             Assert.AreEqual("1,010 KiB", WebServerUtils.GetVolumeString(1024L * 1010, true, 4));
         }
+
+        [TestMethod]
+        public void RemoveCrLfLeavesOrdinaryTextUnchanged()
+        {
+            Assert.AreEqual("/some/path", WebServerUtils.RemoveCrLf("/some/path"));
+        }
+
+        [TestMethod]
+        public void RemoveCrLfStripsEmbeddedCarriageReturnsAndLineFeeds()
+        {
+            // The classic response-splitting payload: an attacker-influenced value ending the
+            // current header early and injecting a whole extra header/response.
+            Assert.AreEqual("evilX-Injected: 1",
+                WebServerUtils.RemoveCrLf("evil\r\nX-Injected: 1"));
+            Assert.AreEqual("ab", WebServerUtils.RemoveCrLf("a\rb"));
+            Assert.AreEqual("ab", WebServerUtils.RemoveCrLf("a\nb"));
+        }
     }
 }

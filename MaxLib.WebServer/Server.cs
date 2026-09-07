@@ -27,6 +27,7 @@ namespace MaxLib.WebServer
         static readonly EventId RuntimeExceptionEventId = new(0, "runtime exception");
         static readonly EventId FallbackResponseEventId = new(0, "Fallback response");
         static readonly EventId CancelEventId = new(0, "cancel");
+        static readonly EventId ConnectionLimitEventId = new(0, "Connection limit");
 
         /// <summary>
         /// The added <see cref="WebService" /> divided in their <see cref="ServerStage" />. These
@@ -254,6 +255,8 @@ namespace MaxLib.WebServer
         protected virtual void ClientConnected(TcpClient client)
         {
             ArgumentNullException.ThrowIfNull(client);
+            if (!TryAdmitConnection(client))
+                return;
             //prepare session
             var connection = new HttpConnection()
             {
@@ -265,6 +268,28 @@ namespace MaxLib.WebServer
             AllConnections.Add(connection);
             //listen to connection
             _ = Task.Run(async () => await SafeClientStartListen(connection).ConfigureAwait(false));
+        }
+
+        /// <summary>
+        /// Checks a newly-accepted <paramref name="client"/> against
+        /// <see cref="WebServerSettings.MaxConcurrentConnections" />. If the limit is already
+        /// reached, closes <paramref name="client"/> immediately (it is never added to
+        /// <see cref="AllConnections" /> or processed at all) and returns <c>false</c> - the
+        /// caller must not do anything further with it in that case. Shared by every accept
+        /// path (<see cref="ClientConnected" /> and <see cref="SSL.SecureWebServer" />'s own),
+        /// since they all draw from the same <see cref="AllConnections" /> count.
+        /// </summary>
+        protected bool TryAdmitConnection(TcpClient client)
+        {
+            ArgumentNullException.ThrowIfNull(client);
+            if (Settings.MaxConcurrentConnections < 0 ||
+                AllConnections.Count < Settings.MaxConcurrentConnections)
+                return true;
+            logger.LogWarning(ConnectionLimitEventId,
+                "Rejecting connection from {RemoteEndPoint}: at the configured limit of {Limit}",
+                client.Client.RemoteEndPoint, Settings.MaxConcurrentConnections);
+            client.Close();
+            return false;
         }
 
         protected virtual async Task SafeClientStartListen(HttpConnection connection)
