@@ -131,7 +131,10 @@ namespace MaxLib.WebServer.WebSocket
 
                 if (!frame.FinalFrame)
                 {
-                    code = frame.OpCode;
+                    // Per RFC 6455, only the first fragment of a message carries the real
+                    // opcode; every later fragment is a Continuation, so only latch it once.
+                    if (payloadQueue.Count == 0)
+                        code = frame.OpCode;
                     payloadQueue.Enqueue(frame.Payload);
                     continue;
                 }

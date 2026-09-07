@@ -88,6 +88,31 @@ namespace MaxLib.WebServer.Test.WebSocket
         }
 
         [TestMethod]
+        public async Task TestReceiveLoopReassemblesA3FragmentMessageWithTheFirstFragmentsOpcode()
+        {
+            // Per RFC 6455, only the first fragment carries the real opcode (Text/Binary);
+            // every later fragment - including the final one - must be Continuation. A message
+            // split into 3+ fragments used to have its opcode overwritten to Continuation by
+            // the middle fragment(s).
+            using var input = new MemoryStream();
+            foreach (var chunk in await Task.WhenAll(
+                EncodeFrameAsync(OpCode.Text, false, new byte[] { 1 }),
+                EncodeFrameAsync(OpCode.Continuation, false, new byte[] { 2 }),
+                EncodeFrameAsync(OpCode.Continuation, true, new byte[] { 3 })
+            ).ConfigureAwait(false))
+                input.Write(chunk, 0, chunk.Length);
+            input.Position = 0;
+            var output = new MemoryStream();
+            var connection = new TestConnection(new WebServerTaskCreator.BidirectionalStream(input, output));
+
+            await connection.ReceiveLoop().ConfigureAwait(false);
+
+            var received = connection.ReceivedFrames.Single();
+            Assert.AreEqual(OpCode.Text, received.OpCode);
+            CollectionAssert.AreEqual(new byte[] { 1, 2, 3 }, received.Payload.ToArray());
+        }
+
+        [TestMethod]
         public async Task TestReceiveLoopAcceptsAndUnmasksAProperlyMaskedFrame()
         {
             var input = new MemoryStream(await EncodeFrameAsync(OpCode.Text, true, new byte[] { 1, 2, 3 })
