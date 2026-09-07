@@ -27,6 +27,25 @@ namespace MaxLib.WebServer.WebSocket
 
         public DateTime LastPong { get; private set; }
 
+        /// <summary>
+        /// The maximum total size, in bytes, of the fragments accumulated so far while
+        /// reassembling a fragmented message. Checked after every fragment - not only once the
+        /// message is complete - so a client that never finalizes a message (or does so very
+        /// slowly) can't grow the accumulation queue indefinitely. Exceeding it closes the
+        /// connection with <see cref="CloseReason.TooBigMessage" /> immediately. Defaults to
+        /// 100 MB; a negative value disables this check (not recommended - see also
+        /// <see cref="MaxMessageFragments" />).
+        /// </summary>
+        public long MaxMessageSize { get; set; } = 100_000_000;
+
+        /// <summary>
+        /// The maximum number of fragments accumulated while reassembling a message, checked
+        /// alongside <see cref="MaxMessageSize" />. A size limit alone doesn't bound the
+        /// per-fragment bookkeeping overhead itself - many empty or near-empty fragments still
+        /// cost one queued entry each. Defaults to 10,000; a negative value disables this check.
+        /// </summary>
+        public int MaxMessageFragments { get; set; } = 10_000;
+
         public event EventHandler? Closed;
 
         public event EventHandler? PongReceived;
@@ -103,6 +122,7 @@ namespace MaxLib.WebServer.WebSocket
             lockStream.Release();
             var payloadQueue = new Queue<Memory<byte>>();
             OpCode code = OpCode.Binary;
+            long accumulatedSize = 0;
             while (!ReceivedCloseSignal)
             {
                 Frame? frame;
@@ -134,8 +154,14 @@ namespace MaxLib.WebServer.WebSocket
                     // Per RFC 6455, only the first fragment of a message carries the real
                     // opcode; every later fragment is a Continuation, so only latch it once.
                     if (payloadQueue.Count == 0)
+                    {
                         code = frame.OpCode;
+                        accumulatedSize = 0;
+                    }
                     payloadQueue.Enqueue(frame.Payload);
+                    accumulatedSize += frame.Payload.Length;
+                    if (await ExceedsConfiguredMessageLimits(payloadQueue.Count, accumulatedSize).ConfigureAwait(false))
+                        return;
                     continue;
                 }
 
@@ -170,6 +196,9 @@ namespace MaxLib.WebServer.WebSocket
                         else
                         {
                             payloadQueue.Enqueue(frame.Payload);
+                            accumulatedSize += frame.Payload.Length;
+                            if (await ExceedsConfiguredMessageLimits(payloadQueue.Count, accumulatedSize).ConfigureAwait(false))
+                                return;
                             var payload = TryReassembleFragmentedPayload(payloadQueue);
                             if (payload == null)
                             {
@@ -186,6 +215,28 @@ namespace MaxLib.WebServer.WebSocket
                         break;
                 }
             }
+        }
+
+        /// <summary>
+        /// Checks the running fragment count/size accumulated so far for the message currently
+        /// being reassembled against <see cref="MaxMessageFragments" />/<see
+        /// cref="MaxMessageSize" />, sending a <see cref="CloseReason.TooBigMessage" /> close
+        /// frame and returning <c>true</c> if either is exceeded - the caller must stop
+        /// processing this connection in that case, rather than continuing to buffer an
+        /// unbounded amount of data until (or unless) the client ever finalizes the message.
+        /// </summary>
+        private async Task<bool> ExceedsConfiguredMessageLimits(int fragmentCount, long accumulatedSize)
+        {
+            if ((MaxMessageFragments >= 0 && fragmentCount > MaxMessageFragments) ||
+                (MaxMessageSize >= 0 && accumulatedSize > MaxMessageSize))
+            {
+                await Close(CloseReason.TooBigMessage,
+                    $"the message being reassembled exceeds the configured limit " +
+                    $"({MaxMessageFragments} fragments / {MaxMessageSize} bytes)."
+                ).ConfigureAwait(false);
+                return true;
+            }
+            return false;
         }
 
         /// <summary>

@@ -88,6 +88,57 @@ namespace MaxLib.WebServer.Test.WebSocket
         }
 
         [TestMethod]
+        public async Task TestReceiveLoopEnforcesMaxMessageSizeDuringAccumulationNotJustAtTheEnd()
+        {
+            // Three non-final fragments of 10 bytes each add up to 30 bytes, but a final frame
+            // never arrives - this must be rejected mid-accumulation, not "eventually, once the
+            // client finishes the message" (which a client controlling this DoS never will).
+            using var input = new MemoryStream();
+            foreach (var _ in Enumerable.Range(0, 3))
+            {
+                var chunk = await EncodeFrameAsync(OpCode.Binary, false, new byte[10]).ConfigureAwait(false);
+                input.Write(chunk, 0, chunk.Length);
+            }
+            input.Position = 0;
+            var output = new MemoryStream();
+            var connection = new TestConnection(new WebServerTaskCreator.BidirectionalStream(input, output))
+            {
+                MaxMessageSize = 15,
+            };
+
+            await connection.ReceiveLoop().ConfigureAwait(false);
+
+            Assert.AreEqual(CloseReason.TooBigMessage,
+                await DecodeSentCloseReasonAsync(output.ToArray()).ConfigureAwait(false));
+            Assert.AreEqual(0, connection.ReceivedFrames.Count);
+        }
+
+        [TestMethod]
+        public async Task TestReceiveLoopEnforcesMaxMessageFragmentsDuringAccumulation()
+        {
+            // Five 1-byte fragments are cheap in total bytes but each costs one queued entry -
+            // a size cap alone wouldn't bound this, so the fragment count is checked too.
+            using var input = new MemoryStream();
+            foreach (var _ in Enumerable.Range(0, 5))
+            {
+                var chunk = await EncodeFrameAsync(OpCode.Binary, false, new byte[] { 1 }).ConfigureAwait(false);
+                input.Write(chunk, 0, chunk.Length);
+            }
+            input.Position = 0;
+            var output = new MemoryStream();
+            var connection = new TestConnection(new WebServerTaskCreator.BidirectionalStream(input, output))
+            {
+                MaxMessageFragments = 3,
+            };
+
+            await connection.ReceiveLoop().ConfigureAwait(false);
+
+            Assert.AreEqual(CloseReason.TooBigMessage,
+                await DecodeSentCloseReasonAsync(output.ToArray()).ConfigureAwait(false));
+            Assert.AreEqual(0, connection.ReceivedFrames.Count);
+        }
+
+        [TestMethod]
         public async Task TestReceiveLoopSendsATooBigMessageCloseForAnOversizedDeclaredLength()
         {
             // A frame declaring a length > int.MaxValue is legal on the wire (RFC 6455's 64-bit
