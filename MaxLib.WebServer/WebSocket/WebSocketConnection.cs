@@ -69,85 +69,7 @@ namespace MaxLib.WebServer.WebSocket
         /// </summary>
         public async Task HandshakeFinished()
         {
-            lockStream.Release();
-            // receiving end
-            var receiver = Task.Run(async () =>
-            {
-                var payloadQueue = new Queue<Memory<byte>>();
-                OpCode code = OpCode.Binary;
-                while (!ReceivedCloseSignal)
-                {
-                    Frame? frame;
-                    try
-                    {
-                        frame = await Frame.TryRead(NetworkStream).ConfigureAwait(false);
-                    }
-                    catch (TooLargePayloadException)
-                    {
-                        await Close(CloseReason.TooBigMessage, $"Payload is larger then the allowed {int.MaxValue} bytes")
-                            .ConfigureAwait(false);
-                        return;
-                    }
-                    if (frame == null)
-                        return;
-
-                    frame.UnapplyMask();
-
-                    if (!frame.FinalFrame)
-                    {
-                        code = frame.OpCode;
-                        payloadQueue.Enqueue(frame.Payload);
-                        continue;
-                    }
-
-                    switch (frame.OpCode)
-                    {
-                        case OpCode.Close:
-                            CloseReason? reason = null;
-                            string? info = null;
-                            if (frame.Payload.Length >= 2)
-                            {
-                                Frame.ToLocalByteOrder(frame.Payload.Span[0..2]);
-                                reason = (CloseReason)BitConverter.ToUInt16(frame.Payload.Span[0..2]);
-                            }
-                            if (frame.Payload.Length > 2)
-                            {
-                                info = Encoding.UTF8.GetString(frame.Payload.Span[2..]);
-                            }
-                            ReceivedCloseSignal = true;
-                            await ReceiveClose(reason, info).ConfigureAwait(false);
-                            break;
-                        case OpCode.Ping:
-                            frame.OpCode = OpCode.Pong;
-                            await SendFrame(frame).ConfigureAwait(false);
-                            break;
-                        case OpCode.Pong:
-                            LastPong = DateTime.UtcNow;
-                            _ = Task.Run(() => PongReceived?.Invoke(this, EventArgs.Empty));
-                            break;
-                        default:
-                            if (payloadQueue.Count == 0)
-                                await ReceivedFrame(frame).ConfigureAwait(false);
-                            else
-                            {
-                                payloadQueue.Enqueue(frame.Payload);
-                                var payload = TryReassembleFragmentedPayload(payloadQueue);
-                                if (payload == null)
-                                {
-                                    long maxSize = payloadQueue.Sum(x => (long)x.Length);
-                                    await Close(CloseReason.TooBigMessage,
-                                        $"the payload of all frames add up to {maxSize}. Only {int.MaxValue} is allowed."
-                                    ).ConfigureAwait(false);
-                                    return;
-                                }
-                                frame.Payload = payload.Value;
-                                frame.OpCode = code;
-                                await ReceivedFrame(frame).ConfigureAwait(false);
-                            }
-                            break;
-                    }
-                }
-            });
+            var receiver = Task.Run(ReceiveLoop);
 
             // ping
             var pinger = Task.Run(async () =>
@@ -166,6 +88,93 @@ namespace MaxLib.WebServer.WebSocket
 
             await Task.WhenAll(receiver, pinger).ConfigureAwait(false);
             Closed?.Invoke(this, EventArgs.Empty);
+        }
+
+        /// <summary>
+        /// Reads and dispatches frames from <see cref="NetworkStream" /> until the connection
+        /// closes or the stream ends. Releases the send-side lock as its first action, since
+        /// sending is only meant to be possible once this loop is actually about to service the
+        /// connection - call this at most once per connection, exactly what
+        /// <see cref="HandshakeFinished" /> does. Exposed (<c>internal</c>) so tests can drive it
+        /// directly without also running the (10-second-interval) ping loop.
+        /// </summary>
+        internal async Task ReceiveLoop()
+        {
+            lockStream.Release();
+            var payloadQueue = new Queue<Memory<byte>>();
+            OpCode code = OpCode.Binary;
+            while (!ReceivedCloseSignal)
+            {
+                Frame? frame;
+                try
+                {
+                    frame = await Frame.TryRead(NetworkStream).ConfigureAwait(false);
+                }
+                catch (TooLargePayloadException)
+                {
+                    await Close(CloseReason.TooBigMessage, $"Payload is larger then the allowed {int.MaxValue} bytes")
+                        .ConfigureAwait(false);
+                    return;
+                }
+                if (frame == null)
+                    return;
+
+                frame.UnapplyMask();
+
+                if (!frame.FinalFrame)
+                {
+                    code = frame.OpCode;
+                    payloadQueue.Enqueue(frame.Payload);
+                    continue;
+                }
+
+                switch (frame.OpCode)
+                {
+                    case OpCode.Close:
+                        CloseReason? reason = null;
+                        string? info = null;
+                        if (frame.Payload.Length >= 2)
+                        {
+                            Frame.ToLocalByteOrder(frame.Payload.Span[0..2]);
+                            reason = (CloseReason)BitConverter.ToUInt16(frame.Payload.Span[0..2]);
+                        }
+                        if (frame.Payload.Length > 2)
+                        {
+                            info = Encoding.UTF8.GetString(frame.Payload.Span[2..]);
+                        }
+                        ReceivedCloseSignal = true;
+                        await ReceiveClose(reason, info).ConfigureAwait(false);
+                        break;
+                    case OpCode.Ping:
+                        frame.OpCode = OpCode.Pong;
+                        await SendFrame(frame).ConfigureAwait(false);
+                        break;
+                    case OpCode.Pong:
+                        LastPong = DateTime.UtcNow;
+                        _ = Task.Run(() => PongReceived?.Invoke(this, EventArgs.Empty));
+                        break;
+                    default:
+                        if (payloadQueue.Count == 0)
+                            await ReceivedFrame(frame).ConfigureAwait(false);
+                        else
+                        {
+                            payloadQueue.Enqueue(frame.Payload);
+                            var payload = TryReassembleFragmentedPayload(payloadQueue);
+                            if (payload == null)
+                            {
+                                long maxSize = payloadQueue.Sum(x => (long)x.Length);
+                                await Close(CloseReason.TooBigMessage,
+                                    $"the payload of all frames add up to {maxSize}. Only {int.MaxValue} is allowed."
+                                ).ConfigureAwait(false);
+                                return;
+                            }
+                            frame.Payload = payload.Value;
+                            frame.OpCode = code;
+                            await ReceivedFrame(frame).ConfigureAwait(false);
+                        }
+                        break;
+                }
+            }
         }
 
         /// <summary>
@@ -203,7 +212,6 @@ namespace MaxLib.WebServer.WebSocket
             try
             {
                 await frame.Write(NetworkStream).ConfigureAwait(false);
-                lockStream.Release();
             }
             catch (IOException e)
             {
@@ -215,6 +223,10 @@ namespace MaxLib.WebServer.WebSocket
                 SendCloseSignal = true;
                 if (!alreadyReceived)
                     await ReceiveClose(null, null).ConfigureAwait(false);
+            }
+            finally
+            {
+                lockStream.Release();
             }
         }
 
