@@ -119,9 +119,9 @@ namespace MaxLib.WebServer.Services
             for (int i = 0; i < header.HeaderParameter.Count; ++i) //Parameter
             {
                 var e = header.HeaderParameter.ElementAt(i);
-                await writer.WriteAsync(e.Key).ConfigureAwait(false);
+                await writer.WriteAsync(WebServerUtils.RemoveCrLf(e.Key)).ConfigureAwait(false);
                 await writer.WriteAsync(": ").ConfigureAwait(false);
-                await writer.WriteLineAsync(e.Value).ConfigureAwait(false);
+                await writer.WriteLineAsync(WebServerUtils.RemoveCrLf(e.Value)).ConfigureAwait(false);
             }
             foreach (var cookie in task.Request.Cookie.AddedCookies) //Cookies
             {

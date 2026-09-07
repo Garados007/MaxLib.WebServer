@@ -55,6 +55,30 @@ namespace MaxLib.WebServer.Test.Services
         }
 
         [TestMethod]
+        public async Task TestSendingStripsCrLfFromHeaderNamesAndValues()
+        {
+            // A header value built from attacker-influenced text (e.g. a redirect Location)
+            // must never let a raw CRLF split it into extra header/response lines -
+            // see http-header-crlf-injection.md
+            test.Response.HttpProtocol = HttpProtocolDefinition.HttpVersion1_1;
+            test.Response.StatusCode = HttpStateCode.OK;
+            test.Response.HeaderParameter["X-Custom"] = "evil\r\nX-Injected: 1";
+
+            using (var response = test.SetStream())
+            using (var r = new StreamReader(response))
+            {
+                await new HttpSender().ProgressTask(test.Task).ConfigureAwait(false);
+
+                response.Position = 0;
+
+                Assert.AreEqual("HTTP/1.1 200 OK", r.ReadLine());
+                Assert.AreEqual("X-Custom: evilX-Injected: 1", r.ReadLine());
+                Assert.AreEqual("", r.ReadLine());
+                Assert.AreEqual(null, r.ReadLine());
+            }
+        }
+
+        [TestMethod]
         public async Task TestUnconsumedPostBodyIsDrainedAfterTheResponseIsSent()
         {
             // e.g. a request that routes to a 404 or GET-style handler that never reads

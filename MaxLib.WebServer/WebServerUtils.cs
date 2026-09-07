@@ -14,6 +14,22 @@ namespace MaxLib.WebServer
         public static string DecodeUri(string uri)
             => WebUtility.UrlDecode(uri);
 
+        /// <summary>
+        /// Removes every <c>\r</c>/<c>\n</c> from <paramref name="value"/>. Use this at a sink
+        /// that writes raw HTTP header names/values (or any other single-line wire text) built
+        /// from untrusted or application-supplied text, to prevent CRLF/header injection -
+        /// unlike <see cref="EncodeUri(string)"/>, this leaves every other character (including
+        /// <c>/</c>) untouched, since header text generally isn't otherwise URI-encoded.
+        /// </summary>
+        public static string RemoveCrLf(string value)
+        {
+            ArgumentNullException.ThrowIfNull(value);
+            return value.IndexOfAny(['\r', '\n']) == -1
+                ? value
+                : value.Replace("\r", "", StringComparison.Ordinal)
+                    .Replace("\n", "", StringComparison.Ordinal);
+        }
+
         private static readonly ReadOnlyMemory<string> iecSn = new[] { "B", "KiB", "MiB", "GiB", "TiB", "PiB", "EiB", "ZiB", "YiB", "RiB", "QiB" };
         private static readonly ReadOnlyMemory<string> iecLn = new[] { "Byte", "Kibibyte", "Mebibyte", "Gibibyte", "Tebibyte", "Pebibyte", "Exbibyte", "Zebibyte", "Yobibyte", "Robibyte", "Quebibyte" };
         private static readonly ReadOnlyMemory<string> siSn = new[] { "B", "KB", "MB", "GB", "TB", "PB", "EB", "ZB", "YB", "RB", "QB" };
