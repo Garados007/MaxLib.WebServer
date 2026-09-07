@@ -119,6 +119,14 @@ namespace MaxLib.WebServer.WebSocket
                 if (frame == null)
                     return;
 
+                if (!frame.HasMaskingKey)
+                {
+                    // RFC 6455 §5.1: "A server MUST close the connection upon receiving a
+                    // frame that is not masked."
+                    await Close(CloseReason.ProtocolError, "Client frames must be masked")
+                        .ConfigureAwait(false);
+                    return;
+                }
                 frame.UnapplyMask();
 
                 if (!frame.FinalFrame)

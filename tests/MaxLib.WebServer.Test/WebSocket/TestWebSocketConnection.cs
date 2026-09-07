@@ -3,6 +3,7 @@ using Microsoft.VisualStudio.TestTools.UnitTesting;
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -40,6 +41,67 @@ namespace MaxLib.WebServer.Test.WebSocket
     [TestClass]
     public class TestWebSocketConnection
     {
+        // Encodes a single frame exactly as a real client would send it (masked by default,
+        // matching RFC 6455 - the server never sends masked frames itself, so only client-frame
+        // fixtures need this).
+        private static async Task<byte[]> EncodeFrameAsync(OpCode opCode, bool final, byte[] payload, bool masked = true)
+        {
+            using var stream = new MemoryStream();
+            var frame = new Frame { OpCode = opCode, FinalFrame = final, Payload = payload };
+            if (masked)
+                frame.ApplyMask();
+            await frame.Write(stream).ConfigureAwait(false);
+            var bytes = stream.ToArray();
+            // Frame.Write has a separate, pre-existing bug: it writes the mask key bytes for a
+            // masked frame but never sets the "payload is masked" bit in the length byte itself
+            // (byte[1]'s top bit) - outside today's scope, so patch it here rather than there.
+            if (masked)
+                bytes[1] |= 0x80;
+            return bytes;
+        }
+
+        private static async Task<CloseReason?> DecodeSentCloseReasonAsync(byte[] sent)
+        {
+            using var stream = new MemoryStream(sent);
+            var frame = await Frame.TryRead(stream).ConfigureAwait(false);
+            if (frame == null || frame.OpCode != OpCode.Close || frame.Payload.Length < 2)
+                return null;
+            Frame.ToLocalByteOrder(frame.Payload.Span[0..2]);
+            return (CloseReason)BitConverter.ToUInt16(frame.Payload.Span[0..2]);
+        }
+
+        [TestMethod]
+        public async Task TestReceiveLoopClosesWithProtocolErrorOnAnUnmaskedFrame()
+        {
+            // RFC 6455 §5.1: "A server MUST close the connection upon receiving a frame that
+            // is not masked."
+            var input = new MemoryStream(await EncodeFrameAsync(OpCode.Text, true, new byte[] { 1 }, masked: false)
+                .ConfigureAwait(false));
+            var output = new MemoryStream();
+            var connection = new TestConnection(new WebServerTaskCreator.BidirectionalStream(input, output));
+
+            await connection.ReceiveLoop().ConfigureAwait(false);
+
+            Assert.AreEqual(0, connection.ReceivedFrames.Count,
+                "an unmasked frame must never reach the application");
+            Assert.AreEqual(CloseReason.ProtocolError, await DecodeSentCloseReasonAsync(output.ToArray()).ConfigureAwait(false));
+        }
+
+        [TestMethod]
+        public async Task TestReceiveLoopAcceptsAndUnmasksAProperlyMaskedFrame()
+        {
+            var input = new MemoryStream(await EncodeFrameAsync(OpCode.Text, true, new byte[] { 1, 2, 3 })
+                .ConfigureAwait(false));
+            var output = new MemoryStream();
+            var connection = new TestConnection(new WebServerTaskCreator.BidirectionalStream(input, output));
+
+            await connection.ReceiveLoop().ConfigureAwait(false);
+
+            var received = connection.ReceivedFrames.Single();
+            Assert.IsFalse(received.HasMaskingKey, "the payload must already be unmasked by the time it's delivered");
+            CollectionAssert.AreEqual(new byte[] { 1, 2, 3 }, received.Payload.ToArray());
+        }
+
         // A stream whose writes always fail, but only after signalling that the write has
         // started and staying in flight for a bit - long enough for a concurrent SendFrame call
         // to queue up on the connection's send lock while the first is still holding it.
