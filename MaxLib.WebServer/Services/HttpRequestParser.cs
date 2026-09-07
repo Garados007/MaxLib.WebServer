@@ -57,6 +57,18 @@ namespace MaxLib.WebServer.Services
         public TimeSpan MaxConnectionDelay { get; set; } = TimeSpan.FromSeconds(5);
 
         /// <summary>
+        /// The maximum time the request-line and header-reading phase is given to complete as a
+        /// whole, measured from when this parser starts reading (right after
+        /// <see cref="WaitForData" /> succeeds) - not a per-line timeout. Without this, a client
+        /// that trickles its request one byte (or one header line) at a time - the classic
+        /// "Slowloris" attack - could hold the connection open indefinitely once <see
+        /// cref="MaxConnectionDelay" />'s wait for the very first byte had already been
+        /// satisfied. Set this to zero or a negative value to disable this timeout entirely.
+        /// Default is 10 seconds.
+        /// </summary>
+        public TimeSpan MaxHeaderReadTime { get; set; } = TimeSpan.FromSeconds(10);
+
+        /// <summary>
         /// The maximum length the request method, url and http type combined are allowed to be. If
         /// this value exceeds this limit the parsing will be canceled and a <see
         /// cref="HttpStateCode.RequestUrlTooLong" /> will be returned. Set this a negative value to
@@ -219,17 +231,30 @@ namespace MaxLib.WebServer.Services
         }
 
         protected virtual async ValueTask<string?> ReadLine(WebProgressTask task,
-            NetworkReader reader, long limit, HttpStateCode exceedState
+            NetworkReader reader, long limit, HttpStateCode exceedState,
+            CancellationToken cancellationToken = default
         )
         {
             ArgumentNullException.ThrowIfNull(task);
             ArgumentNullException.ThrowIfNull(reader);
             string? line;
-            try { line = await reader.ReadLineAsync(limit).ConfigureAwait(false); }
+            try { line = await reader.ReadLineAsync(limit, cancellationToken).ConfigureAwait(false); }
             catch (IO.ReadLineOverflowException e)
             {
                 e.State = exceedState;
                 throw;
+            }
+            catch (OperationCanceledException)
+            {
+                // unlike the generic catch below, the connection itself is still fine here -
+                // only the wait timed out - so still attempt a response on it, same as
+                // WaitForData's own timeout; but its remaining bytes (if the client is still
+                // sending more) are now abandoned mid-stream, so it can't safely be reused
+                logger.LogError(HeaderEventId, "Timed out while reading the request header");
+                task.Response.StatusCode = HttpStateCode.RequestTimeOut;
+                task.Request.FieldConnection = HttpConnectionType.Close;
+                task.NextStage = ServerStage.CreateResponse;
+                return null;
             }
             catch
             {
@@ -385,8 +410,17 @@ namespace MaxLib.WebServer.Services
                 if (!await WaitForData(task).ConfigureAwait(false))
                     return;
 
+                // bound the entire request-line + header-reading phase as a whole (not
+                // per-line), so a client that trickles its request one byte at a time can't
+                // hold the connection open indefinitely just because it satisfied
+                // WaitForData's wait for the very first byte - see MaxHeaderReadTime
+                using var headerTimeoutSource = MaxHeaderReadTime > TimeSpan.Zero
+                    ? new CancellationTokenSource(MaxHeaderReadTime)
+                    : null;
+                var headerToken = headerTimeoutSource?.Token ?? CancellationToken.None;
+
                 // read first header line
-                var line = await ReadLine(task, reader, MaxUrlLength, HttpStateCode.RequestUrlTooLong)
+                var line = await ReadLine(task, reader, MaxUrlLength, HttpStateCode.RequestUrlTooLong, headerToken)
                     .ConfigureAwait(false);
                 if (line == null)
                     return;
@@ -396,7 +430,7 @@ namespace MaxLib.WebServer.Services
 
                 // read all other header lines
                 var limit = MaxHeaderLength;
-                while (!string.IsNullOrWhiteSpace(line = await ReadLine(task, reader, limit, HttpStateCode.RequestHeaderFieldsTooLarge).ConfigureAwait(false)))
+                while (!string.IsNullOrWhiteSpace(line = await ReadLine(task, reader, limit, HttpStateCode.RequestHeaderFieldsTooLarge, headerToken).ConfigureAwait(false)))
                 {
                     debugBuilder?.AppendLine(line);
                     if (!ParseOtherHeaderLine(task, line))

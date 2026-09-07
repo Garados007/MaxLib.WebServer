@@ -202,7 +202,16 @@ rejected with `500 Internal Server Error` (logged) instead of being sent with a 
 `HttpRequestParser` bounds both how large a request body it accepts and how long it waits for
 one to arrive, so that an unbounded `Content-Length` combined with a client that stalls
 mid-upload can't pin a thread-pool thread forever (draining an unconsumed body on dispose is
-fully asynchronous - see `HttpPost.DisposeAsync()` - and bounded by the same timeout).
+fully asynchronous - see `HttpPost.DisposeAsync()` - and bounded by the same timeout). It also
+bounds how long a client is given to actually send its request in the first place:
+
+- **`MaxConnectionDelay`** (default 5 s) is how long the parser waits for the very first byte of
+  a request to arrive before giving up. Set it to zero or negative to disable this wait.
+- **`MaxHeaderReadTime`** (default 10 s) bounds the *rest* of the request-line-and-header phase
+  as a whole, once that first byte has arrived - not a per-line timeout. Without it, a client
+  that trickles its request one byte (or one header line) at a time - the classic "Slowloris"
+  attack - could hold the connection open indefinitely just by satisfying
+  `MaxConnectionDelay`'s wait first. Set it to zero or negative to disable it.
 
 - **`MaxContentLength`** (default 100 MB) is the body size every request is accepted under
   without further checks. A request whose `Content-Length` exceeds it is rejected with

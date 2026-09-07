@@ -421,5 +421,79 @@ namespace MaxLib.WebServer.Test.Services
             Assert.IsTrue(stopwatch.Elapsed < TimeSpan.FromSeconds(5),
                 $"expected cancellation well within the configured timeout, took {stopwatch.Elapsed}");
         }
+
+        // Simulates a client that sends its request line, then trickles the rest of the
+        // request (the classic "Slowloris" attack) - every read past the request line
+        // blocks until cancelled.
+        private sealed class RequestLineThenStallStream : Stream
+        {
+            private readonly MemoryStream requestLine;
+
+            public RequestLineThenStallStream(byte[] requestLineBytes)
+                => requestLine = new MemoryStream(requestLineBytes);
+
+            public override bool CanRead => true;
+            public override bool CanSeek => false;
+            public override bool CanWrite => false;
+            public override long Length => throw new NotSupportedException();
+            public override long Position
+            {
+                get => 0;
+                set => throw new NotSupportedException();
+            }
+            public override void Flush() { }
+            public override int Read(byte[] buffer, int offset, int count)
+                => throw new NotSupportedException("only the async read paths are exercised here");
+            public override Task<int> ReadAsync(byte[] buffer, int offset, int count, System.Threading.CancellationToken cancellationToken)
+                => ReadAsync(buffer.AsMemory(offset, count), cancellationToken).AsTask();
+            public override async ValueTask<int> ReadAsync(Memory<byte> buffer, System.Threading.CancellationToken cancellationToken = default)
+            {
+                if (requestLine.Position < requestLine.Length)
+                    return await requestLine.ReadAsync(buffer, cancellationToken).ConfigureAwait(false);
+                await Task.Delay(System.Threading.Timeout.Infinite, cancellationToken).ConfigureAwait(false);
+                throw new InvalidOperationException("unreachable: Task.Delay(Infinite) only ever completes by cancellation");
+            }
+            public override long Seek(long offset, SeekOrigin origin) => throw new NotSupportedException();
+            public override void SetLength(long value) => throw new NotSupportedException();
+            public override void Write(byte[] buffer, int offset, int count) => throw new NotSupportedException();
+        }
+
+        [TestMethod]
+        public async Task TestRequestParser_StalledHeaderReadIsCancelledWithinTheConfiguredTimeout()
+        {
+            // the request line arrives, but the client then trickles nothing further - the
+            // classic Slowloris attack, which used to hold the connection open indefinitely
+            // once WaitForData's wait for the very first byte was already satisfied
+            var requestLineBytes = Encoding.UTF8.GetBytes("GET /test.html HTTP/1.1\r\n");
+            var parser = new HttpRequestParser { MaxHeaderReadTime = TimeSpan.FromMilliseconds(50) };
+            test.SetStream(new RequestLineThenStallStream(requestLineBytes));
+
+            var stopwatch = System.Diagnostics.Stopwatch.StartNew();
+            await parser.ProgressTask(test.Task).ConfigureAwait(false);
+            stopwatch.Stop();
+
+            Assert.IsTrue(stopwatch.Elapsed < TimeSpan.FromSeconds(5),
+                $"expected the header read to be cancelled well within the configured timeout, took {stopwatch.Elapsed}");
+            Assert.AreEqual(HttpStateCode.RequestTimeOut, test.GetStatusCode());
+            // the connection's position in the byte stream is unknown once a mid-header
+            // read is abandoned, so it can't safely be reused for a further request
+            Assert.AreEqual(HttpConnectionType.Close, test.Request.FieldConnection);
+        }
+
+        [TestMethod]
+        public async Task TestRequestParser_ZeroMaxHeaderReadTimeDisablesTheTimeout()
+        {
+            var parser = new HttpRequestParser { MaxHeaderReadTime = TimeSpan.Zero };
+            var sb = new StringBuilder();
+            sb.AppendLine("GET /test.html HTTP/1.1");
+            sb.AppendLine("Host: testdomain.local");
+            sb.AppendLine();
+            using (var output = test.SetStream(sb.ToString()))
+            {
+                await parser.ProgressTask(test.Task).ConfigureAwait(false);
+                Assert.AreEqual(HttpProtocolMethod.Get, test.Request.ProtocolMethod);
+                Assert.AreEqual("/test.html", test.Request.Location.DocumentPath);
+            }
+        }
     }
 }
