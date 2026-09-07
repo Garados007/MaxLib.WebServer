@@ -157,6 +157,43 @@ namespace MaxLib.WebServer.Test.Services
         }
 
         [TestMethod]
+        public async Task TestRequestParser_MultipartWithTooManyPartsIsRejected()
+        {
+            var originalLimit = Post.MultipartFormData.MaximumPartCount;
+            try
+            {
+                Post.MultipartFormData.MaximumPartCount = 2;
+
+                var content = new StringBuilder();
+                for (var i = 0; i < 4; ++i)
+                    content.Append("--B\r\n\r\nx\r\n");
+                content.Append("--B--\r\n");
+
+                var sb = new StringBuilder();
+                sb.AppendLine("POST /test.html HTTP/1.1");
+                sb.AppendLine("Host: testdomain.local");
+                sb.AppendLine($"Content-Length: {content.Length}");
+                sb.AppendLine("Content-Type: multipart/form-data; boundary=B");
+                sb.AppendLine();
+                sb.Append(content);
+                using (var output = test.SetStream(sb.ToString()))
+                {
+                    await new HttpRequestParser().ProgressTask(test.Task).ConfigureAwait(false);
+                    Assert.IsTrue(test.Request.Post.Data is Post.MultipartFormData);
+                    var data = (Post.MultipartFormData)test.Request.Post.Data;
+                    // rejected as soon as the 3rd part's boundary is seen, before its
+                    // headers/content are parsed at all
+                    Assert.AreEqual(2, data.Entries.Count);
+                    Assert.AreEqual(HttpStateCode.RequestEntityTooLarge, test.GetStatusCode());
+                }
+            }
+            finally
+            {
+                Post.MultipartFormData.MaximumPartCount = originalLimit;
+            }
+        }
+
+        [TestMethod]
         public async Task TestRequestParser_MultipartPost_BinaryContentIsNotCorrupted()
         {
             // every byte value 0x00-0x7F, including embedded CR/LF bytes that are not part
