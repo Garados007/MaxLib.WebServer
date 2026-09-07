@@ -172,6 +172,31 @@ reverse proxy (e.g. nginx) terminates TLS in front of this server instead, that 
 never sees an HTTPS connection, so set `CookieSecurity = CookieSecurityMode.Strict` on your
 session service explicitly to still get the stricter, HTTPS-only cookie attributes.
 
+### Chunked responses
+
+Most `HttpDataSource` implementations know their length up front, and `HttpResponseCreator`
+computes `Content-Length` from that. A source that doesn't (e.g. `Chunked.HttpChunkedStream`,
+wrapping a stream whose size isn't known ahead of time) reports `Length() == null` instead - if
+`HttpResponseCreator` computed `Content-Length` from that the same way, it would silently
+undercount it while still writing the full body, desyncing the connection for any client or
+proxy relying on that header for framing.
+
+To actually send such a response correctly, register `Chunked.ChunkedResponseCreator` and
+`Chunked.ChunkedSender` alongside the default services - typically with `onlyWithLazy: true`, so
+they only take over responses that need it (unknown-length or lazy data sources) and leave
+ordinary responses to the default `Content-Length` path:
+
+```csharp
+using MaxLib.WebServer.Chunked;
+
+server.AddWebService(new ChunkedResponseCreator(onlyWithLazy: true));
+server.AddWebService(new ChunkedSender(onlyWithLazy: true));
+```
+
+Without a `ChunkedSender` registered, a response containing an unknown-length data source is
+rejected with `500 Internal Server Error` (logged) instead of being sent with a wrong
+`Content-Length`.
+
 ### Request body size and read timeout
 
 `HttpRequestParser` bounds both how large a request body it accepts and how long it waits for
