@@ -43,6 +43,17 @@ namespace MaxLib.WebServer
             }
         }
 
+        /// <summary>
+        /// The maximum number of connections (<see cref="Server.AllConnections" />) accepted
+        /// at once. A new connection beyond this limit is rejected - its socket closed
+        /// immediately, without being processed at all - rather than left to exhaust
+        /// thread-pool/memory resources indefinitely (see also
+        /// <see cref="Services.HttpRequestParser.MaxContentLength" /> and
+        /// <see cref="Services.HttpRequestParser.ContentReadBaseTimeout" />, which bound what a
+        /// single already-admitted connection can do). Defaults to -1 (no limit).
+        /// </summary>
+        public int MaxConcurrentConnections { get; set; } = -1;
+
         //Debug
         public bool Debug_WriteRequests;
         public bool Debug_LogConnections;

@@ -228,6 +228,22 @@ connection for reuse (in `HttpSender`, right after sending); if that final drain
 connection is closed there instead of kept alive, since its position in the byte stream is by then
 unknown.
 
+### Connection limits
+
+`WebServerSettings.MaxConcurrentConnections` bounds how many connections (`Server.AllConnections`)
+the server accepts at once - a new connection beyond that limit is rejected outright (its socket
+closed immediately, without being processed at all) instead of being left to compete for
+thread-pool/memory resources indefinitely alongside every other admitted connection. Defaults to
+`-1` (no limit, the previous behavior); applies to both the plain and TLS-terminating listeners
+(`SecureWebServer`, `DualSecureWebServer`), since they share the same connection bookkeeping.
+
+```csharp
+using var server = new Server(new WebServerSettings(8000, 5000)
+{
+    MaxConcurrentConnections = 1000,
+});
+```
+
 ### WebSocket Events
 
 `MaxLib.WebServer.WebSocket` includes `EventBase`/`EventFactory`, a small typed-message

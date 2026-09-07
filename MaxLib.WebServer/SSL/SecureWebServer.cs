@@ -84,6 +84,8 @@ namespace MaxLib.WebServer.SSL
                 client.Close();
                 return;
             }
+            if (!TryAdmitConnection(client))
+                return;
             //prepare session
             var connection = new HttpConnection()
             {
