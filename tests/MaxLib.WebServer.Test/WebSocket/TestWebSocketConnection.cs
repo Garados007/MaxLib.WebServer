@@ -88,6 +88,54 @@ namespace MaxLib.WebServer.Test.WebSocket
         }
 
         [TestMethod]
+        public async Task TestReceiveLoopRejectsAnOversizedControlFrame()
+        {
+            // RFC 6455 §5.5 caps every control frame's payload at 125 bytes.
+            var input = new MemoryStream(await EncodeFrameAsync(OpCode.Ping, true, new byte[126])
+                .ConfigureAwait(false));
+            var output = new MemoryStream();
+            var connection = new TestConnection(new WebServerTaskCreator.BidirectionalStream(input, output));
+
+            await connection.ReceiveLoop().ConfigureAwait(false);
+
+            Assert.AreEqual(CloseReason.ProtocolError,
+                await DecodeSentCloseReasonAsync(output.ToArray()).ConfigureAwait(false));
+        }
+
+        [TestMethod]
+        public async Task TestReceiveLoopRejectsAFragmentedControlFrame()
+        {
+            // RFC 6455 §5.4 forbids fragmenting control frames; a fragmented one must not
+            // silently merge into whatever data message is being reassembled.
+            var input = new MemoryStream(await EncodeFrameAsync(OpCode.Ping, final: false, new byte[] { 1 })
+                .ConfigureAwait(false));
+            var output = new MemoryStream();
+            var connection = new TestConnection(new WebServerTaskCreator.BidirectionalStream(input, output));
+
+            await connection.ReceiveLoop().ConfigureAwait(false);
+
+            Assert.AreEqual(CloseReason.ProtocolError,
+                await DecodeSentCloseReasonAsync(output.ToArray()).ConfigureAwait(false));
+        }
+
+        [TestMethod]
+        public async Task TestCloseTruncatesAnOversizedInfoStringToTheControlFrameLimit()
+        {
+            var input = new MemoryStream();
+            var output = new MemoryStream();
+            var connection = new TestConnection(new WebServerTaskCreator.BidirectionalStream(input, output));
+            await connection.ReceiveLoop().ConfigureAwait(false); // EOF immediately; releases the send lock
+
+            await connection.Close(CloseReason.NormalClose, new string('a', 500)).ConfigureAwait(false);
+
+            using var readBack = new MemoryStream(output.ToArray());
+            var sentFrame = await Frame.TryRead(readBack).ConfigureAwait(false);
+            Assert.IsNotNull(sentFrame);
+            Assert.IsTrue(sentFrame!.Payload.Length <= 125,
+                $"a Close frame's payload must never exceed 125 bytes, was {sentFrame.Payload.Length}");
+        }
+
+        [TestMethod]
         public async Task TestReceiveLoopEnforcesMaxMessageSizeDuringAccumulationNotJustAtTheEnd()
         {
             // Three non-final fragments of 10 bytes each add up to 30 bytes, but a final frame

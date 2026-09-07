@@ -18,6 +18,13 @@ namespace MaxLib.WebServer.WebSocket
         // concrete subclass's own logger category here costs nothing in practice.
         static readonly EventId WebSocketEventId = new(0, "WebSocket");
 
+        /// <summary>
+        /// RFC 6455 §5.5: control frames (<see cref="OpCode.Close" />/<see cref="OpCode.Ping" />/
+        /// <see cref="OpCode.Pong" />) MUST have a payload of at most this many bytes, and MUST
+        /// NOT be fragmented.
+        /// </summary>
+        private const int MaxControlFramePayloadSize = 125;
+
         public Stream NetworkStream { get; }
         private readonly SemaphoreSlim lockStream = new SemaphoreSlim(0, 1);
 
@@ -76,6 +83,10 @@ namespace MaxLib.WebServer.WebSocket
             int size = payload.Length;
             if (info != null)
                 size = 2 + Encoding.UTF8.GetBytes(info, payload.Span[2..]);
+            // RFC 6455 §5.5: control frame payloads (Close included) must not exceed 125 bytes;
+            // truncate rather than send a non-compliant frame.
+            if (size > MaxControlFramePayloadSize)
+                size = MaxControlFramePayloadSize;
             await SendFrame(new Frame
             {
                 OpCode = OpCode.Close,
@@ -149,6 +160,17 @@ namespace MaxLib.WebServer.WebSocket
                 }
                 frame.UnapplyMask();
 
+                if (IsControlFrame(frame.OpCode) &&
+                    (!frame.FinalFrame || frame.Payload.Length > MaxControlFramePayloadSize))
+                {
+                    // RFC 6455 §5.4/§5.5: control frames must not be fragmented and their
+                    // payload must not exceed 125 bytes.
+                    await Close(CloseReason.ProtocolError,
+                        "Control frames must not be fragmented and must not exceed 125 bytes"
+                    ).ConfigureAwait(false);
+                    return;
+                }
+
                 if (!frame.FinalFrame)
                 {
                     // Per RFC 6455, only the first fragment of a message carries the real
@@ -216,6 +238,9 @@ namespace MaxLib.WebServer.WebSocket
                 }
             }
         }
+
+        private static bool IsControlFrame(OpCode opCode)
+            => opCode is OpCode.Close or OpCode.Ping or OpCode.Pong;
 
         /// <summary>
         /// Checks the running fragment count/size accumulated so far for the message currently
