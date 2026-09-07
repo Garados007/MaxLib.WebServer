@@ -150,9 +150,22 @@ namespace MaxLib.WebServer.Post
 
         public async Task SetAsync(WebProgressTask task, IO.ContentStream content, string options)
         {
+            ArgumentNullException.ThrowIfNull(task);
+            ArgumentNullException.ThrowIfNull(content);
+
             var match = boundaryRegex().Match(options);
-            var boundary = match.Success ? match.Groups["name"].Value : "";
-            boundary = $"--{boundary}";
+            var boundaryName = match.Success ? match.Groups["name"].Value : "";
+            if (string.IsNullOrEmpty(boundaryName))
+            {
+                // a missing/empty boundary can never be parsed correctly: falling back to
+                // "--" as the delimiter is a 2-byte sequence virtually guaranteed to occur
+                // inside real content, producing nonsensical/truncated entries instead of a
+                // clean rejection
+                task.Response.StatusCode = HttpStateCode.BadRequest;
+                await content.DiscardAsync().ConfigureAwait(false);
+                return;
+            }
+            var boundary = $"--{boundaryName}";
             ReadOnlyMemory<byte> rawBoundary = Encoding.UTF8.GetBytes("\r\n" + boundary);
 
             Entries.Clear();

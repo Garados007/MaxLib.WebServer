@@ -115,6 +115,48 @@ namespace MaxLib.WebServer.Test.Services
         }
 
         [TestMethod]
+        public async Task TestRequestParser_MultipartWithNoBoundaryIsRejected()
+        {
+            var content = "irrelevant -- content -- here";
+            var sb = new StringBuilder();
+            sb.AppendLine("POST /test.html HTTP/1.1");
+            sb.AppendLine("Host: testdomain.local");
+            sb.AppendLine($"Content-Length: {content.Length}");
+            sb.AppendLine("Content-Type: multipart/form-data");
+            sb.AppendLine();
+            sb.Append(content);
+            using (var output = test.SetStream(sb.ToString()))
+            {
+                await new HttpRequestParser().ProgressTask(test.Task).ConfigureAwait(false);
+                Assert.IsTrue(test.Request.Post.Data is Post.MultipartFormData);
+                var data = (Post.MultipartFormData)test.Request.Post.Data;
+                Assert.AreEqual(0, data.Entries.Count);
+                Assert.AreEqual(HttpStateCode.BadRequest, test.GetStatusCode());
+            }
+        }
+
+        [TestMethod]
+        public async Task TestRequestParser_MultipartWithEmptyBoundaryIsRejected()
+        {
+            var content = "irrelevant -- content -- here";
+            var sb = new StringBuilder();
+            sb.AppendLine("POST /test.html HTTP/1.1");
+            sb.AppendLine("Host: testdomain.local");
+            sb.AppendLine($"Content-Length: {content.Length}");
+            sb.AppendLine("Content-Type: multipart/form-data; boundary=");
+            sb.AppendLine();
+            sb.Append(content);
+            using (var output = test.SetStream(sb.ToString()))
+            {
+                await new HttpRequestParser().ProgressTask(test.Task).ConfigureAwait(false);
+                Assert.IsTrue(test.Request.Post.Data is Post.MultipartFormData);
+                var data = (Post.MultipartFormData)test.Request.Post.Data;
+                Assert.AreEqual(0, data.Entries.Count);
+                Assert.AreEqual(HttpStateCode.BadRequest, test.GetStatusCode());
+            }
+        }
+
+        [TestMethod]
         public async Task TestRequestParser_MultipartPost_BinaryContentIsNotCorrupted()
         {
             // every byte value 0x00-0x7F, including embedded CR/LF bytes that are not part
