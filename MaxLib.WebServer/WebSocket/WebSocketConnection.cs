@@ -108,7 +108,7 @@ namespace MaxLib.WebServer.WebSocket
                 Frame? frame;
                 try
                 {
-                    frame = await Frame.TryRead(NetworkStream).ConfigureAwait(false);
+                    frame = await Frame.TryRead(NetworkStream, throwLargePayload: true).ConfigureAwait(false);
                 }
                 catch (TooLargePayloadException)
                 {

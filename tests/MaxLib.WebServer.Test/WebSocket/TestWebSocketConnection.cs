@@ -88,6 +88,30 @@ namespace MaxLib.WebServer.Test.WebSocket
         }
 
         [TestMethod]
+        public async Task TestReceiveLoopSendsATooBigMessageCloseForAnOversizedDeclaredLength()
+        {
+            // A frame declaring a length > int.MaxValue is legal on the wire (RFC 6455's 64-bit
+            // extended length field allows it) but can never be represented as a Memory<byte>.
+            // No payload bytes are needed - Frame.TryRead(throwLargePayload: true) must reject
+            // this from the header alone, before ever trying to read the (nonexistent) payload.
+            var header = new byte[10];
+            header[0] = 0x82; // FIN + Binary
+            header[1] = 127;  // 64-bit extended length follows
+            var lengthBytes = new byte[8];
+            Frame.ToNetworkByteOrder(BitConverter.GetBytes((ulong)int.MaxValue + 1), lengthBytes);
+            lengthBytes.CopyTo(header, 2);
+
+            var input = new MemoryStream(header);
+            var output = new MemoryStream();
+            var connection = new TestConnection(new WebServerTaskCreator.BidirectionalStream(input, output));
+
+            await connection.ReceiveLoop().ConfigureAwait(false);
+
+            Assert.AreEqual(CloseReason.TooBigMessage,
+                await DecodeSentCloseReasonAsync(output.ToArray()).ConfigureAwait(false));
+        }
+
+        [TestMethod]
         public async Task TestReceiveLoopReassemblesA3FragmentMessageWithTheFirstFragmentsOpcode()
         {
             // Per RFC 6455, only the first fragment carries the real opcode (Text/Binary);
