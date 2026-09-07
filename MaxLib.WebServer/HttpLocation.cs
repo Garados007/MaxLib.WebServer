@@ -30,6 +30,7 @@ namespace MaxLib.WebServer
                 DocumentPath = url;
                 DocumentPathTiles = [url];
                 CompleteGet = "";
+                return;
             }
             DocumentPath = match.Groups[1].Value;
             DocumentPathTiles = match.Groups[2].Captures
