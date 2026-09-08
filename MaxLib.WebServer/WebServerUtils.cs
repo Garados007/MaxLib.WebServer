@@ -103,6 +103,12 @@ namespace MaxLib.WebServer
             : new DateTime();
 
 
+        /// <summary>
+        /// Compares two byte sequences for equality. This short-circuits on the first
+        /// mismatching byte, so the time it takes can reveal how many leading bytes matched -
+        /// safe for ordinary content comparison, but not for comparing a secret, token, or
+        /// HMAC/signature value. Use <see cref="BytesEqualConstantTime" /> for that instead.
+        /// </summary>
         public static bool BytesEqual(byte[] ba1, byte[] ba2)
         {
             _ = ba1 ?? throw new ArgumentNullException(nameof(ba1));
@@ -113,6 +119,20 @@ namespace MaxLib.WebServer
                 if (ba1[i] != ba2[i])
                     return false;
             return true;
+        }
+
+        /// <summary>
+        /// Compares two byte sequences for equality in constant time with respect to their
+        /// content, so the comparison itself cannot leak which byte (if any) first differed via
+        /// a timing side channel. Use this instead of <see cref="BytesEqual" /> whenever one of
+        /// the values is a secret, token, or HMAC/signature - e.g. checking a client-supplied
+        /// value against an expected one.
+        /// </summary>
+        public static bool BytesEqualConstantTime(byte[] ba1, byte[] ba2)
+        {
+            _ = ba1 ?? throw new ArgumentNullException(nameof(ba1));
+            _ = ba2 ?? throw new ArgumentNullException(nameof(ba2));
+            return System.Security.Cryptography.CryptographicOperations.FixedTimeEquals(ba1, ba2);
         }
     }
 }
