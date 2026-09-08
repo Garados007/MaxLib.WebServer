@@ -13,6 +13,9 @@ namespace MaxLib.WebServer.Test.Sessions
     {
         public ValueTask<string> ExposedGenerateSessionKey()
             => GenerateSessionKey();
+
+        public ValueTask<Session> ExposedGet(string key)
+            => Get(key);
     }
 
     [TestClass]
