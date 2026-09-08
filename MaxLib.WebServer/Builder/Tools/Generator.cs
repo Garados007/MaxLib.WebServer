@@ -642,7 +642,7 @@ namespace MaxLib.WebServer.Builder.Tools
                 }
                 if (report != null)
                     report.Message = $"Parameter {Mark("param", parameter.Name)} resolved via {Mark("attr", paramAttr.GetType().Name)}";
-                return new Runtime.Parameter(parameter.Name ?? "", paramAttr, convFunc);
+                return new Runtime.Parameter(parameter.Name ?? "", paramAttr, convFunc, parameter.ParameterType);
             }
             else
             {

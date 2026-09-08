@@ -38,7 +38,11 @@ namespace MaxLib.WebServer.Builder.Runtime
             if (data is null)
                 return Task.CompletedTask;
             using var watch = task.Monitor.Watch(MethodClass, $"Execute {Method.Name}()");
-            var result = Method.Invoke(MethodClass, data);
+            // BindingFlags.DoNotWrapExceptions makes a synchronous handler's thrown exception
+            // (e.g. HttpException, the documented way to cancel a request with a specific
+            // status code) surface here as-is, instead of wrapped in a TargetInvocationException
+            // that WebServiceGroup.Execute's `catch (HttpException e)` would never match.
+            var result = Method.Invoke(MethodClass, BindingFlags.DoNotWrapExceptions, null, data, null);
             GC.KeepAlive(watch);
             return Result(task, result);
         }
