@@ -371,6 +371,9 @@ namespace MaxLib.WebServer.Test.Services
                 var data = (Post.MultipartFormData)test.Request.Post.Data;
                 Assert.AreEqual(0, data.Entries.Count);
                 Assert.AreEqual(HttpStateCode.BadRequest, test.GetStatusCode());
+                // skip CreateDocument/ProcessDocument - there is no content to generate for a
+                // request that was already rejected
+                Assert.AreEqual(ServerStage.CreateResponse, test.Task.NextStage);
             }
         }
 
@@ -392,6 +395,7 @@ namespace MaxLib.WebServer.Test.Services
                 var data = (Post.MultipartFormData)test.Request.Post.Data;
                 Assert.AreEqual(0, data.Entries.Count);
                 Assert.AreEqual(HttpStateCode.BadRequest, test.GetStatusCode());
+                Assert.AreEqual(ServerStage.CreateResponse, test.Task.NextStage);
             }
         }
 
@@ -424,6 +428,7 @@ namespace MaxLib.WebServer.Test.Services
                     // headers/content are parsed at all
                     Assert.AreEqual(2, data.Entries.Count);
                     Assert.AreEqual(HttpStateCode.RequestEntityTooLarge, test.GetStatusCode());
+                    Assert.AreEqual(ServerStage.CreateResponse, test.Task.NextStage);
                 }
             }
             finally

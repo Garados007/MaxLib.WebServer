@@ -174,6 +174,7 @@ namespace MaxLib.WebServer.Post
                 // inside real content, producing nonsensical/truncated entries instead of a
                 // clean rejection
                 task.Response.StatusCode = HttpStateCode.BadRequest;
+                task.NextStage = ServerStage.CreateResponse;
                 await content.DiscardAsync().ConfigureAwait(false);
                 return;
             }
@@ -210,6 +211,7 @@ namespace MaxLib.WebServer.Post
                     // or content - a huge part count is itself the attack, regardless of
                     // how small each individual part is
                     task.Response.StatusCode = HttpStateCode.RequestEntityTooLarge;
+                    task.NextStage = ServerStage.CreateResponse;
                     await content.DiscardAsync().ConfigureAwait(false);
                     return;
                 }
