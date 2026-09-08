@@ -196,8 +196,8 @@ namespace MaxLib.WebServer
         /// <summary>
         /// load the data for <see cref="GetMimeTypeForExtension(string)"/>. If no
         /// cache file exists or <paramref name="useLocalCache"/> is false it loads
-        /// the data from <a href="http://svn.apache.org/repos/asf/httpd/httpd/trunk/docs/conf/mime.types">
-        /// http://svn.apache.org/repos/asf/httpd/httpd/trunk/docs/conf/mime.types
+        /// the data from <a href="https://svn.apache.org/repos/asf/httpd/httpd/trunk/docs/conf/mime.types">
+        /// https://svn.apache.org/repos/asf/httpd/httpd/trunk/docs/conf/mime.types
         /// </a>
         /// <br/>
         /// If <paramref name="useLocalCache"/> is true it uses the cache file at
@@ -234,7 +234,7 @@ namespace MaxLib.WebServer
                 logger.LogDebug(LoadMimeEventId, "Update Mime Cachce");
                 using var client = new HttpClient();
                 var reader = new StringReader(await client.GetStringAsync(
-                    @"http://svn.apache.org/repos/asf/httpd/httpd/trunk/docs/conf/mime.types"
+                    @"https://svn.apache.org/repos/asf/httpd/httpd/trunk/docs/conf/mime.types"
                 ).ConfigureAwait(false));
                 var regex = MimeTypesLineRegex();
                 string? line;
