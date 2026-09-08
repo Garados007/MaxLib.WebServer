@@ -375,6 +375,14 @@ namespace MaxLib.WebServer.Builder.Tools
             return result;
         }
 
+        /// <summary>
+        /// The specificity of <paramref name="method" />'s own <see cref="PathAttribute" />
+        /// rule, if it has one, else 0 - used to order overlapping routes that share the same
+        /// <see cref="WebServicePriority" />. See <see cref="PathAttribute.Specificity" />.
+        /// </summary>
+        private static int MethodSpecificity(Runtime.MethodService method)
+            => method.Rules.OfType<PathAttribute>().FirstOrDefault()?.Specificity ?? 0;
+
         private static Runtime.ServiceGroup? GenerateClassCore(Type type, TypeReportNode? report)
         {
             var ignore = type.GetCustomAttribute<IgnoreAttribute>();
@@ -405,6 +413,7 @@ namespace MaxLib.WebServer.Builder.Tools
             if (report != null)
                 report.Rules.AddRange(rules.Select(r => r.ToString() ?? r.GetType().Name));
 
+            var generatedMethods = new List<Runtime.MethodService>();
             foreach (var methodInfo in type.GetMethods())
             {
                 MethodReportNode? methodReport = report != null
@@ -416,10 +425,15 @@ namespace MaxLib.WebServer.Builder.Tools
                     : null;
                 var method = GenerateMethodCore(methodInfo, methodReport);
                 if (method != null)
-                    group.Add(method);
+                    generatedMethods.Add(method);
                 if (methodReport != null)
                     report!.Methods.Add(methodReport);
             }
+            // Type.GetMethods() order is documented as unspecified. Adding the more specific
+            // route first, for methods that end up sharing the same WebServicePriority, makes
+            // its PriorityList place it ahead - see PathAttribute.Specificity.
+            foreach (var method in generatedMethods.OrderByDescending(MethodSpecificity))
+                group.Add(method);
 
             foreach (var nested in type.GetNestedTypes())
             {
@@ -642,7 +656,7 @@ namespace MaxLib.WebServer.Builder.Tools
                 }
                 if (report != null)
                     report.Message = $"Parameter {Mark("param", parameter.Name)} resolved via {Mark("attr", paramAttr.GetType().Name)}";
-                return new Runtime.Parameter(parameter.Name ?? "", paramAttr, convFunc);
+                return new Runtime.Parameter(parameter.Name ?? "", paramAttr, convFunc, parameter.ParameterType);
             }
             else
             {

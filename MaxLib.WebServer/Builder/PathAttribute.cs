@@ -6,7 +6,14 @@ using System.Text;
 namespace MaxLib.WebServer.Builder
 {
     /// <summary>
-    /// Limits the call to a specific URL path. You can also assign variables here.
+    /// Limits the call to a specific URL path. You can also assign variables here.<br/>
+    /// When two methods on the same type have overlapping paths, <see cref="Tools.Generator"
+    /// /> orders them by specificity before falling back to <see cref="PriorityAttribute" />:
+    /// an exact match outranks a <see cref="Prefix" /> match, and among two exact (or two
+    /// prefix) matches, more literal segments and fewer <c>{var}</c> segments outrank fewer
+    /// literal segments/more variables. If two overlapping routes tie on both specificity and
+    /// priority, which one wins is not guaranteed - add an explicit
+    /// <see cref="PriorityAttribute" /> to make the outcome deterministic.
     /// </summary>
     public sealed class PathAttribute : Tools.RuleAttributeBase, Debugger.IExplainableRule
     {
@@ -43,6 +50,29 @@ namespace MaxLib.WebServer.Builder
                 if (part.StartsWith('{') && part.EndsWith('}'))
                     this.parts.Add((part[1..^1], true));
                 else this.parts.Add((part, false));
+            }
+        }
+
+        /// <summary>
+        /// Used by <see cref="Tools.Generator" /> to order overlapping routes that share the
+        /// same <see cref="WebServicePriority" />: higher wins. See the class doc comment for
+        /// the exact ordering rules.
+        /// </summary>
+        internal int Specificity
+        {
+            get
+            {
+                var literalCount = 0;
+                var varCount = 0;
+                foreach (var (_, isVar) in parts)
+                {
+                    if (isVar)
+                        ++varCount;
+                    else
+                        ++literalCount;
+                }
+                var score = literalCount * 1000 - varCount;
+                return Prefix ? score : score + 1_000_000;
             }
         }
 

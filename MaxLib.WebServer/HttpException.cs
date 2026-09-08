@@ -3,10 +3,11 @@
 namespace MaxLib.WebServer
 {
     /// <summary>
-    /// Cancel the operation of the single <see cref="WebService.ProgressTask(WebProgressTask)" />.
-    /// The engine will automatically set the resulting status to the <see cref="WebProgressTask"
-    /// />. These exceptions are intended to simplify the control flow. These messages are not
-    /// logged to the output.
+    /// Cancel the operation of the single <see cref="WebService.ProgressTask(WebProgressTask)" />
+    /// - or, for a <see cref="WebService2" />, its <c>CanWorkWith</c> as well (e.g. thrown while
+    /// resolving a Builder method's parameters). The engine will automatically set the resulting
+    /// status to the <see cref="WebProgressTask" />. These exceptions are intended to simplify
+    /// the control flow. These messages are not logged to the output.
     /// </summary>
     [System.Serializable]
     public class HttpException : System.Exception
