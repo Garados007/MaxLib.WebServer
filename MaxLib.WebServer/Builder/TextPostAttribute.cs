@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Text;
 using MaxLib.WebServer.Builder.Tools;
 
 namespace MaxLib.WebServer.Builder
@@ -13,16 +14,13 @@ namespace MaxLib.WebServer.Builder
         {
             ArgumentNullException.ThrowIfNull(task);
             var post = task.Request.Post.Data;
-            if (!(post is MaxLib.WebServer.Post.UnknownPostData data))
+            if (post is not MaxLib.WebServer.Post.RawPostData data)
                 return new Result<object?>();
-            using var reader = new StreamReader(
-                data.Data,
-                System.Text.Encoding.UTF8,
-                bufferSize: -1,
-                detectEncodingFromByteOrderMarks: false,
-                leaveOpen: true
-            );
-            return new Result<object?>(reader.ReadToEnd());
+            if (data.Entry.Content is ReadOnlyMemory<byte> content)
+                return new Result<object?>(Encoding.UTF8.GetString(content.Span));
+            if (data.Entry.TempFile is FileInfo tempFile)
+                return new Result<object?>(File.ReadAllText(tempFile.FullName, Encoding.UTF8));
+            return new Result<object?>("");
         }
 
         public override string ToString() => "TextPost";

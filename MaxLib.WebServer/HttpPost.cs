@@ -27,6 +27,10 @@ namespace MaxLib.WebServer
                 () => new UrlEncodedData();
             DataHandler[WebServer.MimeType.MultipartFormData] =
                 () => new MultipartFormData();
+            DataHandler[WebServer.MimeType.ApplicationJson] =
+                () => new RawPostData(WebServer.MimeType.ApplicationJson);
+            DataHandler[WebServer.MimeType.ApplicationOctetStream] =
+                () => new RawPostData(WebServer.MimeType.ApplicationOctetStream);
         }
 
         public virtual void SetPost(WebProgressTask task, IO.ContentStream content, string? mime)
@@ -42,24 +46,23 @@ namespace MaxLib.WebServer
                     mime = mime[..ind];
                 }
             }
+            MimeType = mime;
 
-            if ((MimeType = mime) != null &&
-                DataHandler.TryGetValue(mime!, out Func<IPostData>? constructor)
-            )
-                LazyData = new Lazy<Task<IPostData>>(() =>
+            // an unrecognized (or missing) Content-Type still gets its body read and stored via
+            // RawPostData, exactly like a registered mime type would - it is never left as an
+            // unread reference to the live connection stream
+            var constructor = mime != null && DataHandler.TryGetValue(mime, out Func<IPostData>? found)
+                ? found
+                : () => new RawPostData(mime);
+            LazyData = new Lazy<Task<IPostData>>(() =>
+            {
+                return Task.Run(async () =>
                 {
-                    return Task.Run(async () =>
-                    {
-                        var data = constructor();
-                        await data.SetAsync(task, content, args).ConfigureAwait(false);
-                        return data;
-                    });
-                }, System.Threading.LazyThreadSafetyMode.ExecutionAndPublication);
-#pragma warning disable CA2000 // ownership transfers to LazyData; HttpPost.Dispose() disposes the resolved IPostData once created
-            else LazyData = new Lazy<Task<IPostData>>(
-                Task.FromResult<IPostData>(new UnknownPostData(content, mime))
-            );
-#pragma warning restore CA2000
+                    var data = constructor();
+                    await data.SetAsync(task, content, args).ConfigureAwait(false);
+                    return data;
+                });
+            }, System.Threading.LazyThreadSafetyMode.ExecutionAndPublication);
         }
 
         public HttpPost()

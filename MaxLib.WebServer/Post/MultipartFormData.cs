@@ -148,11 +148,37 @@ namespace MaxLib.WebServer.Post
         /// </summary>
         public static bool AlwaysStoreFiles { get; set; } = true;
 
+        /// <summary>
+        /// The maximum number of parts a single multipart body may contain. This is independent
+        /// of <see cref="MaximumCacheSize" />/<see cref="Services.HttpRequestParser.MaxContentLength" />:
+        /// a body composed of a huge number of minimal parts can stay well under any byte-size
+        /// limit while still being expensive to process, since each part carries its own
+        /// object/dictionary/regex overhead regardless of how few raw bytes it represents.
+        /// Exceeding this rejects the request with <see
+        /// cref="HttpStateCode.RequestEntityTooLarge" />. Set this to a negative value to
+        /// disable this check. Default is 10,000.
+        /// </summary>
+        public static int MaximumPartCount { get; set; } = 10_000;
+
         public async Task SetAsync(WebProgressTask task, IO.ContentStream content, string options)
         {
+            ArgumentNullException.ThrowIfNull(task);
+            ArgumentNullException.ThrowIfNull(content);
+
             var match = boundaryRegex().Match(options);
-            var boundary = match.Success ? match.Groups["name"].Value : "";
-            boundary = $"--{boundary}";
+            var boundaryName = match.Success ? match.Groups["name"].Value : "";
+            if (string.IsNullOrEmpty(boundaryName))
+            {
+                // a missing/empty boundary can never be parsed correctly: falling back to
+                // "--" as the delimiter is a 2-byte sequence virtually guaranteed to occur
+                // inside real content, producing nonsensical/truncated entries instead of a
+                // clean rejection
+                task.Response.StatusCode = HttpStateCode.BadRequest;
+                task.NextStage = ServerStage.CreateResponse;
+                await content.DiscardAsync().ConfigureAwait(false);
+                return;
+            }
+            var boundary = $"--{boundaryName}";
             ReadOnlyMemory<byte> rawBoundary = Encoding.UTF8.GetBytes("\r\n" + boundary);
 
             Entries.Clear();
@@ -178,6 +204,17 @@ namespace MaxLib.WebServer.Post
                 // expect boundary
                 if (await reader.ReadLineAsync().ConfigureAwait(false) != boundary)
                     break;
+
+                if (MaximumPartCount >= 0 && Entries.Count >= MaximumPartCount)
+                {
+                    // reject before spending any work parsing this (excess) part's headers
+                    // or content - a huge part count is itself the attack, regardless of
+                    // how small each individual part is
+                    task.Response.StatusCode = HttpStateCode.RequestEntityTooLarge;
+                    task.NextStage = ServerStage.CreateResponse;
+                    await content.DiscardAsync().ConfigureAwait(false);
+                    return;
+                }
 
                 // read headers until an empty line is found
                 var dict = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);

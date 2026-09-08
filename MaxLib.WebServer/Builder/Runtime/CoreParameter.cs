@@ -36,6 +36,7 @@ namespace MaxLib.WebServer.Builder.Runtime
             (typeof(Task<Post.IPostData>), x => x.Request.Post.DataAsync == null ? new Result<object?>() : new Result<object?>(x.Request.Post.DataAsync)),
             (typeof(Post.MultipartFormData), x => x.Request.Post.Data is Post.MultipartFormData data ? new Result<object?>(data) : new Result<object?>()),
             (typeof(Post.UnknownPostData), x => x.Request.Post.Data is Post.UnknownPostData data ? new Result<object?>(data) : new Result<object?>()),
+            (typeof(Post.RawPostData), x => x.Request.Post.Data is Post.RawPostData data ? new Result<object?>(data) : new Result<object?>()),
             (typeof(Post.UrlEncodedData), x => x.Request.Post.Data is Post.UrlEncodedData data ? new Result<object?>(data) : new Result<object?>()),
             (typeof(Monitoring.Monitor), x => new Result<object?>(x.Monitor)),
             (typeof(Monitoring.IWatch), x => new Result<object?>(x.Monitor.Current)),
