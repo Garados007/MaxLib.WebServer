@@ -172,6 +172,22 @@ reverse proxy (e.g. nginx) terminates TLS in front of this server instead, that 
 never sees an HTTPS connection, so set `CookieSecurity = CookieSecurityMode.Strict` on your
 session service explicitly to still get the stricter, HTTPS-only cookie attributes.
 
+**Expiry:** `MaxAge` (default 30 days) already governs the cookie's `Expires`/`Max-Age`
+attributes; `MemorySessionService` also enforces it server-side. A session that's expired by
+the time it's next looked up is discarded and replaced with a fresh, empty one instead of being
+served - so a session id leaked long ago stops giving access to whatever data it used to hold.
+This alone doesn't stop `Sessions` from otherwise growing unboundedly (e.g. from many distinct
+or absent cookie values), so call `Sweep()` periodically to evict every session that's expired
+but hasn't been looked up since, or call `StartAutomaticSweep()` once to have the service run it
+for you on its own background timer (stop it with `StopAutomaticSweep()`, also done by
+`Dispose()`):
+
+```csharp
+var sessions = new MemorySessionService();
+sessions.StartAutomaticSweep();
+server.AddWebService(sessions);
+```
+
 ### Chunked responses
 
 Most `HttpDataSource` implementations know their length up front, and `HttpResponseCreator`

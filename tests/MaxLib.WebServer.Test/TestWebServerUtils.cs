@@ -188,5 +188,24 @@ namespace MaxLib.WebServer.Test
             Assert.AreEqual("ab", WebServerUtils.RemoveCrLf("a\rb"));
             Assert.AreEqual("ab", WebServerUtils.RemoveCrLf("a\nb"));
         }
+
+        [TestMethod]
+        public void BytesEqualConstantTimeReturnsTrueForEqualSequences()
+        {
+            Assert.IsTrue(WebServerUtils.BytesEqualConstantTime([1, 2, 3], [1, 2, 3]));
+            Assert.IsTrue(WebServerUtils.BytesEqualConstantTime([], []));
+        }
+
+        [TestMethod]
+        public void BytesEqualConstantTimeReturnsFalseForDifferentContent()
+        {
+            Assert.IsFalse(WebServerUtils.BytesEqualConstantTime([1, 2, 3], [1, 2, 4]));
+        }
+
+        [TestMethod]
+        public void BytesEqualConstantTimeReturnsFalseForDifferentLength()
+        {
+            Assert.IsFalse(WebServerUtils.BytesEqualConstantTime([1, 2, 3], [1, 2, 3, 4]));
+        }
     }
 }
