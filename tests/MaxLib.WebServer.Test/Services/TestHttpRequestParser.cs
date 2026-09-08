@@ -72,6 +72,143 @@ namespace MaxLib.WebServer.Test.Services
         }
 
         [TestMethod]
+        public async Task TestRequestParser_LargeUrlEncodedBodyUsesOverflowInsteadOfParameter()
+        {
+            var originalLimit = Post.UrlEncodedData.MaximumCacheSize;
+            try
+            {
+                Post.UrlEncodedData.MaximumCacheSize = 10;
+                var content = "foo=bar&baz=foobar";
+                var sb = new StringBuilder();
+                sb.AppendLine("POST /test.html HTTP/1.1");
+                sb.AppendLine("Host: testdomain.local");
+                sb.AppendLine($"Content-Length: {content.Length}");
+                sb.AppendLine("Content-Type: application/x-www-form-urlencoded");
+                sb.AppendLine();
+                sb.Append(content);
+                using (var output = test.SetStream(sb.ToString()))
+                {
+                    await new HttpRequestParser().ProgressTask(test.Task).ConfigureAwait(false);
+                    Assert.IsTrue(test.Request.Post.Data is Post.UrlEncodedData);
+                    var data = (Post.UrlEncodedData)test.Request.Post.Data;
+                    Assert.AreEqual(0, data.Parameter.Count);
+                    Assert.IsNotNull(data.Overflow);
+                    Assert.AreEqual(2, data.Overflow!.Entries.Count);
+                    var foo = (Post.MultipartFormData.FormData)data.Overflow.Entries[0];
+                    var baz = (Post.MultipartFormData.FormData)data.Overflow.Entries[1];
+                    Assert.AreEqual("foo", foo.Name);
+                    Assert.AreEqual("bar", Encoding.UTF8.GetString(foo.Content!.Value.Span));
+                    Assert.AreEqual("baz", baz.Name);
+                    Assert.AreEqual("foobar", Encoding.UTF8.GetString(baz.Content!.Value.Span));
+                }
+            }
+            finally
+            {
+                Post.UrlEncodedData.MaximumCacheSize = originalLimit;
+            }
+        }
+
+        [TestMethod]
+        public async Task TestRequestParser_LargeUrlEncodedBodyOverflowFirstValueWinsForDuplicateKeys()
+        {
+            var originalLimit = Post.UrlEncodedData.MaximumCacheSize;
+            try
+            {
+                Post.UrlEncodedData.MaximumCacheSize = 10;
+                var content = "foo=first&foo=second";
+                var sb = new StringBuilder();
+                sb.AppendLine("POST /test.html HTTP/1.1");
+                sb.AppendLine("Host: testdomain.local");
+                sb.AppendLine($"Content-Length: {content.Length}");
+                sb.AppendLine("Content-Type: application/x-www-form-urlencoded");
+                sb.AppendLine();
+                sb.Append(content);
+                using (var output = test.SetStream(sb.ToString()))
+                {
+                    await new HttpRequestParser().ProgressTask(test.Task).ConfigureAwait(false);
+                    var data = (Post.UrlEncodedData)test.Request.Post.Data;
+                    Assert.AreEqual(1, data.Overflow!.Entries.Count);
+                    var entry = (Post.MultipartFormData.FormData)data.Overflow.Entries[0];
+                    Assert.AreEqual("first", Encoding.UTF8.GetString(entry.Content!.Value.Span));
+                }
+            }
+            finally
+            {
+                Post.UrlEncodedData.MaximumCacheSize = originalLimit;
+            }
+        }
+
+        [TestMethod]
+        public async Task TestRequestParser_LargeUrlEncodedBodyOverflowHandlesAKeyWithNoValue()
+        {
+            var originalLimit = Post.UrlEncodedData.MaximumCacheSize;
+            try
+            {
+                Post.UrlEncodedData.MaximumCacheSize = 10;
+                var content = "loneKey&foo=bar";
+                var sb = new StringBuilder();
+                sb.AppendLine("POST /test.html HTTP/1.1");
+                sb.AppendLine("Host: testdomain.local");
+                sb.AppendLine($"Content-Length: {content.Length}");
+                sb.AppendLine("Content-Type: application/x-www-form-urlencoded");
+                sb.AppendLine();
+                sb.Append(content);
+                using (var output = test.SetStream(sb.ToString()))
+                {
+                    await new HttpRequestParser().ProgressTask(test.Task).ConfigureAwait(false);
+                    var data = (Post.UrlEncodedData)test.Request.Post.Data;
+                    Assert.AreEqual(2, data.Overflow!.Entries.Count);
+                    var loneKey = (Post.MultipartFormData.FormData)data.Overflow.Entries[0];
+                    Assert.AreEqual("loneKey", loneKey.Name);
+                    Assert.AreEqual("", Encoding.UTF8.GetString(loneKey.Content!.Value.Span));
+                }
+            }
+            finally
+            {
+                Post.UrlEncodedData.MaximumCacheSize = originalLimit;
+            }
+        }
+
+        [TestMethod]
+        public async Task TestRequestParser_UrlEncodedOverflowEntrySpillsToATempFileWhenIndividuallyLarge()
+        {
+            var originalLimit = Post.UrlEncodedData.MaximumCacheSize;
+            try
+            {
+                Post.UrlEncodedData.MaximumCacheSize = 10;
+                var content = "small=ok&big=this-value-is-longer-than-ten-bytes";
+                var sb = new StringBuilder();
+                sb.AppendLine("POST /test.html HTTP/1.1");
+                sb.AppendLine("Host: testdomain.local");
+                sb.AppendLine($"Content-Length: {content.Length}");
+                sb.AppendLine("Content-Type: application/x-www-form-urlencoded");
+                sb.AppendLine();
+                sb.Append(content);
+                using (var output = test.SetStream(sb.ToString()))
+                {
+                    await new HttpRequestParser().ProgressTask(test.Task).ConfigureAwait(false);
+                    var data = (Post.UrlEncodedData)test.Request.Post.Data;
+                    var small = (Post.MultipartFormData.FormData)data.Overflow!.Entries[0];
+                    var big = (Post.MultipartFormData.FormData)data.Overflow.Entries[1];
+                    Assert.IsTrue(small.Content.HasValue);
+                    Assert.IsNull(small.TempFile);
+                    Assert.IsFalse(big.Content.HasValue);
+                    Assert.IsNotNull(big.TempFile);
+                    Assert.IsTrue(big.TempFile!.Exists);
+                    Assert.AreEqual("this-value-is-longer-than-ten-bytes", File.ReadAllText(big.TempFile.FullName));
+
+                    var path = big.TempFile.FullName;
+                    data.Dispose();
+                    Assert.IsFalse(File.Exists(path));
+                }
+            }
+            finally
+            {
+                Post.UrlEncodedData.MaximumCacheSize = originalLimit;
+            }
+        }
+
+        [TestMethod]
         public async Task TestRequestParser_OctetStreamPostIsReadIntoARawPostData()
         {
             var content = "arbitrary binary-ish content";

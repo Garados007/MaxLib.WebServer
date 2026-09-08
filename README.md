@@ -202,7 +202,10 @@ rejected with `500 Internal Server Error` (logged) instead of being sent with a 
 `task.Request.Post.Data` (or the awaitable `DataAsync`) gives you a parsed `IPostData` for the
 request body, chosen by `Content-Type`:
 
-- `application/x-www-form-urlencoded` → `Post.UrlEncodedData` (`.Parameter`, a `Dictionary<string, string>`)
+- `application/x-www-form-urlencoded` → `Post.UrlEncodedData` (`.Parameter`, a `Dictionary<string, string>`).
+  A body larger than `UrlEncodedData.MaximumCacheSize` (default 50 MB) is parsed into `.Overflow`
+  instead - a `Post.MultipartFormData` with one entry per key, individually eligible for the same
+  in-memory-vs-temp-file decision a multipart part gets - so `Parameter` is left empty in that case.
 - `multipart/form-data` → `Post.MultipartFormData` (`.Entries`, a list of parts - each with `.Content`
   or, once uploaded files get large enough, a `.TempFile` instead)
 - `application/json`, `application/octet-stream`, anything else unrecognized, or a missing
