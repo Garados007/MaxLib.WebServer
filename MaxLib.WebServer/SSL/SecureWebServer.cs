@@ -5,6 +5,7 @@ using System.Net;
 using System.Net.Security;
 using System.Net.Sockets;
 using System.Security.Authentication;
+using System.Security.Cryptography.X509Certificates;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.Extensions.Logging;
@@ -17,6 +18,7 @@ namespace MaxLib.WebServer.SSL
     {
         static readonly ILogger logger = WebServerLog.LoggerFactory.CreateLogger<SecureWebServer>();
         static readonly EventId StartUpEventId = new(0, "StartUp");
+        static readonly EventId HandshakeEventId = new(0, "Handshake");
 
         public SecureWebServerSettings SecureSettings => (SecureWebServerSettings)Settings;
 
@@ -101,12 +103,29 @@ namespace MaxLib.WebServer.SSL
                 //authentificate as server and establish ssl connection
                 var stream = new SslStream(client.GetStream(), false);
                 connection.NetworkStream = stream;
-                await stream.AuthenticateAsServerAsync(
-                    serverCertificate:          SecureSettings.Certificate,
-                    clientCertificateRequired:  false,
-                    enabledSslProtocols:        SslProtocols.None,
-                    checkCertificateRevocation: true
-                    ).ConfigureAwait(false);
+                try
+                {
+                    using var handshakeTimeout = SecureSettings.HandshakeTimeout > TimeSpan.Zero
+                        ? new CancellationTokenSource(SecureSettings.HandshakeTimeout)
+                        : null;
+                    await stream.AuthenticateAsServerAsync(
+                        new SslServerAuthenticationOptions
+                        {
+                            ServerCertificate = SecureSettings.Certificate,
+                            ClientCertificateRequired = false,
+                            EnabledSslProtocols = SslProtocols.None,
+                            CertificateRevocationCheckMode = X509RevocationMode.Online,
+                        },
+                        handshakeTimeout?.Token ?? CancellationToken.None
+                        ).ConfigureAwait(false);
+                }
+                catch (Exception e)
+                {
+                    // a failed handshake (bad ClientHello, disconnect, timeout) leaves stream.IsAuthenticated false,
+                    // so the cleanup branch below still runs
+                    logger.LogInformation(HandshakeEventId, e,
+                        "TLS handshake failed for {RemoteEndPoint}", client.Client.RemoteEndPoint);
+                }
                 if (!stream.IsAuthenticated)
                 {
                     await stream.DisposeAsync().ConfigureAwait(false);

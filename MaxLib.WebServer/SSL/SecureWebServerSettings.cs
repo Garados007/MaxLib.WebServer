@@ -1,4 +1,5 @@
-﻿using System.Security.Cryptography.X509Certificates;
+﻿using System;
+using System.Security.Cryptography.X509Certificates;
 
 #nullable enable
 
@@ -10,6 +11,12 @@ namespace MaxLib.WebServer.SSL
         public bool EnableUnsafePort { get; set; } = true;
 
         public X509Certificate? Certificate { get; set; }
+
+        /// <summary>
+        /// The maximum time the TLS handshake may take before the connection is dropped.
+        /// Defaults to 10 seconds; zero or a negative value disables the timeout.
+        /// </summary>
+        public TimeSpan HandshakeTimeout { get; set; } = TimeSpan.FromSeconds(10);
 
         public SecureWebServerSettings(int port, int securePort, int connectionTimeout)
             : base(port, connectionTimeout)
