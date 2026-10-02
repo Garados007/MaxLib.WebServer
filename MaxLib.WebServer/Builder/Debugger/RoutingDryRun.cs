@@ -192,7 +192,20 @@ namespace MaxLib.WebServer.Builder.Debugger
             var parametersOk = true;
             foreach (var parameter in method.Parameters)
             {
-                var result = parameter.GetValue(task, vars);
+                Tools.Result<object?> result;
+                try
+                {
+                    result = parameter.GetValue(task, vars);
+                }
+                catch (HttpException e)
+                {
+                    // Parameter.GetValue throws when type conversion fails; a dry run must report that
+                    // as a rejection instead of throwing
+                    parametersOk = false;
+                    node.Reasons.Add(
+                        $"parameter '{DescribeParameterName(method, parameter)}' failed to convert: {e.Message}");
+                    continue;
+                }
                 if (!result.HasValue)
                 {
                     parametersOk = false;
@@ -203,7 +216,7 @@ namespace MaxLib.WebServer.Builder.Debugger
             node.Outcome = rulesOk && parametersOk ? RoutingOutcome.Accepted : RoutingOutcome.Rejected;
         }
 
-        private static string DescribeUnresolvedParameter(Runtime.MethodService method, Runtime.IParameter parameter)
+        private static string DescribeParameterName(Runtime.MethodService method, Runtime.IParameter parameter)
         {
             var name = (parameter as Runtime.Parameter)?.Name;
             if (string.IsNullOrEmpty(name))
@@ -213,6 +226,12 @@ namespace MaxLib.WebServer.Builder.Debugger
                 if (index >= 0 && index < infos.Length)
                     name = infos[index].Name;
             }
+            return name ?? "<unknown>";
+        }
+
+        private static string DescribeUnresolvedParameter(Runtime.MethodService method, Runtime.IParameter parameter)
+        {
+            var name = DescribeParameterName(method, parameter);
             return $"parameter '{name}' could not be resolved from the request";
         }
 

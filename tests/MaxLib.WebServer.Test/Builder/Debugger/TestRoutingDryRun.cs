@@ -171,6 +171,19 @@ namespace MaxLib.WebServer.Test.Builder.Debugger
         }
 
         [TestMethod]
+        public void TestParameterConversionFailureIsExplainedInsteadOfThrowing()
+        {
+            var group = new WebServiceGroup(ServerStage.CreateDocument);
+            group.Add(Generator.GenerateMethod(typeof(ConversionFailureFixture).GetMethod("M")!)!);
+
+            // a non-numeric value for an int parameter must show up as a rejection reason, not as an uncaught HttpException
+            var report = RoutingDryRun.Run(group, "GET", "/conv-fail?id=notanumber");
+
+            Assert.AreEqual(RoutingOutcome.Rejected, report.Services[0].Outcome);
+            Assert.IsTrue(report.Services[0].Reasons.Any(r => r.Contains("failed to convert")));
+        }
+
+        [TestMethod]
         public void TestNonExplainableRuleFallsBackToGenericReason()
         {
             var group = new WebServiceGroup(ServerStage.CreateDocument);
