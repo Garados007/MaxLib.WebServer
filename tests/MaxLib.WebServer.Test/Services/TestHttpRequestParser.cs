@@ -372,6 +372,63 @@ namespace MaxLib.WebServer.Test.Services
         }
 
         [TestMethod]
+        public async Task TestRequestParser_MultipartBoundaryFollowedByAnotherParameterIsParsedCorrectly()
+        {
+            // boundary= may be unquoted and need not be the last Content-Type parameter
+            var content =
+                "-----1234\r\n" +
+                "Content-Type: text/plain\r\n" +
+                "\r\n" +
+                "Hello World\r\n" +
+                "-----1234--\r\n";
+            var sb = new StringBuilder();
+            sb.AppendLine("POST /test.html HTTP/1.1");
+            sb.AppendLine("Host: testdomain.local");
+            sb.AppendLine($"Content-Length: {content.Length}");
+            sb.AppendLine("Content-Type: multipart/form-data; boundary=---1234; charset=utf-8");
+            sb.AppendLine();
+            sb.Append(content);
+            using (var output = test.SetStream(sb.ToString()))
+            {
+                await new HttpRequestParser().ProgressTask(test.Task).ConfigureAwait(false);
+                Assert.IsTrue(test.Request.Post.Data is Post.MultipartFormData);
+                var data = (Post.MultipartFormData)test.Request.Post.Data;
+                Assert.AreEqual(1, data.Entries.Count);
+                Assert.AreEqual("Hello World",
+                    Encoding.UTF8.GetString(data.Entries[0].Content!.Value.ToArray())
+                );
+            }
+        }
+
+        [TestMethod]
+        public async Task TestRequestParser_MultipartDuplicateHeaderWithinAPartDoesNotCrash()
+        {
+            // a repeated header name within one part must not crash SetAsync
+            var content =
+                "-----1234\r\n" +
+                "Content-Type: text/plain\r\n" +
+                "Content-Type: text/html\r\n" +
+                "\r\n" +
+                "Hello World\r\n" +
+                "-----1234--\r\n";
+            var sb = new StringBuilder();
+            sb.AppendLine("POST /test.html HTTP/1.1");
+            sb.AppendLine("Host: testdomain.local");
+            sb.AppendLine($"Content-Length: {content.Length}");
+            sb.AppendLine("Content-Type: multipart/form-data; boundary=---1234");
+            sb.AppendLine();
+            sb.Append(content);
+            using (var output = test.SetStream(sb.ToString()))
+            {
+                await new HttpRequestParser().ProgressTask(test.Task).ConfigureAwait(false);
+                Assert.IsTrue(test.Request.Post.Data is Post.MultipartFormData);
+                var data = (Post.MultipartFormData)test.Request.Post.Data;
+                Assert.AreEqual(1, data.Entries.Count);
+                Assert.AreEqual("text/html", data.Entries[0].Header["Content-Type"]);
+            }
+        }
+
+        [TestMethod]
         public async Task TestRequestParser_MultipartWithNoBoundaryIsRejected()
         {
             var content = "irrelevant -- content -- here";

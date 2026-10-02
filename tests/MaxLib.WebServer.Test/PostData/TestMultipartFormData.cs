@@ -68,5 +68,34 @@ namespace MaxLib.WebServer.Test.PostData
                 MultipartFormData.StorageMapper = originalMapper;
             }
         }
+
+        [TestMethod]
+        public async Task TestSetAsyncRejectsAPartHeaderLineExceedingTheLengthLimit()
+        {
+            // a part header line without a CRLF must be rejected instead of buffering the whole remaining body
+            var originalLimit = MultipartFormData.MaxPartHeaderLineLength;
+            try
+            {
+                MultipartFormData.MaxPartHeaderLineLength = 16;
+                var content =
+                    "-----1234\r\n" +
+                    "X-Very-Long-Header-Name-That-Is-Way-Too-Long: value\r\n" +
+                    "\r\n" +
+                    "content\r\n" +
+                    "-----1234--\r\n";
+                var contentBytes = Encoding.UTF8.GetBytes(content);
+                var contentStream = new ContentStream(new NetworkReader(new MemoryStream(contentBytes)), contentBytes.Length);
+                var data = new MultipartFormData();
+                var task = new WebProgressTask();
+
+                await data.SetAsync(task, contentStream, "boundary=---1234").ConfigureAwait(false);
+
+                Assert.AreEqual(HttpStateCode.RequestHeaderFieldsTooLarge, task.Response.StatusCode);
+            }
+            finally
+            {
+                MultipartFormData.MaxPartHeaderLineLength = originalLimit;
+            }
+        }
     }
 }

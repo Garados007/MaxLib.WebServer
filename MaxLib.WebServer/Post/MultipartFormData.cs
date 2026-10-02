@@ -163,6 +163,13 @@ namespace MaxLib.WebServer.Post
         /// </summary>
         public static int MaximumPartCount { get; set; } = 10_000;
 
+        /// <summary>
+        /// The maximum length, in characters, of a part's boundary line or header line. Exceeding it rejects the
+        /// request with <see cref="HttpStateCode.RequestHeaderFieldsTooLarge" />. Use a negative value to disable
+        /// the check. Default is 8 KB.
+        /// </summary>
+        public static long MaxPartHeaderLineLength { get; set; } = 8192;
+
         public async Task SetAsync(WebProgressTask task, IO.ContentStream content, string options)
         {
             ArgumentNullException.ThrowIfNull(task);
@@ -187,6 +194,13 @@ namespace MaxLib.WebServer.Post
             Entries.Clear();
             using var reader = new NetworkReader(content, null, true);
 
+            async Task RejectHeaderTooLarge()
+            {
+                task.Response.StatusCode = HttpStateCode.RequestHeaderFieldsTooLarge;
+                task.NextStage = ServerStage.CreateResponse;
+                await content.DiscardAsync().ConfigureAwait(false);
+            }
+
             // parse the content
             var firstPart = true;
             while (true)
@@ -205,7 +219,17 @@ namespace MaxLib.WebServer.Post
                 firstPart = false;
 
                 // expect boundary
-                if (await reader.ReadLineAsync().ConfigureAwait(false) != boundary)
+                string? boundaryLine;
+                try
+                {
+                    boundaryLine = await reader.ReadLineAsync(MaxPartHeaderLineLength).ConfigureAwait(false);
+                }
+                catch (IO.ReadLineOverflowException)
+                {
+                    await RejectHeaderTooLarge().ConfigureAwait(false);
+                    return;
+                }
+                if (boundaryLine != boundary)
                     break;
 
                 if (MaximumPartCount >= 0 && Entries.Count >= MaximumPartCount)
@@ -222,12 +246,21 @@ namespace MaxLib.WebServer.Post
                 // read headers until an empty line is found
                 var dict = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
                 string? line;
-                while (!string.IsNullOrWhiteSpace(line = await reader.ReadLineAsync().ConfigureAwait(false)))
+                try
                 {
-                    var header = headerSplit().Match(line);
-                    if (!header.Success)
-                        break;
-                    dict.Add(header.Groups["name"].Value, header.Groups["value"].Value);
+                    while (!string.IsNullOrWhiteSpace(line = await reader.ReadLineAsync(MaxPartHeaderLineLength).ConfigureAwait(false)))
+                    {
+                        var header = headerSplit().Match(line);
+                        if (!header.Success)
+                            break;
+                        // last-wins on a repeated header name within one part (Dictionary.Add would throw)
+                        dict[header.Groups["name"].Value] = header.Groups["value"].Value;
+                    }
+                }
+                catch (IO.ReadLineOverflowException)
+                {
+                    await RejectHeaderTooLarge().ConfigureAwait(false);
+                    return;
                 }
 
                 var entry = GetEntry(dict);
@@ -325,7 +358,7 @@ namespace MaxLib.WebServer.Post
             GC.SuppressFinalize(this);
         }
 
-        [GeneratedRegex("boundary\\s*=\\s*(?:\"(?<name>[^\"]*)\"|(?<name>[^\"]*))")]
+        [GeneratedRegex("boundary\\s*=\\s*(?:\"(?<name>[^\"]*)\"|(?<name>[^\";\\s]*))")]
         private static partial Regex boundaryRegex();
         [GeneratedRegex("[^\\w]name\\s*=\\s*\"(?<name>[^\"]*)\"", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
         private static partial Regex nameRegex();
