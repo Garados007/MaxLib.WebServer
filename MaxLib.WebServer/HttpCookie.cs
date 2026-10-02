@@ -52,6 +52,9 @@ namespace MaxLib.WebServer
             public string ValueString => Value.ToString();
             public DateTime Expires { get; }
             public int MaxAge { get; }
+            /// <summary>
+            /// Must not contain ';' or control characters; the value is written into the Set-Cookie line without escaping.
+            /// </summary>
             public ReadOnlyMemory<char> Path { get; }
 
             /// <summary>

@@ -170,6 +170,10 @@ namespace MaxLib.WebServer.Post
         /// </summary>
         public static long MaxPartHeaderLineLength { get; set; } = 8192;
 
+        /// <remarks>
+        /// SetAsync must be called at most once per instance; a second call leaks the previous call's
+        /// temp files.
+        /// </remarks>
         public async Task SetAsync(WebProgressTask task, IO.ContentStream content, string options)
         {
             ArgumentNullException.ThrowIfNull(task);
@@ -352,6 +356,9 @@ namespace MaxLib.WebServer.Post
             return sb.ToString();
         }
 
+        /// <remarks>
+        /// Not thread-safe: await SetAsync before calling Dispose, otherwise temp files may leak.
+        /// </remarks>
         public void Dispose()
         {
             Entries.ForEach(x => x.Dispose());

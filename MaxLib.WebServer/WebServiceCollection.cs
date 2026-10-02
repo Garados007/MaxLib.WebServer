@@ -133,6 +133,10 @@ namespace MaxLib.WebServer
             return false;
         }
 
+        /// <remarks>
+        /// Do not add a collection to itself or to one of its descendants; the resulting cycle recurses
+        /// without bound on dispatch.
+        /// </remarks>
         public void Add(WebService item)
         {
             ArgumentNullException.ThrowIfNull(item);

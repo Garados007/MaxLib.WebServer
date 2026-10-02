@@ -37,6 +37,9 @@ namespace MaxLib.WebServer.Sessions
         Lax,
     }
 
+    /// <remarks>
+    /// Register at most one SessionServiceBase per server; every instance uses the "Session" cookie.
+    /// </remarks>
     public abstract class SessionServiceBase : WebService
     {
         public SessionServiceBase()
@@ -91,6 +94,10 @@ namespace MaxLib.WebServer.Sessions
         /// </summary>
         /// <param name="task">the current progress task</param>
         /// <returns>the new session, already stored as <c>task.Session</c></returns>
+        /// <remarks>
+        /// RotateSessionKey copies the data into a new session, so writes made concurrently through the
+        /// old Session object by other in-flight requests may be lost.
+        /// </remarks>
         public async Task<Session> RotateSessionKey(WebProgressTask task)
         {
             ArgumentNullException.ThrowIfNull(task);

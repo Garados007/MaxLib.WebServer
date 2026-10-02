@@ -3,6 +3,11 @@ using System.Collections.Generic;
 
 namespace MaxLib.WebServer.Builder.Tools
 {
+    /// <remarks>
+    /// A ParamAttributeBase's Name property must not throw; build reports read it via reflection.
+    /// Values produced by a custom ParamAttributeBase must have a non-throwing ToString(); it is used
+    /// in conversion error messages.
+    /// </remarks>
     [System.AttributeUsage(System.AttributeTargets.Parameter, Inherited = true, AllowMultiple = false)]
     public abstract class ParamAttributeBase : Attribute
     {

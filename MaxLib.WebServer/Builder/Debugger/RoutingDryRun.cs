@@ -10,6 +10,12 @@ namespace MaxLib.WebServer.Builder.Debugger
     /// <see cref="WebService.ProgressTask(WebProgressTask)" />/side effects - only the read-only
     /// <c>CanWorkWith</c> path is exercised, against a synthetic request.
     /// </summary>
+    /// <remarks>
+    /// RoutingDryRun does not catch exceptions thrown by custom rules or a service's CanWorkWith; they
+    /// propagate to the caller. Rule attributes must not throw from ToString(); it is used for report
+    /// labels. Exceptions thrown by custom rules and services must not throw from Message; it is
+    /// included in the report.
+    /// </remarks>
     public static class RoutingDryRun
     {
         /// <summary>

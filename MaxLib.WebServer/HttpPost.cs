@@ -105,6 +105,10 @@ namespace MaxLib.WebServer
             return $"{MimeType}: {Data}";
         }
 
+        /// <remarks>
+        /// Do not call Dispose while a DataAsync parse may still be running; use DisposeAsync, which
+        /// waits for it.
+        /// </remarks>
         public void Dispose()
         {
             GC.SuppressFinalize(this);

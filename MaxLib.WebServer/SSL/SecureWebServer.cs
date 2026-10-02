@@ -14,6 +14,10 @@ using Microsoft.Extensions.Logging;
 
 namespace MaxLib.WebServer.SSL
 {
+    /// <remarks>
+    /// The configured logging provider must not throw while rendering exceptions; the server does not
+    /// guard its log calls.
+    /// </remarks>
     public class SecureWebServer : Server
     {
         static readonly ILogger logger = WebServerLog.LoggerFactory.CreateLogger<SecureWebServer>();

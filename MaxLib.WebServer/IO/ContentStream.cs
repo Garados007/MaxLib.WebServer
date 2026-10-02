@@ -215,6 +215,10 @@ namespace MaxLib.WebServer.IO
             throw new InvalidOperationException("Cannot write on this stream");
         }
 
+        /// <remarks>
+        /// The synchronous Dispose drains unread body data without honoring the read timeout and can
+        /// block on a stalled client; prefer DisposeAsync.
+        /// </remarks>
         protected override void Dispose(bool disposing)
         {
             try

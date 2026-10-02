@@ -14,6 +14,9 @@ namespace MaxLib.WebServer
         static readonly ILogger logger = WebServerLog.LoggerFactory.CreateLogger(typeof(HttpDataSource));
         static readonly EventId TransformToStreamEventId = new(0, "Transform To Stream");
 
+        /// <remarks>
+        /// HttpDataSource.Dispose implementations must not throw.
+        /// </remarks>
         public abstract void Dispose();
 
         public abstract long? Length();

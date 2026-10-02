@@ -11,6 +11,11 @@ using System.Text;
 
 namespace MaxLib.WebServer.WebSocket
 {
+    /// <remarks>
+    /// Exceptions thrown from ReceivedFrame/ReceiveClose overrides must have a non-throwing ToString();
+    /// they are passed to the logger as-is. Streams and custom JsonConverters used with WebSockets must
+    /// throw exceptions with a non-throwing ToString(); they are passed to the logger as-is.
+    /// </remarks>
     public abstract class WebSocketConnection : IDisposable, IAsyncDisposable
     {
         // Not cached per-type: this class is an arbitrary-subclass extension point, and this
@@ -382,8 +387,14 @@ namespace MaxLib.WebServer.WebSocket
             }
         }
 
+        /// <remarks>
+        /// Overrides must not throw; an escaping exception leaves the ping loop running, so Closed never fires and the connection is never cleaned up.
+        /// </remarks>
         protected abstract Task ReceiveClose(CloseReason? reason, string? info);
 
+        /// <remarks>
+        /// Overrides must not throw; an escaping exception leaves the ping loop running, so Closed never fires and the connection is never cleaned up.
+        /// </remarks>
         protected abstract Task ReceivedFrame(Frame frame);
     }
 }

@@ -8,6 +8,13 @@ using MaxLib.WebServer.Builder.Debugger;
 
 namespace MaxLib.WebServer.Builder.Tools
 {
+    /// <remarks>
+    /// Rule and parameter attributes must not throw from ToString(); build reports use it for labels.
+    /// Converters and converter attributes must not throw from ToString(); build reports and logs use
+    /// it. Exceptions thrown by Service constructors and custom converters must have a non-throwing
+    /// ToString(), Message and StackTrace; they are passed to the logger as-is and read when building
+    /// reports.
+    /// </remarks>
     public static class Generator
     {
 #region Logs

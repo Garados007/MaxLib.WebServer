@@ -15,6 +15,9 @@ namespace MaxLib.WebServer.SSL
         /// </summary>
         public TimeSpan HandshakeTimeout { get; set; } = TimeSpan.FromSeconds(10);
 
+        /// <param name="port">The port to listen on.</param>
+        /// <param name="connectionTimeout">The connection timeout in milliseconds.</param>
+        /// <param name="certificate">Must not be null; a null certificate makes every HTTPS handshake fail at connection time.</param>
         public DualSecureWebServerSettings(int port, int connectionTimeout, X509Certificate certificate)
             : base(port, connectionTimeout)
         {

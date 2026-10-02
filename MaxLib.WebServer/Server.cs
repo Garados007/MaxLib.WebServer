@@ -18,6 +18,10 @@ namespace MaxLib.WebServer
     /// A web server that supports the HTTP protocol. This is the bare bone of the server stack.
     /// For functionality you need to add the needed <see cref="WebService" />.
     /// </summary>
+    /// <remarks>
+    /// The configured logging provider must not throw while rendering exceptions; the server does not
+    /// guard its log calls.
+    /// </remarks>
     public class Server : IDisposable
     {
         static readonly ILogger logger = WebServerLog.LoggerFactory.CreateLogger<Server>();

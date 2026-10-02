@@ -46,14 +46,26 @@ namespace MaxLib.WebServer.WebSocket
             this.seedOptions = seedOptions;
         }
 
+        /// <remarks>
+        /// Each event type may be registered under only one key; registering it twice makes the first
+        /// serialize/parse throw InvalidOperationException.
+        /// </remarks>
         public void Add<T>()
             where T : EventBase, new()
             => Add<T>(new T().TypeName);
 
+        /// <remarks>
+        /// Each event type may be registered under only one key; registering it twice makes the first
+        /// serialize/parse throw InvalidOperationException.
+        /// </remarks>
         public void Add<T>(string key)
             where T : EventBase, new()
             => AddCore(key, typeof(T));
 
+        /// <remarks>
+        /// Each event type may be registered under only one key; registering it twice makes the first
+        /// serialize/parse throw InvalidOperationException.
+        /// </remarks>
         public void Add(string key, Type type)
         {
             _ = type ?? throw new ArgumentNullException(nameof(type));
@@ -223,6 +235,10 @@ namespace MaxLib.WebServer.WebSocket
         /// Serializes an event into a <see cref="Frame" /> using this factory's
         /// <see cref="Options" />.
         /// </summary>
+        /// <remarks>
+        /// Every event type passed to ToFrame must be registered via Add first; an unregistered type
+        /// throws NotSupportedException.
+        /// </remarks>
         public Frame? ToFrame(EventBase @event)
         {
             _ = @event ?? throw new ArgumentNullException(nameof(@event));

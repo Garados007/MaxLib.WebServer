@@ -127,6 +127,9 @@ namespace MaxLib.WebServer.Post
             return "[empty]";
         }
 
+        /// <remarks>
+        /// Not thread-safe: await SetAsync before calling Dispose, otherwise temp files may leak.
+        /// </remarks>
         public void Dispose()
         {
             Entry.Dispose();
