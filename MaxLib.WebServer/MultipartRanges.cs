@@ -93,7 +93,8 @@ namespace MaxLib.WebServer
                 ParseRanges(request.HeaderParameter["Range"]);
                 var valid = ranges.Count > 0;
                 foreach (var r in ranges)
-                    if (r.From < 0 || r.From >= baseStream.Length || r.To < 0 || r.To >= baseStream.Length)
+                    if (r.From < 0 || r.From >= baseStream.Length || r.To < 0 || r.To >= baseStream.Length ||
+                        r.From > r.To)
                         valid = false;
                 if (!valid)
                 {
@@ -139,7 +140,7 @@ namespace MaxLib.WebServer
         void FormatRanges()
         {
             if (ranges.Count < 2) return;
-            ranges.Sort((r1, r2) => r1.From.CompareTo(r2.To));
+            ranges.Sort((r1, r2) => r1.From.CompareTo(r2.From));
             var nr = new List<Range>(ranges.Count);
             Range? last = null;
             for (int i = 0; i < ranges.Count; ++i)
@@ -169,7 +170,7 @@ namespace MaxLib.WebServer
             streams.Add(new HttpPartialSource(
                 new HttpStreamDataSource(baseStream),
                 ranges[0].From,
-                ranges[0].To - ranges[0].From
+                ranges[0].To - ranges[0].From + 1
             ));
         }
 
@@ -198,7 +199,7 @@ namespace MaxLib.WebServer
                 streams.Add(new HttpPartialSource(
                     new HttpStreamDataSource(baseStream),
                     r.From,
-                    r.To - r.From
+                    r.To - r.From + 1
                 ));
 #pragma warning restore CA2000
                 sb.Clear();
