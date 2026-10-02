@@ -1,4 +1,5 @@
 using MaxLib.WebServer.IO;
+using MaxLib.WebServer.Post;
 using MaxLib.WebServer.Services;
 using MaxLib.WebServer.Testing;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
@@ -201,6 +202,112 @@ namespace MaxLib.WebServer.Test.Services
                 // the socket is now at an unknown position in the byte stream and must not
                 // be reused for a further request
                 Assert.AreEqual(HttpConnectionType.Close, test.Request.FieldConnection);
+            }
+        }
+
+        // Simulates a connection reset while draining the leftover, unread POST body.
+        private sealed class ResetsWhileReadingStream : Stream
+        {
+            public override bool CanRead => true;
+            public override bool CanSeek => false;
+            public override bool CanWrite => false;
+            public override long Length => throw new NotSupportedException();
+            public override long Position
+            {
+                get => 0;
+                set => throw new NotSupportedException();
+            }
+            public override void Flush() { }
+            public override int Read(byte[] buffer, int offset, int count)
+                => throw new NotSupportedException("only the async read paths are exercised here");
+            public override Task<int> ReadAsync(byte[] buffer, int offset, int count, CancellationToken cancellationToken)
+                => ReadAsync(buffer.AsMemory(offset, count), cancellationToken).AsTask();
+            public override ValueTask<int> ReadAsync(Memory<byte> buffer, CancellationToken cancellationToken = default)
+                => throw new IOException("simulated connection reset");
+            public override long Seek(long offset, SeekOrigin origin) => throw new NotSupportedException();
+            public override void SetLength(long value) => throw new NotSupportedException();
+            public override void Write(byte[] buffer, int offset, int count) => throw new NotSupportedException();
+        }
+
+        [TestMethod]
+        public async Task TestResponseIsSentEvenWhenPostBodyDrainHitsAConnectionReset()
+        {
+            // a connection reset while draining the leftover POST body must be logged, not propagate
+            test.Response.HttpProtocol = HttpProtocolDefinition.HttpVersion1_1;
+            test.Response.StatusCode = HttpStateCode.OK;
+            test.Response.FieldContentType = MimeType.TextPlain;
+            test.Task.Document.DataSources.Add(new HttpStringDataSource("hello"));
+
+            var content = new ContentStream(
+                new NetworkReader(new ResetsWhileReadingStream()),
+                1024
+            );
+            test.Request.Post.SetPost(test.Task, content, MimeType.ApplicationOctetStream);
+
+            using (var response = test.SetStream())
+            using (var r = new StreamReader(response))
+            {
+                await new HttpSender().ProgressTask(test.Task).ConfigureAwait(false);
+
+                response.Position = 0;
+                var text = r.ReadToEnd();
+                StringAssert.Contains(text, "HTTP/1.1 200 OK");
+                StringAssert.Contains(text, "hello");
+
+                Assert.AreEqual(HttpConnectionType.Close, test.Request.FieldConnection);
+            }
+        }
+
+        // Writes through to a MemoryStream normally, but FlushAsync always fails -
+        // simulating a client that disconnects while the response is being sent.
+        private sealed class ThrowsOnFlushStream : MemoryStream
+        {
+            public override Task FlushAsync(CancellationToken cancellationToken)
+                => throw new IOException("simulated broken connection");
+        }
+
+        [TestMethod]
+        public async Task TestPostTempFileIsDisposedEvenWhenSendingTheResponseFails()
+        {
+            // the POST temp file must be cleaned up even when the connection breaks while sending the response
+            var originalMapper = MultipartFormData.StorageMapper;
+            string tempFilePath = "";
+            try
+            {
+                MultipartFormData.StorageMapper = (task, file) =>
+                {
+                    tempFilePath = ((FileStream)file).Name;
+                    return file;
+                };
+
+                var content =
+                    "-----1234\r\n" +
+                    "Content-Type: text/plain\r\n" +
+                    "Content-Disposition: form-data; name=\"f\"; filename=\"x\"\r\n" +
+                    "\r\n" +
+                    "Hello World\r\n" +
+                    "-----1234--\r\n";
+                var contentBytes = Encoding.UTF8.GetBytes(content);
+                var contentStream = new ContentStream(
+                    new NetworkReader(new MemoryStream(contentBytes)), contentBytes.Length);
+                test.Request.Post.SetPost(test.Task, contentStream, "multipart/form-data; boundary=---1234");
+                // force the lazy IPostData to actually resolve, as if some handler had
+                // already read it - this is what creates the temp file in the first place
+                Assert.IsNotNull(await test.Request.Post.DataAsync!.ConfigureAwait(false));
+
+                test.Response.HttpProtocol = HttpProtocolDefinition.HttpVersion1_1;
+                test.Response.StatusCode = HttpStateCode.OK;
+                test.Task.NetworkStream = new ThrowsOnFlushStream();
+
+                await new HttpSender().ProgressTask(test.Task).ConfigureAwait(false);
+
+                Assert.AreNotEqual("", tempFilePath, "the StorageMapper hook was never invoked");
+                Assert.IsFalse(File.Exists(tempFilePath),
+                    "the POST temp file must not be orphaned when sending the response fails");
+            }
+            finally
+            {
+                MultipartFormData.StorageMapper = originalMapper;
             }
         }
     }
