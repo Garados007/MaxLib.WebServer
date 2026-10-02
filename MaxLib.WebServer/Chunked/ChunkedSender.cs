@@ -86,7 +86,7 @@ namespace MaxLib.WebServer.Chunked
                 foreach (var cookie in task.Request.Cookie.AddedCookies) //Cookies
                 {
                     await writer.WriteAsync("Set-Cookie: ").ConfigureAwait(false);
-                    await writer.WriteLineAsync(cookie.ToString()).ConfigureAwait(false);
+                    await writer.WriteLineAsync(cookie.Value.ToString()).ConfigureAwait(false);
                 }
                 await writer.WriteLineAsync().ConfigureAwait(false);
                 try { await writer.FlushAsync().ConfigureAwait(false); await stream.FlushAsync().ConfigureAwait(false); }

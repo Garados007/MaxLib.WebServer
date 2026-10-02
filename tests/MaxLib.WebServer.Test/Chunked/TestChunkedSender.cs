@@ -51,6 +51,31 @@ namespace MaxLib.WebServer.Test.Chunked
         }
 
         [TestMethod]
+        public async Task TestSendingEmitsAWellFormedSetCookieHeader()
+        {
+            // AddedCookies yields KeyValuePairs; the header must use cookie.Value.ToString(), not the pair's "[Key, Value]"
+            test.Response.HttpProtocol = HttpProtocolDefinition.HttpVersion1_1;
+            test.Response.StatusCode = HttpStateCode.OK;
+            test.Request.Cookie.AddedCookies["session"] = new HttpCookie.Cookie("session", "abc123");
+
+            using (var response = test.SetStream())
+            using (var r = new StreamReader(response))
+            {
+                await new ChunkedSender().ProgressTask(test.Task).ConfigureAwait(false);
+
+                response.Position = 0;
+                var lines = new System.Collections.Generic.List<string>();
+                for (var line = r.ReadLine(); line != null; line = r.ReadLine())
+                    lines.Add(line);
+
+                var expected = "Set-Cookie: " + new HttpCookie.Cookie("session", "abc123").ToString();
+                CollectionAssert.Contains(lines, expected);
+                Assert.IsFalse(lines.Exists(l => l.Contains('[') || l.Contains(']')),
+                    "the emitted Set-Cookie line must not contain the KeyValuePair wrapper brackets");
+            }
+        }
+
+        [TestMethod]
         public async Task TestPostTempFileIsDisposedAfterAChunkedResponse()
         {
             // ChunkedSender replaces HttpSender.ProgressTask, so it must dispose the POST data itself
