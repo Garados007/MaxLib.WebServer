@@ -19,6 +19,10 @@ namespace MaxLib.WebServer.Builder.Tools
         /// </summary>
         public abstract Type Type { get; }
 
+        /// <remarks>
+        /// Reject a request by returning an empty result or throwing <see cref="HttpException" />;
+        /// any other exception propagates out of routing and <c>RoutingDryRun</c> unhandled.
+        /// </remarks>
         public abstract Tools.Result<object?> GetValue(WebProgressTask task,
             string field, Dictionary<string, object?> vars
         );

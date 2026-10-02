@@ -12,6 +12,11 @@ namespace MaxLib.WebServer
     /// them. Therefore this service collection is not suitable if you want to use multiple services
     /// in the same stage.
     /// </summary>
+    /// <remarks>
+    /// Do not add or remove services while the collection is dispatching a request, including from
+    /// a contained service's <c>CanWorkWith</c>; the collection is not safe for concurrent
+    /// modification.
+    /// </remarks>
     public class WebServiceCollection : WebService2<WebServiceCollection.CallInfo>,
         ICollection<WebService>
     {
@@ -136,6 +141,8 @@ namespace MaxLib.WebServer
         /// <remarks>
         /// Do not add a collection to itself or to one of its descendants; the resulting cycle recurses
         /// without bound on dispatch.
+        /// Adding the same service instance more than once registers it once per call, so it runs
+        /// once per registration, and each <see cref="Remove" /> call removes only one registration.
         /// </remarks>
         public void Add(WebService item)
         {

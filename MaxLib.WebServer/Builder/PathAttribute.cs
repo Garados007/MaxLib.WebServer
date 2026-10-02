@@ -14,6 +14,9 @@ namespace MaxLib.WebServer.Builder
     /// literal segments/more variables. If two overlapping routes tie on both specificity and
     /// priority, which one wins is not guaranteed - add an explicit
     /// <see cref="PriorityAttribute" /> to make the outcome deterministic.
+    /// Specificity ordering only applies to methods declared on the same type; nested
+    /// <see cref="Service" /> types and separately built types are not ordered by specificity, so
+    /// use <see cref="PriorityAttribute" /> when their routes overlap.
     /// </summary>
     public sealed class PathAttribute : Tools.RuleAttributeBase, Debugger.IExplainableRule
     {

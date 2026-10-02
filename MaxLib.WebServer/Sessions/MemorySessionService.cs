@@ -9,6 +9,10 @@ namespace MaxLib.WebServer.Sessions
 {
     public class MemorySessionService : SessionServiceBase
     {
+        /// <remarks>
+        /// This dictionary is not thread-safe and is modified concurrently by request processing and
+        /// the automatic sweep; do not read or modify it while the server is handling requests.
+        /// </remarks>
         public Dictionary<string, Session> Sessions { get; }
             = new Dictionary<string, Session>();
 
