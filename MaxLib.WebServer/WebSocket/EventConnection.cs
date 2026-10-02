@@ -45,6 +45,9 @@ namespace MaxLib.WebServer.WebSocket
                 await ReceivedFrame(@event).ConfigureAwait(false);
         }
 
+        /// <remarks>
+        /// Overrides must not throw; an escaping exception leaves the ping loop running, so Closed never fires and the connection is never cleaned up.
+        /// </remarks>
         protected abstract Task ReceivedFrame(EventBase @event);
 
         /// <summary>

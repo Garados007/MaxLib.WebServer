@@ -30,12 +30,18 @@ namespace MaxLib.WebServer.Post
 
         /// <remarks>
         /// The synchronous Dispose drains the body without the read timeout; prefer DisposeAsync.
+        /// This only drains the remaining body of Data; the ContentStream itself is not disposed and
+        /// remains owned by its creator (e.g. HttpPost).
         /// </remarks>
         public void Dispose()
         {
             Data.Discard();
         }
 
+        /// <remarks>
+        /// This only drains the remaining body of Data; the ContentStream itself is not disposed and
+        /// remains owned by its creator (e.g. HttpPost).
+        /// </remarks>
         public async ValueTask DisposeAsync()
         {
             await Data.DiscardAsync().ConfigureAwait(false);

@@ -55,6 +55,8 @@ namespace MaxLib.WebServer.WebSocket
         /// alongside <see cref="MaxMessageSize" />. A size limit alone doesn't bound the
         /// per-fragment bookkeeping overhead itself - many empty or near-empty fragments still
         /// cost one queued entry each. Defaults to 10,000; a negative value disables this check.
+        /// An unfragmented message counts as one fragment, so 0 rejects every data message; use 1
+        /// to allow only unfragmented messages.
         /// </summary>
         public int MaxMessageFragments { get; set; } = 10_000;
 
@@ -67,6 +69,10 @@ namespace MaxLib.WebServer.WebSocket
             NetworkStream = networkStream ?? throw new ArgumentNullException(nameof(networkStream));
         }
 
+        /// <remarks>
+        /// Disposing while a SendFrame call is waiting for the send lock leaves that call pending
+        /// forever; stop sending on the connection before disposing it.
+        /// </remarks>
         public virtual void Dispose()
         {
             NetworkStream.Dispose();
@@ -74,6 +80,10 @@ namespace MaxLib.WebServer.WebSocket
             GC.SuppressFinalize(this);
         }
 
+        /// <remarks>
+        /// Disposing while a SendFrame call is waiting for the send lock leaves that call pending
+        /// forever; stop sending on the connection before disposing it.
+        /// </remarks>
         public virtual async ValueTask DisposeAsync()
         {
             GC.SuppressFinalize(this);

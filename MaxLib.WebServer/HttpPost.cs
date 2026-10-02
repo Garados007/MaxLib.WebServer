@@ -34,6 +34,10 @@ namespace MaxLib.WebServer
                 () => new RawPostData(WebServer.MimeType.ApplicationOctetStream);
         }
 
+        /// <remarks>
+        /// SetPost must be called at most once per instance; a second call does not dispose the
+        /// previously set content or parsed data.
+        /// </remarks>
         public virtual void SetPost(WebProgressTask task, IO.ContentStream content, string? mime)
         {
             Content = content;

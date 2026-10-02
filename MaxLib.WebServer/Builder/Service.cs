@@ -9,6 +9,14 @@ namespace MaxLib.WebServer.Builder
     /// This is the base class that needs all Builder Services to be found by <see
     /// cref="Build(Type)"/>.
     /// </summary>
+    /// <remarks>
+    /// Every public, non-generic instance method of a <see cref="Service" /> subclass becomes a
+    /// route; a method without rule attributes matches every request that reaches its group, so
+    /// mark helper methods with <see cref="IgnoreAttribute" /> or make them non-public.
+    /// Each route method is invoked on a single instance created at build time and shared by all
+    /// concurrent requests (every method gets its own instance), so do not keep per-request state
+    /// in instance fields.
+    /// </remarks>
     /// <example>
     /// A Builder Service
     /// <code>

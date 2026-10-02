@@ -31,6 +31,8 @@ namespace MaxLib.WebServer.Services
         /// is at the same time parsing).
         /// <br />
         /// Do not use this in production!
+        /// Set this before the server starts and do not change it while requests are being
+        /// processed.
         /// </summary>
         public string? DebugWriteRequestFile { get; set; }
 
@@ -45,6 +47,8 @@ namespace MaxLib.WebServer.Services
         /// is at the same time parsing).
         /// <br />
         /// Do not use this in production!
+        /// Set this before the server starts and do not change it while requests are being
+        /// processed.
         /// </summary>
         public string? DebugLogConnectionFile { get; set; }
 

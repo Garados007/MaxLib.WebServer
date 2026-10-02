@@ -40,6 +40,12 @@ namespace MaxLib.WebServer
 
         protected PriorityList<WebServicePriority, WebService> Services { get; private set; }
 
+        /// <remarks>
+        /// The service runs in this group's stage whatever its own <c>Stage</c> says; use
+        /// <c>Server.AddWebService</c> to register it in the stage it declares.
+        /// Adding the same service instance more than once registers it once per call, so it runs
+        /// once per registration, and each <see cref="Remove" /> call removes only one registration.
+        /// </remarks>
         public void Add(WebService service)
         {
             _ = service ?? throw new ArgumentNullException(nameof(service));
