@@ -134,24 +134,37 @@ namespace MaxLib.WebServer.Services
                 try { await writer.FlushAsync().ConfigureAwait(false); }
                 catch (ObjectDisposedException)
                 {
-                    logger.LogError(SendEventId, "Connection closed by remote host.");
+                    logger.LogInformation(SendEventId, "Connection closed by remote host.");
                     return;
                 }
                 catch (IOException)
                 {
-                    logger.LogError(SendEventId, "Connection closed by remote host.");
+                    logger.LogInformation(SendEventId, "Connection closed by remote host.");
                     return;
                 }
                 //Daten senden
-                if (!(task.Document.Information.ContainsKey("Only Header") && (bool)task.Document.Information["Only Header"]!))
-                    for (int i = 0; i < task.Document.DataSources.Count; ++i)
-                    {
-                        await task.Document.DataSources[i].WriteStream(stream).ConfigureAwait(false);
-                    }
+                try
+                {
+                    if (!(task.Document.Information.ContainsKey("Only Header") && (bool)task.Document.Information["Only Header"]!))
+                        for (int i = 0; i < task.Document.DataSources.Count; ++i)
+                        {
+                            await task.Document.DataSources[i].WriteStream(stream).ConfigureAwait(false);
+                        }
+                }
+                catch (ObjectDisposedException)
+                {
+                    logger.LogInformation(SendEventId, "Connection closed by remote host.");
+                    return;
+                }
+                catch (IOException)
+                {
+                    logger.LogInformation(SendEventId, "Connection closed by remote host.");
+                    return;
+                }
                 try { await stream.FlushAsync().ConfigureAwait(false); }
                 catch (IOException)
                 {
-                    logger.LogError(SendEventId, "Connection closed by remote host.");
+                    logger.LogInformation(SendEventId, "Connection closed by remote host.");
                     return;
                 }
             }

@@ -266,6 +266,39 @@ namespace MaxLib.WebServer.Test.Services
                 => throw new IOException("simulated broken connection");
         }
 
+        // Simulates a client that disconnects while the response body is being written -
+        // e.g. HttpDataSource.WriteStream itself surfacing the broken connection, as
+        // HttpStreamDataSource/HttpChunkedStream do when the underlying stream throws.
+        private sealed class ThrowsOnWriteStreamDataSource : HttpDataSource
+        {
+            public override void Dispose() { }
+            public override long? Length() => null;
+            protected override Task<long> WriteStreamInternal(Stream stream)
+                => throw new IOException("simulated broken connection");
+        }
+
+        [TestMethod]
+        public async Task TestBodyWriteDisconnectIsLoggedGracefullyInsteadOfPropagatingUnhandled()
+        {
+            // a client disconnect mid-body-write must be logged like the header/footer flush disconnects,
+            // not propagate out of ProgressTask
+            test.Response.HttpProtocol = HttpProtocolDefinition.HttpVersion1_1;
+            test.Response.StatusCode = HttpStateCode.OK;
+            test.Task.Document.DataSources.Add(new ThrowsOnWriteStreamDataSource());
+
+            using (var response = test.SetStream())
+            using (var r = new StreamReader(response))
+            {
+                // must not throw: the IOException from WriteStream is caught inside
+                // ProgressTask, not propagated to the caller
+                await new HttpSender().ProgressTask(test.Task).ConfigureAwait(false);
+
+                response.Position = 0;
+                var text = r.ReadToEnd();
+                StringAssert.Contains(text, "HTTP/1.1 200 OK");
+            }
+        }
+
         [TestMethod]
         public async Task TestPostTempFileIsDisposedEvenWhenSendingTheResponseFails()
         {
