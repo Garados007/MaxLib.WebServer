@@ -43,6 +43,8 @@ namespace MaxLib.WebServer.Test.WebSocket
             var payload = new byte[200];
             for (var i = 0; i < payload.Length; ++i)
                 payload[i] = (byte)i;
+            var expected = (byte[])payload.Clone();
+            // ApplyMask masks Frame.Payload in place, so capture the expected plaintext first
             var frame = new Frame { OpCode = OpCode.Binary, Payload = payload };
             frame.ApplyMask();
             using var written = new MemoryStream();
@@ -54,7 +56,30 @@ namespace MaxLib.WebServer.Test.WebSocket
             Assert.IsNotNull(readBack);
             Assert.IsTrue(readBack!.HasMaskingKey);
             readBack.UnapplyMask();
-            CollectionAssert.AreEqual(payload, readBack.Payload.ToArray());
+            CollectionAssert.AreEqual(expected, readBack.Payload.ToArray());
+        }
+
+        [TestMethod]
+        public void ApplyMaskGeneratesANonZeroMaskingKey()
+        {
+            // the masking key must not stay at its all-zero default (RFC 6455 §5.3)
+            var frame = new Frame { OpCode = OpCode.Text, Payload = Encoding.UTF8.GetBytes("Hello") };
+
+            frame.ApplyMask();
+
+            Assert.IsTrue(frame.HasMaskingKey);
+            CollectionAssert.AreNotEqual(new byte[] { 0, 0, 0, 0 }, frame.MaskingKey.ToArray());
+        }
+
+        [TestMethod]
+        public void ApplyMaskGeneratesADifferentKeyOnEachCall()
+        {
+            var first = new Frame { OpCode = OpCode.Text, Payload = Encoding.UTF8.GetBytes("Hello") };
+            first.ApplyMask();
+            var second = new Frame { OpCode = OpCode.Text, Payload = Encoding.UTF8.GetBytes("Hello") };
+            second.ApplyMask();
+
+            CollectionAssert.AreNotEqual(first.MaskingKey.ToArray(), second.MaskingKey.ToArray());
         }
 
         [TestMethod]

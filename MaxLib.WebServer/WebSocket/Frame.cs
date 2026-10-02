@@ -1,6 +1,7 @@
 ﻿using System;
 using Microsoft.Extensions.Logging;
 using System.IO;
+using System.Security.Cryptography;
 using System.Text;
 using System.Threading.Tasks;
 
@@ -143,6 +144,8 @@ namespace MaxLib.WebServer.WebSocket
         {
             if (HasMaskingKey)
                 return;
+            // RFC 6455 §5.3: the masking key must be unpredictable and differ per frame
+            RandomNumberGenerator.Fill(MaskingKey.Span);
             var span = Payload.Span;
             var mask = MaskingKey.Span;
             for (int i = 0; i < span.Length; ++i)
