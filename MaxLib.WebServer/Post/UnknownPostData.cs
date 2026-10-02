@@ -28,6 +28,9 @@ namespace MaxLib.WebServer.Post
             return $"[{Data.Length:#,#0} Bytes]";
         }
 
+        /// <remarks>
+        /// The synchronous Dispose drains the body without the read timeout; prefer DisposeAsync.
+        /// </remarks>
         public void Dispose()
         {
             Data.Discard();

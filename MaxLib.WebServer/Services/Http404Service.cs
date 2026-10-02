@@ -36,7 +36,10 @@ namespace MaxLib.WebServer.Services
             foreach (var (key, value) in task.Request.HeaderParameter)
                 sb.AppendLine(CultureInfo.InvariantCulture, $"\t{WebUtility.HtmlEncode(key)}: {WebUtility.HtmlEncode(value)}");
             sb.AppendLine($"Body:");
-            sb.AppendLine(WebUtility.HtmlEncode(task.Request.Post.ToString()));
+            // Post.ToString() would block synchronously on the lazily-parsed body, and a read failure would turn the 404
+            // into an unhandled exception. The dump only needs the MIME type, which is known without reading the body.
+            sb.AppendLine(WebUtility.HtmlEncode(
+                task.Request.Post.MimeType is string mimeType ? $"[{mimeType}]" : "[no body]"));
             sb.Append($"</pre><p>Try to change the request to get your expected response.</p>");
             sb.Append(CultureInfo.InvariantCulture, $"<small>Created by <a href=\"https://github.com/Garados007/MaxLib.WebServer\" " +
                 $"target=\"_blank\">MaxLib.WebServer {Version}</a>: {DateTime.UtcNow:r}</small></body></html>");

@@ -46,14 +46,26 @@ namespace MaxLib.WebServer.WebSocket
             this.seedOptions = seedOptions;
         }
 
+        /// <remarks>
+        /// Each event type may be registered under only one key; registering it twice makes the first
+        /// serialize/parse throw InvalidOperationException.
+        /// </remarks>
         public void Add<T>()
             where T : EventBase, new()
             => Add<T>(new T().TypeName);
 
+        /// <remarks>
+        /// Each event type may be registered under only one key; registering it twice makes the first
+        /// serialize/parse throw InvalidOperationException.
+        /// </remarks>
         public void Add<T>(string key)
             where T : EventBase, new()
             => AddCore(key, typeof(T));
 
+        /// <remarks>
+        /// Each event type may be registered under only one key; registering it twice makes the first
+        /// serialize/parse throw InvalidOperationException.
+        /// </remarks>
         public void Add(string key, Type type)
         {
             _ = type ?? throw new ArgumentNullException(nameof(type));
@@ -140,45 +152,62 @@ namespace MaxLib.WebServer.WebSocket
         public EventBase? Parse(Frame frame)
         {
             _ = frame ?? throw new ArgumentNullException(nameof(frame));
-            try
-            {
-                return JsonSerializer.Deserialize<EventBase>(frame.Payload.Span, Options);
-            }
-            catch (Exception e) when (e is JsonException or NotSupportedException)
-            {
-                // Deserialize() already did the real parsing work above; this only runs on the
-                // (rare) failure path, to classify *why* it failed. Re-parsing the payload here
-                // to inspect "$type" is wasted work on every successful message otherwise.
-                throw ClassifyParseFailure(frame, e);
-            }
-        }
+            // Accessing Options seals the type registry; do this on every call, even for a frame that fails to parse.
+            var options = Options;
 
-        EventParseException ClassifyParseFailure(Frame frame, Exception original)
-        {
+            // System.Text.Json's polymorphic deserialization needs "$type" to be the first property, but JSON is
+            // unordered. Resolve "$type" with an order-independent JsonDocument pre-scan and deserialize onto the
+            // concrete type instead.
             JsonDocument doc;
             try
             {
-                doc = JsonDocument.Parse(frame.Payload);
+                // mirror the caller's JsonSerializerOptions leniency; JsonDocumentOptions has its own defaults
+                var docOptions = new JsonDocumentOptions
+                {
+                    AllowTrailingCommas = options.AllowTrailingCommas,
+                    CommentHandling = options.ReadCommentHandling,
+                    MaxDepth = options.MaxDepth,
+#if NET10_0_OR_GREATER
+                    // only exists on net10.0; JsonSerializerOptions has no such member on net8.0
+                    AllowDuplicateProperties = options.AllowDuplicateProperties,
+#endif
+                };
+                doc = JsonDocument.Parse(frame.Payload, docOptions);
             }
             catch (JsonException e)
             {
-                return new MalformedEventJsonException(e);
+                throw new MalformedEventJsonException(e);
             }
 
-            string? typeName;
             using (doc)
             {
-                typeName = doc.RootElement.ValueKind == JsonValueKind.Object &&
+                // a literal JSON "null" payload yields a null EventBase, regardless of "$type" resolution
+                if (doc.RootElement.ValueKind == JsonValueKind.Null)
+                    return null;
+
+                var typeName = doc.RootElement.ValueKind == JsonValueKind.Object &&
                     doc.RootElement.TryGetProperty("$type", out var typeProp) &&
                     typeProp.ValueKind == JsonValueKind.String
                         ? typeProp.GetString()
                         : null;
+
+                if (typeName == null || !registry.TryGetValue(typeName, out var resolvedType))
+                    throw new UnknownEventTypeException(typeName);
+
+                try
+                {
+                    // "$type" first is the shape the polymorphic reader handles natively, and it
+                    // consumes "$type" as metadata instead of an unmapped member
+                    using var props = doc.RootElement.EnumerateObject();
+                    if (props.MoveNext() && props.Current.NameEquals("$type"))
+                        return JsonSerializer.Deserialize<EventBase>(frame.Payload.Span, options);
+                    return (EventBase?)JsonSerializer.Deserialize(frame.Payload.Span, resolvedType, options);
+                }
+                catch (Exception e) when (e is JsonException or NotSupportedException)
+                {
+                    throw new InvalidEventPayloadException(typeName, e);
+                }
             }
-
-            if (typeName == null || !registry.ContainsKey(typeName))
-                return new UnknownEventTypeException(typeName);
-
-            return new InvalidEventPayloadException(typeName, original);
         }
 
         /// <summary>
@@ -206,6 +235,10 @@ namespace MaxLib.WebServer.WebSocket
         /// Serializes an event into a <see cref="Frame" /> using this factory's
         /// <see cref="Options" />.
         /// </summary>
+        /// <remarks>
+        /// Every event type passed to ToFrame must be registered via Add first; an unregistered type
+        /// throws NotSupportedException.
+        /// </remarks>
         public Frame? ToFrame(EventBase @event)
         {
             _ = @event ?? throw new ArgumentNullException(nameof(@event));

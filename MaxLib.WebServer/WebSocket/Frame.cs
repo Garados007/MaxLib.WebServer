@@ -1,6 +1,7 @@
 ﻿using System;
 using Microsoft.Extensions.Logging;
 using System.IO;
+using System.Security.Cryptography;
 using System.Text;
 using System.Threading.Tasks;
 
@@ -54,14 +55,26 @@ namespace MaxLib.WebServer.WebSocket
                 await output.WriteAsync(Payload).ConfigureAwait(false);
         }
 
-        public static async Task<Frame?> TryRead(Stream input, bool throwLargePayload = false)
+        /// <param name="input">the stream to read the frame from</param>
+        /// <param name="throwLargePayload">
+        /// throw <see cref="TooLargePayloadException" /> instead of returning null when the declared payload
+        /// length exceeds <paramref name="maxPayloadSize" /> or <see cref="int.MaxValue" />
+        /// </param>
+        /// <param name="maxPayloadSize">
+        /// reject the frame before allocating or reading its payload once its declared length exceeds this value;
+        /// a negative value (the default) only enforces the <see cref="int.MaxValue" /> cap. Pass
+        /// <see cref="WebSocketConnection.MaxMessageSize" /> here too, as unfragmented frames bypass reassembly.
+        /// </param>
+        public static async Task<Frame?> TryRead(Stream input, bool throwLargePayload = false,
+            long maxPayloadSize = -1)
         {
             ArgumentNullException.ThrowIfNull(input);
             try
             {
+                // ReadAsync may return fewer bytes than requested; ReadExactlyAsync loops until the buffer is full
+                // (or throws EndOfStreamException)
                 Memory<byte> buffer = new byte[8];
-                if (await input.ReadAsync(buffer[0..2]).ConfigureAwait(false) != 2)
-                    return null;
+                await input.ReadExactlyAsync(buffer[0..2]).ConfigureAwait(false);
                 var frame = new Frame
                 {
                     FinalFrame = (buffer.Span[0] & 0x80) == 0x80,
@@ -72,19 +85,17 @@ namespace MaxLib.WebServer.WebSocket
                 ulong length = (ulong)lengthIndicator;
                 if (lengthIndicator == 126)
                 {
-                    if (await input.ReadAsync(buffer[0..2]).ConfigureAwait(false) != 2)
-                        return null;
+                    await input.ReadExactlyAsync(buffer[0..2]).ConfigureAwait(false);
                     ToLocalByteOrder(buffer.Span[..2]);
                     length = BitConverter.ToUInt16(buffer.Span[..2]);
                 }
                 if (lengthIndicator == 127)
                 {
-                    if (await input.ReadAsync(buffer).ConfigureAwait(false) != 8)
-                        return null;
+                    await input.ReadExactlyAsync(buffer).ConfigureAwait(false);
                     ToLocalByteOrder(buffer.Span);
                     length = BitConverter.ToUInt64(buffer.Span);
                 }
-                if (length > int.MaxValue)
+                if (length > int.MaxValue || (maxPayloadSize >= 0 && length > (ulong)maxPayloadSize))
                 {
                     if (throwLargePayload)
                         throw new TooLargePayloadException();
@@ -93,14 +104,12 @@ namespace MaxLib.WebServer.WebSocket
 
                 if (frame.HasMaskingKey)
                 {
-                    if (await input.ReadAsync(buffer[..4]).ConfigureAwait(false) != 4)
-                        return null;
+                    await input.ReadExactlyAsync(buffer[..4]).ConfigureAwait(false);
                     buffer[..4].CopyTo(frame.MaskingKey);
                 }
 
                 frame.Payload = new byte[(int)length];
-                if (await input.ReadAsync(frame.Payload).ConfigureAwait(false) != frame.Payload.Length)
-                    return null;
+                await input.ReadExactlyAsync(frame.Payload).ConfigureAwait(false);
 
                 return frame;
             }
@@ -146,6 +155,8 @@ namespace MaxLib.WebServer.WebSocket
         {
             if (HasMaskingKey)
                 return;
+            // RFC 6455 §5.3: the masking key must be unpredictable and differ per frame
+            RandomNumberGenerator.Fill(MaskingKey.Span);
             var span = Payload.Span;
             var mask = MaskingKey.Span;
             for (int i = 0; i < span.Length; ++i)

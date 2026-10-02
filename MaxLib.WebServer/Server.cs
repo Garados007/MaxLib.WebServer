@@ -18,6 +18,10 @@ namespace MaxLib.WebServer
     /// A web server that supports the HTTP protocol. This is the bare bone of the server stack.
     /// For functionality you need to add the needed <see cref="WebService" />.
     /// </summary>
+    /// <remarks>
+    /// The configured logging provider must not throw while rendering exceptions; the server does not
+    /// guard its log calls.
+    /// </remarks>
     public class Server : IDisposable
     {
         static readonly ILogger logger = WebServerLog.LoggerFactory.CreateLogger<Server>();
@@ -198,38 +202,33 @@ namespace MaxLib.WebServer
                 {
                     if (!Listener.Pending()) break;
                     step++;
-                    ClientConnected(Listener.AcceptTcpClient());
+                    TcpClient client;
+                    try
+                    {
+                        client = Listener.AcceptTcpClient();
+                    }
+                    catch (Exception e)
+                    {
+                        // AcceptTcpClient() can throw for reasons unrelated to other connections (handle exhaustion, a client
+                        // reset in the backlog). This runs on a raw Thread, where an unhandled exception would take down the
+                        // process. Nothing was accepted, so there is nothing to clean up.
+                        logger.LogCritical(UnhandledExceptionEventId, e, "Unhandled exception while accepting a connection");
+                        continue;
+                    }
+                    try
+                    {
+                        ClientConnected(client);
+                    }
+                    catch (Exception e)
+                    {
+                        // ClientConnected failed before registering the client in AllConnections (e.g. RemoteEndPoint on a
+                        // peer that already reset); close it, or its socket leaks
+                        client.Close();
+                        logger.LogCritical(UnhandledExceptionEventId, e, "Unhandled exception while accepting a connection");
+                    }
                 }
                 //request keep alive connections
-                for (int i = 0; i < KeepAliveConnections.Count; ++i)
-                {
-                    HttpConnection kas;
-                    try { kas = KeepAliveConnections[i]; }
-                    catch { continue; }
-                    if (kas == null)
-                        continue;
-
-                    if ((kas.NetworkClient != null && !kas.NetworkClient.Connected) ||
-                        (kas.LastWorkTime != -1 &&
-                            kas.LastWorkTime + Settings.ConnectionTimeout < Environment.TickCount
-                        )
-                    )
-                    {
-                        kas.NetworkClient?.Close();
-                        kas.NetworkStream?.Dispose();
-                        AllConnections.Remove(kas);
-                        KeepAliveConnections.Remove(kas);
-                        --i;
-                        continue;
-                    }
-
-                    if (kas.NetworkClient != null && kas.NetworkClient.Available > 0 &&
-                        kas.LastWorkTime != -1
-                    )
-                    {
-                        _ = Task.Run(() => SafeClientStartListen(kas));
-                    }
-                }
+                ProcessKeepAliveConnections();
 
                 //Warten
                 if (Listener.Pending())
@@ -250,6 +249,45 @@ namespace MaxLib.WebServer
             AllConnections.Clear();
             KeepAliveConnections.Clear();
             logger.LogInformation(StartUpEventId, "Server successfully stopped");
+        }
+
+        /// <summary>
+        /// Scans <see cref="KeepAliveConnections" />, re-dispatching connections that have data available and
+        /// evicting disconnected or timed-out ones. Called from both accept loops.
+        /// </summary>
+        protected void ProcessKeepAliveConnections()
+        {
+            for (int i = 0; i < KeepAliveConnections.Count; ++i)
+            {
+                HttpConnection kas;
+                try { kas = KeepAliveConnections[i]; }
+                catch { continue; }
+                if (kas == null)
+                    continue;
+
+                if ((kas.NetworkClient != null && !kas.NetworkClient.Connected) ||
+                    (kas.LastWorkTime != -1 &&
+                        kas.LastWorkTime + Settings.ConnectionTimeout < Environment.TickCount
+                    )
+                )
+                {
+                    kas.NetworkClient?.Close();
+                    kas.NetworkStream?.Dispose();
+                    AllConnections.Remove(kas);
+                    KeepAliveConnections.Remove(kas);
+                    --i;
+                    continue;
+                }
+
+                if (kas.NetworkClient != null && kas.NetworkClient.Available > 0 &&
+                    kas.LastWorkTime != -1
+                )
+                {
+                    // claim it synchronously: otherwise the next pass could re-dispatch this connection to a second task
+                    kas.LastWorkTime = -1;
+                    _ = Task.Run(() => SafeClientStartListen(kas));
+                }
+            }
         }
 
         protected virtual void ClientConnected(TcpClient client)

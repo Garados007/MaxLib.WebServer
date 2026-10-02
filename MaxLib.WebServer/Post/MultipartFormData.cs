@@ -15,6 +15,9 @@ namespace MaxLib.WebServer.Post
 {
     public partial class MultipartFormData : IPostData
     {
+        static readonly ILogger logger = WebServerLog.LoggerFactory.CreateLogger<MultipartFormData>();
+        static readonly EventId PostEventId = new(0, "POST");
+
         public class FormEntry : IDisposable
         {
             static readonly ILogger logger = WebServerLog.LoggerFactory.CreateLogger<FormEntry>();
@@ -160,6 +163,17 @@ namespace MaxLib.WebServer.Post
         /// </summary>
         public static int MaximumPartCount { get; set; } = 10_000;
 
+        /// <summary>
+        /// The maximum length, in characters, of a part's boundary line or header line. Exceeding it rejects the
+        /// request with <see cref="HttpStateCode.RequestHeaderFieldsTooLarge" />. Use a negative value to disable
+        /// the check. Default is 8 KB.
+        /// </summary>
+        public static long MaxPartHeaderLineLength { get; set; } = 8192;
+
+        /// <remarks>
+        /// SetAsync must be called at most once per instance; a second call leaks the previous call's
+        /// temp files.
+        /// </remarks>
         public async Task SetAsync(WebProgressTask task, IO.ContentStream content, string options)
         {
             ArgumentNullException.ThrowIfNull(task);
@@ -184,6 +198,13 @@ namespace MaxLib.WebServer.Post
             Entries.Clear();
             using var reader = new NetworkReader(content, null, true);
 
+            async Task RejectHeaderTooLarge()
+            {
+                task.Response.StatusCode = HttpStateCode.RequestHeaderFieldsTooLarge;
+                task.NextStage = ServerStage.CreateResponse;
+                await content.DiscardAsync().ConfigureAwait(false);
+            }
+
             // parse the content
             var firstPart = true;
             while (true)
@@ -202,7 +223,17 @@ namespace MaxLib.WebServer.Post
                 firstPart = false;
 
                 // expect boundary
-                if (await reader.ReadLineAsync().ConfigureAwait(false) != boundary)
+                string? boundaryLine;
+                try
+                {
+                    boundaryLine = await reader.ReadLineAsync(MaxPartHeaderLineLength).ConfigureAwait(false);
+                }
+                catch (IO.ReadLineOverflowException)
+                {
+                    await RejectHeaderTooLarge().ConfigureAwait(false);
+                    return;
+                }
+                if (boundaryLine != boundary)
                     break;
 
                 if (MaximumPartCount >= 0 && Entries.Count >= MaximumPartCount)
@@ -219,12 +250,21 @@ namespace MaxLib.WebServer.Post
                 // read headers until an empty line is found
                 var dict = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
                 string? line;
-                while (!string.IsNullOrWhiteSpace(line = await reader.ReadLineAsync().ConfigureAwait(false)))
+                try
                 {
-                    var header = headerSplit().Match(line);
-                    if (!header.Success)
-                        break;
-                    dict.Add(header.Groups["name"].Value, header.Groups["value"].Value);
+                    while (!string.IsNullOrWhiteSpace(line = await reader.ReadLineAsync(MaxPartHeaderLineLength).ConfigureAwait(false)))
+                    {
+                        var header = headerSplit().Match(line);
+                        if (!header.Success)
+                            break;
+                        // last-wins on a repeated header name within one part (Dictionary.Add would throw)
+                        dict[header.Groups["name"].Value] = header.Groups["value"].Value;
+                    }
+                }
+                catch (IO.ReadLineOverflowException)
+                {
+                    await RejectHeaderTooLarge().ConfigureAwait(false);
+                    return;
                 }
 
                 var entry = GetEntry(dict);
@@ -236,13 +276,30 @@ namespace MaxLib.WebServer.Post
                 if (storeInTemp)
                 {
                     var name = Path.GetTempFileName();
+                    try
+                    {
 #pragma warning disable CA2000 // already disposed via the using declaration below; the analyzer is confused by the `StorageMapper?.Invoke(task, file) ?? file` fallback
-                    using var file = new FileStream(name, FileMode.OpenOrCreate, FileAccess.Write,
-                        FileShare.None
-                    );
+                        using var file = new FileStream(name, FileMode.OpenOrCreate, FileAccess.Write,
+                            FileShare.None
+                        );
 #pragma warning restore CA2000
-                    using var stream = StorageMapper?.Invoke(task, file) ?? file;
-                    await reader.ReadUntilAsync(rawBoundary, stream).ConfigureAwait(false);
+                        using var stream = StorageMapper?.Invoke(task, file) ?? file;
+                        await reader.ReadUntilAsync(rawBoundary, stream).ConfigureAwait(false);
+                    }
+                    catch
+                    {
+                        // the write above never finished, so `name` is not attached to `entry` and FormEntry.Dispose
+                        // will never delete it
+                        try
+                        {
+                            File.Delete(name);
+                        }
+                        catch (Exception)
+                        {
+                            logger.LogInformation(PostEventId, "Cannot delete temp file");
+                        }
+                        throw;
+                    }
                     entry.Set(new FileInfo(name));
                 }
                 else
@@ -299,13 +356,16 @@ namespace MaxLib.WebServer.Post
             return sb.ToString();
         }
 
+        /// <remarks>
+        /// Not thread-safe: await SetAsync before calling Dispose, otherwise temp files may leak.
+        /// </remarks>
         public void Dispose()
         {
             Entries.ForEach(x => x.Dispose());
             GC.SuppressFinalize(this);
         }
 
-        [GeneratedRegex("boundary\\s*=\\s*(?:\"(?<name>[^\"]*)\"|(?<name>[^\"]*))")]
+        [GeneratedRegex("boundary\\s*=\\s*(?:\"(?<name>[^\"]*)\"|(?<name>[^\";\\s]*))")]
         private static partial Regex boundaryRegex();
         [GeneratedRegex("[^\\w]name\\s*=\\s*\"(?<name>[^\"]*)\"", RegexOptions.IgnoreCase | RegexOptions.CultureInvariant)]
         private static partial Regex nameRegex();

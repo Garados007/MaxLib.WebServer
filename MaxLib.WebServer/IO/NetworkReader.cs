@@ -643,8 +643,8 @@ namespace MaxLib.WebServer.IO
             charBufferCount = charBufferOffset = lastBytesUsed = 0;
 
             // loop until we found the signature
-            int length;
-            do
+            bool found = false;
+            while (!found)
             {
                 // ensure we have enough bytes in buffer
                 RefillBuffer(marking.Length);
@@ -659,30 +659,33 @@ namespace MaxLib.WebServer.IO
                     break;
                 }
 
+                // only scan positions with at least marking.Length bytes buffered: a marker straddling a refill
+                // must not be flushed before a later refill gives it the chance to match
+                // add the data until the pattern (or the safe boundary, if not found yet) to the stream
+                int safeEnd = readBufferOffset + readBufferCount - (marking.Length - 1);
                 int i = readBufferOffset;
-                // move the check window until we found the pattern
-                do
+                while (i < safeEnd)
                 {
                     if (readBuffer.Span[i ..].StartsWith(marking))
+                    {
+                        found = true;
                         break;
+                    }
                     i++;
                 }
-                while (i < readBufferOffset + readBufferCount);
-                // add the data until the pattern to the stream
+                // add the data until the pattern (or the safe boundary, if not found yet) to the stream
                 target.Write(readBuffer.Span[readBufferOffset .. i]);
                 // move the index to the end
-                length = i - readBufferOffset;
+                var length = i - readBufferOffset;
                 readBufferOffset = i;
                 readBufferCount -= length;
                 fullRead += length;
-                // break if the length is 0
             }
-            while (length > 0);
 
             return fullRead;
         }
 
-        
+
         public async ValueTask<ReadOnlyMemory<byte>> ReadUntilAsync(
             ReadOnlyMemory<byte> marking,
             CancellationToken cancellationToken = default
@@ -715,8 +718,8 @@ namespace MaxLib.WebServer.IO
             charBufferCount = charBufferOffset = lastBytesUsed = 0;
 
             // loop until we found the signature
-            int length;
-            do
+            bool found = false;
+            while (!found)
             {
                 // ensure we have enough bytes in buffer
                 await RefillBufferAsync(cancellationToken, marking.Length).ConfigureAwait(false);
@@ -731,25 +734,28 @@ namespace MaxLib.WebServer.IO
                     break;
                 }
 
+                // only scan positions with at least marking.Length bytes buffered: a marker straddling a refill
+                // must not be flushed before a later refill gives it the chance to match
+                // add the data until the pattern (or the safe boundary, if not found yet) to the stream
+                int safeEnd = readBufferOffset + readBufferCount - (marking.Length - 1);
                 int i = readBufferOffset;
-                // move the check window until we found the pattern
-                do
+                while (i < safeEnd)
                 {
                     if (readBuffer.Span[i ..].StartsWith(marking.Span))
+                    {
+                        found = true;
                         break;
+                    }
                     i++;
                 }
-                while (i < readBufferOffset + readBufferCount);
-                // add the data until the pattern to the stream
+                // add the data until the pattern (or the safe boundary, if not found yet) to the stream
                 target.Write(readBuffer.Span[readBufferOffset .. i]);
                 // move the index to the end
-                length = i - readBufferOffset;
+                var length = i - readBufferOffset;
                 readBufferOffset = i;
                 readBufferCount -= length;
                 fullRead += length;
-                // break if the length is 0
             }
-            while (length > 0);
 
             return fullRead;
         }

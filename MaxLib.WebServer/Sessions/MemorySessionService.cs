@@ -25,7 +25,7 @@ namespace MaxLib.WebServer.Sessions
                     // instead of paying for a full sweep on every single request
                     value = null;
                 if (value is null)
-                    Sessions[key] = value = new Session();
+                    Sessions[key] = value = new Session { Key = key };
                 value.LastUsed = DateTime.UtcNow;
             }
             return new ValueTask<Session>(value);
@@ -34,7 +34,17 @@ namespace MaxLib.WebServer.Sessions
         protected override ValueTask<bool> IsKeyAvailable(string key)
         {
             lock (sessionsLock)
-                return new ValueTask<bool>(!Sessions.ContainsKey(key));
+                // an expired entry counts as gone, consistent with Get(string); otherwise an expired but unswept key
+                // would be reused for a new session, reopening session fixation
+                return new ValueTask<bool>(
+                    !Sessions.TryGetValue(key, out var value) || value.LastUsed + MaxAge < DateTime.UtcNow);
+        }
+
+        protected override ValueTask Remove(string key)
+        {
+            lock (sessionsLock)
+                Sessions.Remove(key);
+            return default;
         }
 
         /// <summary>
@@ -115,6 +125,13 @@ namespace MaxLib.WebServer.Sessions
         }
 
         /// <summary>
+        /// The longest delay <see cref="RunAutomaticSweep" /> hands to <see cref="Timer.Change(TimeSpan, TimeSpan)" />.
+        /// <see cref="Timer" /> rejects due times over about 49.71 days, which a long
+        /// <see cref="SessionServiceBase.MaxAge" /> could exceed. Rescheduling earlier than necessary is harmless.
+        /// </summary>
+        private static readonly TimeSpan MaxAutomaticSweepDelay = TimeSpan.FromDays(45);
+
+        /// <summary>
         /// Runs one <see cref="Sweep" /> and reschedules the timer <see
         /// cref="StartAutomaticSweep" /> started for shortly after the next session is due to
         /// expire, using the oldest surviving session <see cref="Sweep" /> reports back -
@@ -130,6 +147,8 @@ namespace MaxLib.WebServer.Sessions
                 : AutomaticSweepMargin;
             if (delay < TimeSpan.Zero)
                 delay = TimeSpan.Zero;
+            else if (delay > MaxAutomaticSweepDelay)
+                delay = MaxAutomaticSweepDelay;
             lock (sessionsLock)
                 sweepTimer?.Change(delay, Timeout.InfiniteTimeSpan);
         }

@@ -11,6 +11,11 @@ using System.Text;
 
 namespace MaxLib.WebServer.WebSocket
 {
+    /// <remarks>
+    /// Exceptions thrown from ReceivedFrame/ReceiveClose overrides must have a non-throwing ToString();
+    /// they are passed to the logger as-is. Streams and custom JsonConverters used with WebSockets must
+    /// throw exceptions with a non-throwing ToString(); they are passed to the logger as-is.
+    /// </remarks>
     public abstract class WebSocketConnection : IDisposable, IAsyncDisposable
     {
         // Not cached per-type: this class is an arbitrary-subclass extension point, and this
@@ -139,11 +144,18 @@ namespace MaxLib.WebServer.WebSocket
                 Frame? frame;
                 try
                 {
-                    frame = await Frame.TryRead(NetworkStream, throwLargePayload: true).ConfigureAwait(false);
+                    // MaxMessageSize also bounds a single unfragmented frame, which never reaches payloadQueue below.
+                    // Not clamped below MaxControlFramePayloadSize: control frames have their own fixed limit.
+                    var maxDataPayloadSize = MaxMessageSize >= 0
+                        ? Math.Max(MaxMessageSize, MaxControlFramePayloadSize)
+                        : MaxMessageSize;
+                    frame = await Frame.TryRead(NetworkStream, throwLargePayload: true, maxPayloadSize: maxDataPayloadSize)
+                        .ConfigureAwait(false);
                 }
                 catch (TooLargePayloadException)
                 {
-                    await Close(CloseReason.TooBigMessage, $"Payload is larger then the allowed {int.MaxValue} bytes")
+                    var limit = MaxMessageSize >= 0 ? MaxMessageSize : (long)int.MaxValue;
+                    await Close(CloseReason.TooBigMessage, $"Payload is larger then the allowed {limit} bytes")
                         .ConfigureAwait(false);
                     return;
                 }
@@ -159,6 +171,14 @@ namespace MaxLib.WebServer.WebSocket
                     return;
                 }
                 frame.UnapplyMask();
+
+                if (!IsKnownOpCode(frame.OpCode))
+                {
+                    // RFC 6455 §5.2: an unknown opcode must fail the connection
+                    await Close(CloseReason.ProtocolError, $"Unknown opcode {(byte)frame.OpCode:X}")
+                        .ConfigureAwait(false);
+                    return;
+                }
 
                 if (IsControlFrame(frame.OpCode) &&
                     (!frame.FinalFrame || frame.Payload.Length > MaxControlFramePayloadSize))
@@ -177,8 +197,23 @@ namespace MaxLib.WebServer.WebSocket
                     // opcode; every later fragment is a Continuation, so only latch it once.
                     if (payloadQueue.Count == 0)
                     {
+                        if (frame.OpCode == OpCode.Continuation)
+                        {
+                            // RFC 6455 §5.4: the first frame of a message must carry its real data opcode
+                            await Close(CloseReason.ProtocolError,
+                                "The first fragment of a message must not use the Continuation opcode"
+                            ).ConfigureAwait(false);
+                            return;
+                        }
                         code = frame.OpCode;
                         accumulatedSize = 0;
+                    }
+                    else if (frame.OpCode != OpCode.Continuation)
+                    {
+                        await Close(CloseReason.ProtocolError,
+                            "A non-initial fragment must use the Continuation opcode"
+                        ).ConfigureAwait(false);
+                        return;
                     }
                     payloadQueue.Enqueue(frame.Payload);
                     accumulatedSize += frame.Payload.Length;
@@ -214,9 +249,30 @@ namespace MaxLib.WebServer.WebSocket
                         break;
                     default:
                         if (payloadQueue.Count == 0)
+                        {
+                            if (frame.OpCode == OpCode.Continuation)
+                            {
+                                // RFC 6455 §5.4: an unfragmented message must not use the Continuation opcode
+                                await Close(CloseReason.ProtocolError,
+                                    "A complete message must not use the Continuation opcode"
+                                ).ConfigureAwait(false);
+                                return;
+                            }
+                            // Frame.TryRead's cap is at least MaxControlFramePayloadSize, so enforce MaxMessageSize
+                            // for a single complete data frame here as well
+                            if (await ExceedsConfiguredMessageLimits(1, frame.Payload.Length).ConfigureAwait(false))
+                                return;
                             await ReceivedFrame(frame).ConfigureAwait(false);
+                        }
                         else
                         {
+                            if (frame.OpCode != OpCode.Continuation)
+                            {
+                                await Close(CloseReason.ProtocolError,
+                                    "The final fragment of a message must use the Continuation opcode"
+                                ).ConfigureAwait(false);
+                                return;
+                            }
                             payloadQueue.Enqueue(frame.Payload);
                             accumulatedSize += frame.Payload.Length;
                             if (await ExceedsConfiguredMessageLimits(payloadQueue.Count, accumulatedSize).ConfigureAwait(false))
@@ -239,8 +295,15 @@ namespace MaxLib.WebServer.WebSocket
             }
         }
 
+        // RFC 6455 §5.2: the whole 0x8-0xF range is control opcodes, including unassigned ones
         private static bool IsControlFrame(OpCode opCode)
-            => opCode is OpCode.Close or OpCode.Ping or OpCode.Pong;
+            => (byte)opCode >= 0x8;
+
+        // only 0x0-0x2 (data) and 0x8-0xA (control) are assigned; every other opcode
+        // must fail the connection (RFC 6455 §5.2)
+        private static bool IsKnownOpCode(OpCode opCode)
+            => opCode is OpCode.Continuation or OpCode.Text or OpCode.Binary
+                or OpCode.Close or OpCode.Ping or OpCode.Pong;
 
         /// <summary>
         /// Checks the running fragment count/size accumulated so far for the message currently
@@ -294,22 +357,29 @@ namespace MaxLib.WebServer.WebSocket
             if (SendCloseSignal)
                 return;
             await lockStream.WaitAsync().ConfigureAwait(false);
-            if (frame.OpCode == OpCode.Close)
-                SendCloseSignal = true;
             try
             {
-                await frame.Write(NetworkStream).ConfigureAwait(false);
-            }
-            catch (IOException e)
-            {
-                if (frame.OpCode != OpCode.Ping && frame.OpCode != OpCode.Pong)
-                    WebServerLog.LoggerFactory.CreateLogger(GetType())
-                        .LogInformation(WebSocketEventId, e, "Unexpected network error: frame={OpCode}", frame.OpCode);
-                var alreadyReceived = ReceivedCloseSignal;
-                ReceivedCloseSignal = true;
-                SendCloseSignal = true;
-                if (!alreadyReceived)
-                    await ReceiveClose(null, null).ConfigureAwait(false);
+                // re-check under the lock: a concurrent call may have sent a Close frame already,
+                // and RFC 6455 §5.5.1 forbids sending after it
+                if (SendCloseSignal)
+                    return;
+                if (frame.OpCode == OpCode.Close)
+                    SendCloseSignal = true;
+                try
+                {
+                    await frame.Write(NetworkStream).ConfigureAwait(false);
+                }
+                catch (IOException e)
+                {
+                    if (frame.OpCode != OpCode.Ping && frame.OpCode != OpCode.Pong)
+                        WebServerLog.LoggerFactory.CreateLogger(GetType())
+                            .LogInformation(WebSocketEventId, e, "Unexpected network error: frame={OpCode}", frame.OpCode);
+                    var alreadyReceived = ReceivedCloseSignal;
+                    ReceivedCloseSignal = true;
+                    SendCloseSignal = true;
+                    if (!alreadyReceived)
+                        await ReceiveClose(null, null).ConfigureAwait(false);
+                }
             }
             finally
             {
@@ -317,8 +387,14 @@ namespace MaxLib.WebServer.WebSocket
             }
         }
 
+        /// <remarks>
+        /// Overrides must not throw; an escaping exception leaves the ping loop running, so Closed never fires and the connection is never cleaned up.
+        /// </remarks>
         protected abstract Task ReceiveClose(CloseReason? reason, string? info);
 
+        /// <remarks>
+        /// Overrides must not throw; an escaping exception leaves the ping loop running, so Closed never fires and the connection is never cleaned up.
+        /// </remarks>
         protected abstract Task ReceivedFrame(Frame frame);
     }
 }

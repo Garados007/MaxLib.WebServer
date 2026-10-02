@@ -29,6 +29,10 @@ namespace MaxLib.WebServer.Builder.Runtime
             TargetType = targetType;
         }
 
+        /// <remarks>
+        /// Converters must throw exceptions whose Message does not throw; it is embedded in the 400
+        /// response.
+        /// </remarks>
         public Tools.Result<object?> GetValue(WebProgressTask task, Dictionary<string, object?> vars)
         {
             var value = ParamSource.GetValue(task, Name, vars);

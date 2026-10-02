@@ -56,6 +56,24 @@ namespace MaxLib.WebServer.Test.Builder
         }
 
         [TestMethod]
+        public void TestGetValueDecodesUsingTheDeclaredCharset()
+        {
+            // "café" in ISO-8859-1: decoding as UTF-8 would mangle the 0xE9 byte
+            var task = new WebProgressTask();
+            var body = new byte[] { (byte)'c', (byte)'a', (byte)'f', 0xE9 };
+            task.Request.Post.SetPost(
+                task,
+                new ContentStream(new NetworkReader(new MemoryStream(body)), body.Length),
+                "text/plain; charset=iso-8859-1"
+            );
+
+            var result = new TextPostAttribute().GetValue(task, "", new Dictionary<string, object?>());
+
+            Assert.IsTrue(result.HasValue);
+            Assert.AreEqual("café", result.Value);
+        }
+
+        [TestMethod]
         public void TestGetValueReturnsNoValueForAKnownPostDataType()
         {
             var task = new WebProgressTask();

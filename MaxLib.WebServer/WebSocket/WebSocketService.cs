@@ -61,8 +61,9 @@ namespace MaxLib.WebServer.WebSocket
             if (task.NetworkStream == null)
                 return;
 
-            var protocols = (task.Request.GetHeader("Sec-WebSocket-Protocol")?.ToLowerInvariant() ?? "")
+            var rawProtocols = (task.Request.GetHeader("Sec-WebSocket-Protocol") ?? "")
                 .Split(ProtocolSeparators, StringSplitOptions.RemoveEmptyEntries);
+            var protocols = Array.ConvertAll(rawProtocols, p => p.ToLowerInvariant());
 
             var key = task.Request.GetHeader("Sec-WebSocket-Key");
             var version = task.Request.GetHeader("Sec-WebSocket-Version"); // MUST be 13 according RFC 6455
@@ -86,16 +87,30 @@ namespace MaxLib.WebServer.WebSocket
 
             foreach (var endpoint in Endpoints)
             {
-                if (protocols.Length > 0 && (endpoint.Protocol == null || !protocols.Contains(endpoint.Protocol)))
+                // symmetric with IWebSocketEndpoint.Protocol: a non-null Protocol requires the client to ask for it,
+                // a null Protocol requires the client to ask for none
+                string? matchedProtocol;
+                if (endpoint.Protocol == null)
                 {
-                    continue;
+                    if (protocols.Length > 0)
+                        continue;
+                    matchedProtocol = null;
+                }
+                else
+                {
+                    var idx = Array.IndexOf(protocols, endpoint.Protocol.ToLowerInvariant());
+                    if (idx < 0)
+                        continue;
+                    // RFC 6455 §4.2.2: the response must be one of the client's offered tokens verbatim,
+                    // not the endpoint's casing
+                    matchedProtocol = rawProtocols[idx];
                 }
 
                 var connection = await endpoint.Create(task.NetworkStream, task.Request).ConfigureAwait(false);
                 if (connection == null)
                     continue;
 
-                HandleCreateConnection(task, responseKey, endpoint, connection);
+                HandleCreateConnection(task, responseKey, matchedProtocol, connection);
                 return;
             }
 
@@ -104,12 +119,12 @@ namespace MaxLib.WebServer.WebSocket
                 var connection = await ep.Create(task.NetworkStream, task.Request).ConfigureAwait(false);
                 if (connection == null)
                     return;
-                HandleCreateConnection(task, responseKey, ep, connection);
+                HandleCreateConnection(task, responseKey, ep.Protocol, connection);
             }
         }
 
         private static void HandleCreateConnection(WebProgressTask task, string responseKey,
-            IWebSocketEndpoint endpoint, WebSocketConnection connection)
+            string? protocol, WebSocketConnection connection)
         {
             task.Response.StatusCode = HttpStateCode.SwitchingProtocols;
             task.Response.SetHeader(
@@ -117,7 +132,7 @@ namespace MaxLib.WebServer.WebSocket
                 ("Upgrade", "websocket"),
                 ("Connection", "Upgrade"),
                 ("Sec-WebSocket-Accept", responseKey),
-                ("Sec-WebSocket-Protocol", endpoint.Protocol)
+                ("Sec-WebSocket-Protocol", protocol)
             );
 
             task.SwitchProtocols(async () =>

@@ -38,19 +38,20 @@ namespace MaxLib.WebServer
                 .Select(c => WebServerUtils.DecodeUri(c.Value))
                 .ToArray();
             CompleteGet = match.Groups[3].Success ? match.Groups[3].Value ?? "" : "";
-            foreach (Capture capture in match.Groups[4].Captures)
-            {
-                var submatch = ArgsRegex().Match(capture.Value);
-                if (submatch.Success)
+            if (CompleteGet.Length != 0)
+                foreach (var token in CompleteGet.Split('&'))
                 {
-                    GetParameter[WebServerUtils.DecodeUri(submatch.Groups[1].Value)]
-                        = WebServerUtils.DecodeUri(submatch.Groups[2].Value);
+                    var submatch = ArgsRegex().Match(token);
+                    if (submatch.Success)
+                    {
+                        GetParameter[WebServerUtils.DecodeUri(submatch.Groups[1].Value)]
+                            = WebServerUtils.DecodeUri(submatch.Groups[2].Value);
+                    }
+                    else
+                    {
+                        GetParameter[token] = "";
+                    }
                 }
-                else
-                {
-                    GetParameter[capture.Value] = "";
-                }
-            }
         }
 
         public HttpLocation(string url)
@@ -100,7 +101,9 @@ namespace MaxLib.WebServer
             return true;
         }
 
-        [GeneratedRegex(@"^((?:\/+([^\/?]+))*\/?)(?:\?((?:([^&$]*)&?)*))?$")]
+        // The query is captured as one flat `[^$]*` and split on '&' in SetLocation; a nested repeated group
+        // here backtracks catastrophically on a query ending in an unmatched '$'.
+        [GeneratedRegex(@"^((?:\/+([^\/?]+))*\/?)(?:\?([^$]*))?$")]
         private static partial Regex UrlRegex();
         [GeneratedRegex(@"^([^=]*)=(.*)$")]
         private static partial Regex ArgsRegex();

@@ -119,6 +119,8 @@ namespace MaxLib.WebServer.IO
             while (UnreadData > 0)
             {
                 var length = reader.Read(buffer, 0, (int)Math.Min(buffer.Length, UnreadData));
+                if (length == 0)
+                    break; // the connection reached EOF before the declared length; nothing more will ever arrive
                 ReadData += length;
             }
         }
@@ -148,6 +150,8 @@ namespace MaxLib.WebServer.IO
                     token.Token
                 )
                     .ConfigureAwait(false);
+                if (length == 0)
+                    break; // the connection reached EOF before the declared length; nothing more will ever arrive
                 ReadData += length;
             }
         }
@@ -211,6 +215,10 @@ namespace MaxLib.WebServer.IO
             throw new InvalidOperationException("Cannot write on this stream");
         }
 
+        /// <remarks>
+        /// The synchronous Dispose drains unread body data without honoring the read timeout and can
+        /// block on a stalled client; prefer DisposeAsync.
+        /// </remarks>
         protected override void Dispose(bool disposing)
         {
             try

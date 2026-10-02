@@ -148,6 +148,21 @@ namespace MaxLib.WebServer.Test.IO
             Assert.AreEqual("04-05-06-07-08-09", BitConverter.ToString(await reader.ReadBytesAsync(6).ConfigureAwait(false)));
         }
 
+        [TestMethod]
+        public async Task TestReadUntilAsync_MarkingSplitAcrossARefillIsStillFound()
+        {
+            // a marker straddling two refills (one byte per socket read here) must still be found
+            using var stream = new OneByteAtATimeStream(Encoding.UTF8.GetBytes("XXBOUNDYY"));
+            using var reader = new NetworkReader(stream);
+
+            var readed = await reader.ReadUntilAsync(Encoding.UTF8.GetBytes("BOUND")).ConfigureAwait(false);
+
+            Assert.AreEqual("XX", Encoding.UTF8.GetString(readed.ToArray()));
+            // the marker itself must remain unconsumed, ready for the caller to read next
+            var markerAndRemainder = await reader.ReadBytesAsync(7).ConfigureAwait(false);
+            Assert.AreEqual("BOUNDYY", Encoding.UTF8.GetString(markerAndRemainder));
+        }
+
         // Regression test for https://github.com/Garados007/MaxLib.WebServer/issues/18
         // A "\r\n" line ending advances past the '\n' without decrementing the pending
         // char count. That drift accumulates with every CRLF-terminated line and, once
@@ -599,6 +614,20 @@ namespace MaxLib.WebServer.Test.IO
             var remainder = new byte[6];
             Assert.AreEqual(6, reader.Read(remainder, 0, 6));
             Assert.AreEqual("04-05-06-07-08-09", BitConverter.ToString(remainder));
+        }
+
+        [TestMethod]
+        public void TestReadUntil_Sync_MarkingSplitAcrossARefillIsStillFound()
+        {
+            using var stream = new OneByteAtATimeStream(Encoding.UTF8.GetBytes("XXBOUNDYY"));
+            var reader = new NetworkReader(stream);
+
+            var readed = reader.ReadUntil(Encoding.UTF8.GetBytes("BOUND"));
+
+            Assert.AreEqual("XX", Encoding.UTF8.GetString(readed.ToArray()));
+            var markerAndRemainder = new byte[7];
+            Assert.AreEqual(7, reader.Read(markerAndRemainder, 0, 7));
+            Assert.AreEqual("BOUNDYY", Encoding.UTF8.GetString(markerAndRemainder));
         }
 
         [TestMethod]

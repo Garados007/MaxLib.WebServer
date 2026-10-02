@@ -44,6 +44,24 @@ namespace MaxLib.WebServer.Test.Services
         }
 
         [TestMethod]
+        public async Task TestRequestParser_DuplicatedHeaderNameDoesNotCrashAndLastValueWins()
+        {
+            // a repeated header name must not crash parsing
+            var sb = new StringBuilder();
+            sb.AppendLine("GET /test.html HTTP/1.1");
+            sb.AppendLine("Host: testdomain.local");
+            sb.AppendLine("X-Custom: first");
+            sb.AppendLine("X-Custom: second");
+            sb.AppendLine();
+            using (var output = test.SetStream(sb.ToString()))
+            {
+                await new HttpRequestParser().ProgressTask(test.Task).ConfigureAwait(false);
+                Assert.AreEqual(HttpProtocolMethod.Get, test.Request.ProtocolMethod);
+                Assert.AreEqual("second", test.GetRequestHeader("X-Custom"));
+            }
+        }
+
+        [TestMethod]
         public async Task TestRequestParser_SimplePost()
         {
             var content = "foo=bar&baz=foobar";
@@ -354,6 +372,63 @@ namespace MaxLib.WebServer.Test.Services
         }
 
         [TestMethod]
+        public async Task TestRequestParser_MultipartBoundaryFollowedByAnotherParameterIsParsedCorrectly()
+        {
+            // boundary= may be unquoted and need not be the last Content-Type parameter
+            var content =
+                "-----1234\r\n" +
+                "Content-Type: text/plain\r\n" +
+                "\r\n" +
+                "Hello World\r\n" +
+                "-----1234--\r\n";
+            var sb = new StringBuilder();
+            sb.AppendLine("POST /test.html HTTP/1.1");
+            sb.AppendLine("Host: testdomain.local");
+            sb.AppendLine($"Content-Length: {content.Length}");
+            sb.AppendLine("Content-Type: multipart/form-data; boundary=---1234; charset=utf-8");
+            sb.AppendLine();
+            sb.Append(content);
+            using (var output = test.SetStream(sb.ToString()))
+            {
+                await new HttpRequestParser().ProgressTask(test.Task).ConfigureAwait(false);
+                Assert.IsTrue(test.Request.Post.Data is Post.MultipartFormData);
+                var data = (Post.MultipartFormData)test.Request.Post.Data;
+                Assert.AreEqual(1, data.Entries.Count);
+                Assert.AreEqual("Hello World",
+                    Encoding.UTF8.GetString(data.Entries[0].Content!.Value.ToArray())
+                );
+            }
+        }
+
+        [TestMethod]
+        public async Task TestRequestParser_MultipartDuplicateHeaderWithinAPartDoesNotCrash()
+        {
+            // a repeated header name within one part must not crash SetAsync
+            var content =
+                "-----1234\r\n" +
+                "Content-Type: text/plain\r\n" +
+                "Content-Type: text/html\r\n" +
+                "\r\n" +
+                "Hello World\r\n" +
+                "-----1234--\r\n";
+            var sb = new StringBuilder();
+            sb.AppendLine("POST /test.html HTTP/1.1");
+            sb.AppendLine("Host: testdomain.local");
+            sb.AppendLine($"Content-Length: {content.Length}");
+            sb.AppendLine("Content-Type: multipart/form-data; boundary=---1234");
+            sb.AppendLine();
+            sb.Append(content);
+            using (var output = test.SetStream(sb.ToString()))
+            {
+                await new HttpRequestParser().ProgressTask(test.Task).ConfigureAwait(false);
+                Assert.IsTrue(test.Request.Post.Data is Post.MultipartFormData);
+                var data = (Post.MultipartFormData)test.Request.Post.Data;
+                Assert.AreEqual(1, data.Entries.Count);
+                Assert.AreEqual("text/html", data.Entries[0].Header["Content-Type"]);
+            }
+        }
+
+        [TestMethod]
         public async Task TestRequestParser_MultipartWithNoBoundaryIsRejected()
         {
             var content = "irrelevant -- content -- here";
@@ -545,6 +620,83 @@ namespace MaxLib.WebServer.Test.Services
                 await new HttpRequestParser().ProgressTask(test.Task).ConfigureAwait(false);
                 Assert.AreEqual(HttpStateCode.NotImplemented, test.GetStatusCode());
                 Assert.AreEqual(HttpConnectionType.Close, test.Request.FieldConnection);
+            }
+        }
+
+        [TestMethod]
+        public async Task TestRequestParser_ConflictingContentLengthHeadersAreRejected()
+        {
+            // RFC 7230 §3.3.3: Content-Length headers with differing values must be rejected
+            var sb = new StringBuilder();
+            sb.AppendLine("POST /test.html HTTP/1.1");
+            sb.AppendLine("Host: testdomain.local");
+            sb.AppendLine("Content-Length: 3");
+            sb.AppendLine("Content-Length: 7");
+            sb.AppendLine("Content-Type: application/x-www-form-urlencoded");
+            sb.AppendLine();
+            sb.Append("foo=bar");
+            using (var output = test.SetStream(sb.ToString()))
+            {
+                await new HttpRequestParser().ProgressTask(test.Task).ConfigureAwait(false);
+                Assert.AreEqual(HttpStateCode.BadRequest, test.GetStatusCode());
+                // the client's framing is now ambiguous - the connection must not be kept alive
+                Assert.AreEqual(HttpConnectionType.Close, test.Request.FieldConnection);
+            }
+        }
+
+        [TestMethod]
+        public async Task TestRequestParser_IdenticalRepeatedContentLengthHeadersAreAccepted()
+        {
+            // a naive header-duplicating proxy repeating the same value verbatim is still
+            // fine - only a genuine conflict must be rejected
+            var content = "foo=bar";
+            var sb = new StringBuilder();
+            sb.AppendLine("POST /test.html HTTP/1.1");
+            sb.AppendLine("Host: testdomain.local");
+            sb.AppendLine($"Content-Length: {content.Length}");
+            sb.AppendLine($"Content-Length: {content.Length}");
+            sb.AppendLine("Content-Type: application/x-www-form-urlencoded");
+            sb.AppendLine();
+            sb.Append(content);
+            using (var output = test.SetStream(sb.ToString()))
+            {
+                await new HttpRequestParser().ProgressTask(test.Task).ConfigureAwait(false);
+                Assert.AreNotEqual(HttpStateCode.BadRequest, test.GetStatusCode());
+                Assert.IsTrue(test.Request.Post.Data is Post.UrlEncodedData);
+            }
+        }
+
+        [TestMethod]
+        public async Task TestRequestParser_DuplicateHostHeaderIsRejected()
+        {
+            // RFC 7230 §5.4: more than one Host header is rejected unconditionally
+            var sb = new StringBuilder();
+            sb.AppendLine("GET /test.html HTTP/1.1");
+            sb.AppendLine("Host: victim.example");
+            sb.AppendLine("Host: attacker.example");
+            sb.AppendLine();
+            using (var output = test.SetStream(sb.ToString()))
+            {
+                await new HttpRequestParser().ProgressTask(test.Task).ConfigureAwait(false);
+                Assert.AreEqual(HttpStateCode.BadRequest, test.GetStatusCode());
+                Assert.AreEqual(HttpConnectionType.Close, test.Request.FieldConnection);
+            }
+        }
+
+        [TestMethod]
+        public async Task TestRequestParser_DuplicateIdenticalHostHeaderIsAlsoRejected()
+        {
+            // unlike Content-Length, identical repeated Host values are still rejected - the
+            // RFC gives no carve-out for this header
+            var sb = new StringBuilder();
+            sb.AppendLine("GET /test.html HTTP/1.1");
+            sb.AppendLine("Host: testdomain.local");
+            sb.AppendLine("Host: testdomain.local");
+            sb.AppendLine();
+            using (var output = test.SetStream(sb.ToString()))
+            {
+                await new HttpRequestParser().ProgressTask(test.Task).ConfigureAwait(false);
+                Assert.AreEqual(HttpStateCode.BadRequest, test.GetStatusCode());
             }
         }
 

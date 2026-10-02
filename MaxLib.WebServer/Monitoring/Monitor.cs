@@ -12,6 +12,10 @@ namespace MaxLib.WebServer.Monitoring
     /// <summary>
     /// This enables to trace and monitor the operation inside the handling of a web request
     /// </summary>
+    /// <remarks>
+    /// Exceptions reaching the monitor must have a non-throwing ToString(); Monitor.Save writes it to
+    /// the log file.
+    /// </remarks>
     public class Monitor
     {
         static readonly ILogger logger = WebServerLog.LoggerFactory.CreateLogger<Monitor>();

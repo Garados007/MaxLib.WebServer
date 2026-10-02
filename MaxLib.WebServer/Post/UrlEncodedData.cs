@@ -75,7 +75,12 @@ namespace MaxLib.WebServer.Post
             if (match.Success)
                 try
                 {
-                    encoding = Encoding.GetEncoding(match.Groups["charset"].Value);
+                    var charset = match.Groups["charset"].Value;
+                    // RFC 9110 §5.6.6: a parameter value may be a quoted-string (charset="iso-8859-1"); the regex
+                    // captures the quotes, so unwrap them before the lookup.
+                    if (charset.Length >= 2 && charset[0] == '"' && charset[^1] == '"')
+                        charset = charset[1..^1];
+                    encoding = Encoding.GetEncoding(charset);
                 }
                 catch (Exception e)
                 {
@@ -84,6 +89,10 @@ namespace MaxLib.WebServer.Post
             return encoding ?? Encoding.UTF8;
         }
 
+        /// <remarks>
+        /// SetAsync must be called at most once per instance; a second call leaks the previous call's
+        /// temp files.
+        /// </remarks>
         public async Task SetAsync(WebProgressTask task, IO.ContentStream content, string options)
         {
             ArgumentNullException.ThrowIfNull(task);
@@ -93,7 +102,7 @@ namespace MaxLib.WebServer.Post
             if (MaximumCacheSize < 0 || content.FullLength <= MaximumCacheSize)
             {
                 var buffer = new byte[content.UnreadData];
-                await content.ReadAsync(buffer.AsMemory()).ConfigureAwait(false);
+                await content.ReadExactlyAsync(buffer.AsMemory()).ConfigureAwait(false);
                 Set(encoding.GetString(buffer), options);
                 return;
             }
@@ -171,11 +180,28 @@ namespace MaxLib.WebServer.Post
             if (MaximumCacheSize >= 0 && valueBytes.LongLength > MaximumCacheSize)
             {
                 var name = Path.GetTempFileName();
+                try
+                {
 #pragma warning disable CA2000 // already disposed via the using declaration below; the analyzer is confused by the `StorageMapper?.Invoke(task, file) ?? file` fallback
-                using var file = new FileStream(name, FileMode.OpenOrCreate, FileAccess.Write, FileShare.None);
+                    using var file = new FileStream(name, FileMode.OpenOrCreate, FileAccess.Write, FileShare.None);
 #pragma warning restore CA2000
-                using var stream = MultipartFormData.StorageMapper?.Invoke(task, file) ?? file;
-                await stream.WriteAsync(valueBytes).ConfigureAwait(false);
+                    using var stream = MultipartFormData.StorageMapper?.Invoke(task, file) ?? file;
+                    await stream.WriteAsync(valueBytes).ConfigureAwait(false);
+                }
+                catch
+                {
+                    // the write above never finished, so `name` is not attached to `entry` and FormEntry.Dispose
+                    // will never delete it
+                    try
+                    {
+                        File.Delete(name);
+                    }
+                    catch (Exception)
+                    {
+                        logger.LogInformation(SetPostEventId, "Cannot delete temp file");
+                    }
+                    throw;
+                }
                 entry.Set(new FileInfo(name));
             }
             else
@@ -193,6 +219,9 @@ namespace MaxLib.WebServer.Post
             return sb.ToString();
         }
 
+        /// <remarks>
+        /// Not thread-safe: await SetAsync before calling Dispose, otherwise temp files may leak.
+        /// </remarks>
         public void Dispose()
         {
             Overflow?.Dispose();

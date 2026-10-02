@@ -49,9 +49,12 @@ namespace MaxLib.WebServer
             try
             {
                 int read;
-                int job = count == null ? buffer.Length : (int)Math.Min(buffer.Length, count.Value - total);
-                while ((read = await Stream.ReadAsync(buffer[..job]).ConfigureAwait(false)) > 0)
+                while (count == null || total < count.Value)
                 {
+                    int job = count == null ? buffer.Length : (int)Math.Min(buffer.Length, count.Value - total);
+                    read = await Stream.ReadAsync(buffer[..job]).ConfigureAwait(false);
+                    if (read <= 0)
+                        break;
                     await stream.WriteAsync(buffer[0..read]).ConfigureAwait(false);
                     total += read;
                 }

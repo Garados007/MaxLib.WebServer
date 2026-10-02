@@ -97,6 +97,35 @@ namespace MaxLib.WebServer.Test.Sessions
         }
 
         [TestMethod]
+        public async Task TestProgressTaskRejectsAnExpiredButNotYetSweptClientSuppliedSessionId()
+        {
+            // an expired but unswept session entry must not count as "already issued"
+            var server = new TestWebServer();
+            var service = new MemorySessionService { MaxAge = TimeSpan.FromMinutes(1) };
+            server.AddWebService(service);
+            const string attackerChosenId = "EXPIRED-BUT-NOT-SWEPT";
+            service.Sessions[attackerChosenId] = new Session
+            {
+                Key = attackerChosenId,
+                LastUsed = DateTime.UtcNow - TimeSpan.FromMinutes(5),
+            };
+            var test = new TestTask(server)
+            {
+                CurrentStage = ServerStage.ParseRequest,
+                TerminationStage = ServerStage.ParseRequest,
+            };
+            test.Request.HeaderParameter.Add("Cookie", $"Session={attackerChosenId}");
+
+            await service.ProgressTask(test.Task).ConfigureAwait(false);
+
+            var added = test.GetAddedCookies().Single();
+            Assert.AreEqual("Session", added.Item1);
+            Assert.AreNotEqual(attackerChosenId, added.Item2.ValueString,
+                "an expired-but-unswept key must be rejected the same way an unknown key is");
+            Assert.AreNotEqual(attackerChosenId, test.Task.Session!.Key);
+        }
+
+        [TestMethod]
         public async Task TestProgressTaskReusesAnExistingSessionId()
         {
             var server = new TestWebServer();
@@ -147,6 +176,37 @@ namespace MaxLib.WebServer.Test.Sessions
             Assert.AreSame(rotated, test.Task.Session);
             Assert.AreEqual("hello", rotated["marker"]);
             Assert.IsTrue(service.Sessions.ContainsKey(newKey));
+        }
+
+        [TestMethod]
+        public async Task TestRotateSessionKeyRemovesTheOldSessionFromStorage()
+        {
+            // after rotation the old id must be gone, so a session id planted by an attacker stops working
+            var server = new TestWebServer();
+            var service = new MemorySessionService();
+            server.AddWebService(service);
+            var test = new TestTask(server)
+            {
+                CurrentStage = ServerStage.ParseRequest,
+                TerminationStage = ServerStage.ParseRequest,
+            };
+            await service.ProgressTask(test.Task).ConfigureAwait(false);
+            var oldKey = test.GetAddedCookies().Single().Item2.ValueString;
+
+            await service.RotateSessionKey(test.Task).ConfigureAwait(false);
+
+            Assert.IsFalse(service.Sessions.ContainsKey(oldKey),
+                "the old session id must be removed once rotation completes");
+        }
+
+        [TestMethod]
+        public async Task TestGetAssignsTheSessionsOwnKey()
+        {
+            var service = new TestableSessionService();
+
+            var session = await service.ExposedGet("some-key").ConfigureAwait(false);
+
+            Assert.AreEqual("some-key", session.Key);
         }
 
         [TestMethod]

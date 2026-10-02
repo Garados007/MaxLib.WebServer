@@ -308,7 +308,32 @@ namespace MaxLib.WebServer.Services
 
             var key = line[..ind].Trim();
             var value = line[(ind + 1)..].Trim();
-            task.Request.HeaderParameter.Add(key, value);
+            // RFC 7230 §3.3.3: differing Content-Length values must be rejected (CL.CL request smuggling);
+            // identical repeated values are fine
+            if (string.Equals(key, "Content-Length", StringComparison.OrdinalIgnoreCase) &&
+                task.Request.HeaderParameter.TryGetValue(key, out var existingLength) &&
+                existingLength != value)
+            {
+                logger.LogError(HeaderEventId, "Bad Request, conflicting Content-Length headers");
+                task.Response.StatusCode = HttpStateCode.BadRequest;
+                task.NextStage = ServerStage.CreateResponse;
+                // the client's framing of the body is now ambiguous - keeping the connection
+                // alive risks misparsing leftover bytes as the header of the next request
+                task.Request.FieldConnection = HttpConnectionType.Close;
+                return false;
+            }
+            // RFC 7230 §5.4: more than one Host header is always rejected, even with identical values
+            if (string.Equals(key, "Host", StringComparison.OrdinalIgnoreCase) &&
+                task.Request.HeaderParameter.ContainsKey(key))
+            {
+                logger.LogError(HeaderEventId, "Bad Request, duplicate Host header");
+                task.Response.StatusCode = HttpStateCode.BadRequest;
+                task.NextStage = ServerStage.CreateResponse;
+                task.Request.FieldConnection = HttpConnectionType.Close;
+                return false;
+            }
+            // last-wins on any other repeated header name (Dictionary.Add would throw)
+            task.Request.HeaderParameter[key] = value;
 
             return true;
         }

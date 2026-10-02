@@ -18,8 +18,9 @@ namespace MaxLib.WebServer
         public Task<IPostData>? DataAsync => LazyData?.Value;
         public IPostData? Data => DataAsync?.Result;
 
+        // RFC 9110 §8.3.1: the media-type token is case-insensitive, so this lookup must be too
         public static Dictionary<string, Func<IPostData>> DataHandler { get; }
-            = new Dictionary<string, Func<IPostData>>();
+            = new Dictionary<string, Func<IPostData>>(StringComparer.OrdinalIgnoreCase);
 
         static HttpPost()
         {
@@ -59,7 +60,17 @@ namespace MaxLib.WebServer
                 return Task.Run(async () =>
                 {
                     var data = constructor();
-                    await data.SetAsync(task, content, args).ConfigureAwait(false);
+                    try
+                    {
+                        await data.SetAsync(task, content, args).ConfigureAwait(false);
+                    }
+                    catch
+                    {
+                        // SetAsync may already have written entries/temp files; `data` is unreachable once this task
+                        // faults, so it must be disposed here
+                        data.Dispose();
+                        throw;
+                    }
                     return data;
                 });
             }, System.Threading.LazyThreadSafetyMode.ExecutionAndPublication);
@@ -94,6 +105,10 @@ namespace MaxLib.WebServer
             return $"{MimeType}: {Data}";
         }
 
+        /// <remarks>
+        /// Do not call Dispose while a DataAsync parse may still be running; use DisposeAsync, which
+        /// waits for it.
+        /// </remarks>
         public void Dispose()
         {
             GC.SuppressFinalize(this);

@@ -107,7 +107,11 @@ namespace MaxLib.WebServer.Builder
                         return false;
                 }
             }
-            return Prefix || url.Length == parts.Count;
+            if (url.Length < parts.Count)
+                return false;
+            if (!Prefix && url.Length != parts.Count)
+                return false;
+            return true;
         }
 
         bool Debugger.IExplainableRule.CanWorkWith(WebProgressTask task, Dictionary<string, object?> vars, out string? reason)
@@ -125,6 +129,11 @@ namespace MaxLib.WebServer.Builder
                     reason = $"URL segment {i} was '{url[i]}', expected '{match}'";
                     return false;
                 }
+            }
+            if (url.Length < parts.Count)
+            {
+                reason = $"the URL has {url.Length} segment(s), expected at least {parts.Count}";
+                return false;
             }
             if (!Prefix && url.Length != parts.Count)
             {

@@ -155,6 +155,12 @@ namespace MaxLib.WebServer.Test.Builder.Debugger
         public HttpDataSource M(System.Net.IPEndPoint endpoint) => new HttpStringDataSource(endpoint.ToString());
     }
 
+    public class ConversionFailureFixture : Service
+    {
+        [Path("/conv-fail")]
+        public HttpDataSource M([Get] int id) => new HttpStringDataSource(id.ToString(System.Globalization.CultureInfo.InvariantCulture));
+    }
+
     public sealed class AlwaysFailRuleAttribute : RuleAttributeBase
     {
         public override bool CanWorkWith(WebProgressTask task, System.Collections.Generic.Dictionary<string, object?> vars)
