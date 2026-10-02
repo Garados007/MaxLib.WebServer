@@ -27,13 +27,18 @@ namespace MaxLib.WebServer.SSL
         protected TcpListener? SecureListener;
         protected Thread? SecureServerThread;
 
+        // Whether Start() started the base (plain-HTTP) accept loop. Unlike EnableUnsafePort this cannot
+        // change later, so SecureMainTask's keep-alive guard stays in sync with Server.ServerMainTask.
+        private bool baseLoopStarted;
+
         public SecureWebServer(SecureWebServerSettings settings) : base(settings)
         {
         }
 
         public override void Start()
         {
-            if (SecureSettings.EnableUnsafePort)
+            baseLoopStarted = SecureSettings.EnableUnsafePort;
+            if (baseLoopStarted)
                 base.Start();
             logger.LogInformation(StartUpEventId, "Start Secure Server on Port {Port}", SecureSettings.SecurePort);
             ServerExecution = true;
@@ -90,6 +95,11 @@ namespace MaxLib.WebServer.SSL
                         logger.LogCritical(UnhandledExceptionEventId, e, "Unhandled exception while accepting a connection");
                     }
                 }
+                //request keep alive connections - only needed here when Start() didn't start the base accept loop,
+                //which already polls the shared KeepAliveConnections list on its own thread (running both would race)
+                if (!baseLoopStarted)
+                    ProcessKeepAliveConnections();
+
                 //wait
                 if (SecureListener!.Pending())
                     continue;

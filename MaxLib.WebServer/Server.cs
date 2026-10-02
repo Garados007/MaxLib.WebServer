@@ -224,35 +224,7 @@ namespace MaxLib.WebServer
                     }
                 }
                 //request keep alive connections
-                for (int i = 0; i < KeepAliveConnections.Count; ++i)
-                {
-                    HttpConnection kas;
-                    try { kas = KeepAliveConnections[i]; }
-                    catch { continue; }
-                    if (kas == null)
-                        continue;
-
-                    if ((kas.NetworkClient != null && !kas.NetworkClient.Connected) ||
-                        (kas.LastWorkTime != -1 &&
-                            kas.LastWorkTime + Settings.ConnectionTimeout < Environment.TickCount
-                        )
-                    )
-                    {
-                        kas.NetworkClient?.Close();
-                        kas.NetworkStream?.Dispose();
-                        AllConnections.Remove(kas);
-                        KeepAliveConnections.Remove(kas);
-                        --i;
-                        continue;
-                    }
-
-                    if (kas.NetworkClient != null && kas.NetworkClient.Available > 0 &&
-                        kas.LastWorkTime != -1
-                    )
-                    {
-                        _ = Task.Run(() => SafeClientStartListen(kas));
-                    }
-                }
+                ProcessKeepAliveConnections();
 
                 //Warten
                 if (Listener.Pending())
@@ -273,6 +245,45 @@ namespace MaxLib.WebServer
             AllConnections.Clear();
             KeepAliveConnections.Clear();
             logger.LogInformation(StartUpEventId, "Server successfully stopped");
+        }
+
+        /// <summary>
+        /// Scans <see cref="KeepAliveConnections" />, re-dispatching connections that have data available and
+        /// evicting disconnected or timed-out ones. Called from both accept loops.
+        /// </summary>
+        protected void ProcessKeepAliveConnections()
+        {
+            for (int i = 0; i < KeepAliveConnections.Count; ++i)
+            {
+                HttpConnection kas;
+                try { kas = KeepAliveConnections[i]; }
+                catch { continue; }
+                if (kas == null)
+                    continue;
+
+                if ((kas.NetworkClient != null && !kas.NetworkClient.Connected) ||
+                    (kas.LastWorkTime != -1 &&
+                        kas.LastWorkTime + Settings.ConnectionTimeout < Environment.TickCount
+                    )
+                )
+                {
+                    kas.NetworkClient?.Close();
+                    kas.NetworkStream?.Dispose();
+                    AllConnections.Remove(kas);
+                    KeepAliveConnections.Remove(kas);
+                    --i;
+                    continue;
+                }
+
+                if (kas.NetworkClient != null && kas.NetworkClient.Available > 0 &&
+                    kas.LastWorkTime != -1
+                )
+                {
+                    // claim it synchronously: otherwise the next pass could re-dispatch this connection to a second task
+                    kas.LastWorkTime = -1;
+                    _ = Task.Run(() => SafeClientStartListen(kas));
+                }
+            }
         }
 
         protected virtual void ClientConnected(TcpClient client)
