@@ -55,7 +55,18 @@ namespace MaxLib.WebServer.WebSocket
                 await output.WriteAsync(Payload).ConfigureAwait(false);
         }
 
-        public static async Task<Frame?> TryRead(Stream input, bool throwLargePayload = false)
+        /// <param name="input">the stream to read the frame from</param>
+        /// <param name="throwLargePayload">
+        /// throw <see cref="TooLargePayloadException" /> instead of returning null when the declared payload
+        /// length exceeds <paramref name="maxPayloadSize" /> or <see cref="int.MaxValue" />
+        /// </param>
+        /// <param name="maxPayloadSize">
+        /// reject the frame before allocating or reading its payload once its declared length exceeds this value;
+        /// a negative value (the default) only enforces the <see cref="int.MaxValue" /> cap. Pass
+        /// <see cref="WebSocketConnection.MaxMessageSize" /> here too, as unfragmented frames bypass reassembly.
+        /// </param>
+        public static async Task<Frame?> TryRead(Stream input, bool throwLargePayload = false,
+            long maxPayloadSize = -1)
         {
             ArgumentNullException.ThrowIfNull(input);
             try
@@ -84,7 +95,7 @@ namespace MaxLib.WebServer.WebSocket
                     ToLocalByteOrder(buffer.Span);
                     length = BitConverter.ToUInt64(buffer.Span);
                 }
-                if (length > int.MaxValue)
+                if (length > int.MaxValue || (maxPayloadSize >= 0 && length > (ulong)maxPayloadSize))
                 {
                     if (throwLargePayload)
                         throw new TooLargePayloadException();

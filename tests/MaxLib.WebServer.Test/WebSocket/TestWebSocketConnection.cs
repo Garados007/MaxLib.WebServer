@@ -97,6 +97,30 @@ namespace MaxLib.WebServer.Test.WebSocket
         }
 
         [TestMethod]
+        public async Task TestReceiveLoopAcceptsAControlFrameLargerThanASmallMaxMessageSize()
+        {
+            // a Ping payload between MaxMessageSize and 125 bytes is valid and must still be answered
+            var pingPayload = new byte[50];
+            new Random(1).NextBytes(pingPayload);
+            // ApplyMask mutates the payload in place, so capture the expected value first
+            var expectedPayload = (byte[])pingPayload.Clone();
+            var input = new MemoryStream(await EncodeFrameAsync(OpCode.Ping, true, pingPayload).ConfigureAwait(false));
+            var output = new MemoryStream();
+            var connection = new TestConnection(new WebServerTaskCreator.BidirectionalStream(input, output))
+            {
+                MaxMessageSize = 10,
+            };
+
+            await connection.ReceiveLoop().ConfigureAwait(false);
+
+            using var readBack = new MemoryStream(output.ToArray());
+            var sentFrame = await Frame.TryRead(readBack).ConfigureAwait(false);
+            Assert.IsNotNull(sentFrame);
+            Assert.AreEqual(OpCode.Pong, sentFrame!.OpCode);
+            CollectionAssert.AreEqual(expectedPayload, sentFrame.Payload.ToArray());
+        }
+
+        [TestMethod]
         public async Task TestReceiveLoopRejectsAFragmentedControlFrame()
         {
             // RFC 6455 §5.4 forbids fragmenting control frames; a fragmented one must not
@@ -108,6 +132,77 @@ namespace MaxLib.WebServer.Test.WebSocket
 
             await connection.ReceiveLoop().ConfigureAwait(false);
 
+            Assert.AreEqual(CloseReason.ProtocolError,
+                await DecodeSentCloseReasonAsync(output.ToArray()).ConfigureAwait(false));
+        }
+
+        [TestMethod]
+        public async Task TestReceiveLoopRejectsAReservedDataOpcode()
+        {
+            // RFC 6455 §5.2: opcodes other than 0x0-0x2 and 0x8-0xA are reserved and must fail the connection
+            var input = new MemoryStream(await EncodeFrameAsync((OpCode)0x3, true, new byte[] { 1 })
+                .ConfigureAwait(false));
+            var output = new MemoryStream();
+            var connection = new TestConnection(new WebServerTaskCreator.BidirectionalStream(input, output));
+
+            await connection.ReceiveLoop().ConfigureAwait(false);
+
+            Assert.AreEqual(0, connection.ReceivedFrames.Count);
+            Assert.AreEqual(CloseReason.ProtocolError,
+                await DecodeSentCloseReasonAsync(output.ToArray()).ConfigureAwait(false));
+        }
+
+        [TestMethod]
+        public async Task TestReceiveLoopRejectsAFragmentedReservedControlOpcode()
+        {
+            // 0xB is in the control range (0x8-0xF) but unassigned; it must be rejected as an unknown opcode
+            var input = new MemoryStream(await EncodeFrameAsync((OpCode)0xB, final: false, new byte[] { 1 })
+                .ConfigureAwait(false));
+            var output = new MemoryStream();
+            var connection = new TestConnection(new WebServerTaskCreator.BidirectionalStream(input, output));
+
+            await connection.ReceiveLoop().ConfigureAwait(false);
+
+            Assert.AreEqual(CloseReason.ProtocolError,
+                await DecodeSentCloseReasonAsync(output.ToArray()).ConfigureAwait(false));
+        }
+
+        [TestMethod]
+        public async Task TestReceiveLoopRejectsANonInitialFragmentWithTheWrongOpcode()
+        {
+            // RFC 6455 §5.4: every fragment after the first must use the Continuation opcode
+            using var input = new MemoryStream();
+            var first = await EncodeFrameAsync(OpCode.Binary, final: false, new byte[] { 1 }).ConfigureAwait(false);
+            input.Write(first, 0, first.Length);
+            var second = await EncodeFrameAsync(OpCode.Binary, final: false, new byte[] { 2 }).ConfigureAwait(false);
+            input.Write(second, 0, second.Length);
+            input.Position = 0;
+            var output = new MemoryStream();
+            var connection = new TestConnection(new WebServerTaskCreator.BidirectionalStream(input, output));
+
+            await connection.ReceiveLoop().ConfigureAwait(false);
+
+            Assert.AreEqual(0, connection.ReceivedFrames.Count);
+            Assert.AreEqual(CloseReason.ProtocolError,
+                await DecodeSentCloseReasonAsync(output.ToArray()).ConfigureAwait(false));
+        }
+
+        [TestMethod]
+        public async Task TestReceiveLoopRejectsAFinalFragmentWithTheWrongOpcode()
+        {
+            using var input = new MemoryStream();
+            var first = await EncodeFrameAsync(OpCode.Binary, final: false, new byte[] { 1 }).ConfigureAwait(false);
+            input.Write(first, 0, first.Length);
+            // the final fragment must also use the Continuation opcode
+            var last = await EncodeFrameAsync(OpCode.Binary, final: true, new byte[] { 2 }).ConfigureAwait(false);
+            input.Write(last, 0, last.Length);
+            input.Position = 0;
+            var output = new MemoryStream();
+            var connection = new TestConnection(new WebServerTaskCreator.BidirectionalStream(input, output));
+
+            await connection.ReceiveLoop().ConfigureAwait(false);
+
+            Assert.AreEqual(0, connection.ReceivedFrames.Count);
             Assert.AreEqual(CloseReason.ProtocolError,
                 await DecodeSentCloseReasonAsync(output.ToArray()).ConfigureAwait(false));
         }
@@ -136,9 +231,12 @@ namespace MaxLib.WebServer.Test.WebSocket
             // never arrives - this must be rejected mid-accumulation, not "eventually, once the
             // client finishes the message" (which a client controlling this DoS never will).
             using var input = new MemoryStream();
-            foreach (var _ in Enumerable.Range(0, 3))
+            for (var i = 0; i < 3; ++i)
             {
-                var chunk = await EncodeFrameAsync(OpCode.Binary, false, new byte[10]).ConfigureAwait(false);
+                // only the first fragment of a message carries its real opcode; every later
+                // fragment must be a Continuation
+                var opCode = i == 0 ? OpCode.Binary : OpCode.Continuation;
+                var chunk = await EncodeFrameAsync(opCode, false, new byte[10]).ConfigureAwait(false);
                 input.Write(chunk, 0, chunk.Length);
             }
             input.Position = 0;
@@ -161,9 +259,12 @@ namespace MaxLib.WebServer.Test.WebSocket
             // Five 1-byte fragments are cheap in total bytes but each costs one queued entry -
             // a size cap alone wouldn't bound this, so the fragment count is checked too.
             using var input = new MemoryStream();
-            foreach (var _ in Enumerable.Range(0, 5))
+            for (var i = 0; i < 5; ++i)
             {
-                var chunk = await EncodeFrameAsync(OpCode.Binary, false, new byte[] { 1 }).ConfigureAwait(false);
+                // only the first fragment of a message carries its real opcode; every later
+                // fragment must be a Continuation
+                var opCode = i == 0 ? OpCode.Binary : OpCode.Continuation;
+                var chunk = await EncodeFrameAsync(opCode, false, new byte[] { 1 }).ConfigureAwait(false);
                 input.Write(chunk, 0, chunk.Length);
             }
             input.Position = 0;
@@ -201,6 +302,81 @@ namespace MaxLib.WebServer.Test.WebSocket
             await connection.ReceiveLoop().ConfigureAwait(false);
 
             Assert.AreEqual(CloseReason.TooBigMessage,
+                await DecodeSentCloseReasonAsync(output.ToArray()).ConfigureAwait(false));
+        }
+
+        [TestMethod]
+        public async Task TestReceiveLoopSendsATooBigMessageCloseForASingleFrameExceedingMaxMessageSize()
+        {
+            // a single unfragmented frame declaring more than MaxMessageSize must be rejected from its header alone
+            var header = new byte[10];
+            header[0] = 0x82; // FIN + Binary
+            header[1] = 127;  // 64-bit extended length follows
+            var lengthBytes = new byte[8];
+            Frame.ToNetworkByteOrder(BitConverter.GetBytes((ulong)1000), lengthBytes);
+            lengthBytes.CopyTo(header, 2);
+
+            var input = new MemoryStream(header);
+            var output = new MemoryStream();
+            var connection = new TestConnection(new WebServerTaskCreator.BidirectionalStream(input, output))
+            {
+                MaxMessageSize = 100,
+            };
+
+            await connection.ReceiveLoop().ConfigureAwait(false);
+
+            Assert.AreEqual(CloseReason.TooBigMessage,
+                await DecodeSentCloseReasonAsync(output.ToArray()).ConfigureAwait(false));
+            Assert.AreEqual(0, connection.ReceivedFrames.Count);
+        }
+
+        [TestMethod]
+        public async Task TestReceiveLoopRejectsASingleFrameUnderTheControlFrameFloorButOverMaxMessageSize()
+        {
+            // a data frame under 125 bytes but over a smaller MaxMessageSize must be rejected by ReceiveLoop itself
+            var input = new MemoryStream(await EncodeFrameAsync(OpCode.Binary, true, new byte[100])
+                .ConfigureAwait(false));
+            var output = new MemoryStream();
+            var connection = new TestConnection(new WebServerTaskCreator.BidirectionalStream(input, output))
+            {
+                MaxMessageSize = 10,
+            };
+
+            await connection.ReceiveLoop().ConfigureAwait(false);
+
+            Assert.AreEqual(CloseReason.TooBigMessage,
+                await DecodeSentCloseReasonAsync(output.ToArray()).ConfigureAwait(false));
+            Assert.AreEqual(0, connection.ReceivedFrames.Count);
+        }
+
+        [TestMethod]
+        public async Task TestReceiveLoopRejectsAContinuationOpcodeAsTheFirstFrameOfAMessage()
+        {
+            // RFC 6455 §5.4: the first (or only) frame of a message must not use the Continuation opcode
+            var input = new MemoryStream(await EncodeFrameAsync(OpCode.Continuation, true, new byte[] { 1 })
+                .ConfigureAwait(false));
+            var output = new MemoryStream();
+            var connection = new TestConnection(new WebServerTaskCreator.BidirectionalStream(input, output));
+
+            await connection.ReceiveLoop().ConfigureAwait(false);
+
+            Assert.AreEqual(0, connection.ReceivedFrames.Count);
+            Assert.AreEqual(CloseReason.ProtocolError,
+                await DecodeSentCloseReasonAsync(output.ToArray()).ConfigureAwait(false));
+        }
+
+        [TestMethod]
+        public async Task TestReceiveLoopRejectsAContinuationOpcodeStartingAFragmentedMessage()
+        {
+            var input = new MemoryStream(await EncodeFrameAsync(OpCode.Continuation, false, new byte[] { 1 })
+                .ConfigureAwait(false));
+            var output = new MemoryStream();
+            var connection = new TestConnection(new WebServerTaskCreator.BidirectionalStream(input, output));
+
+            await connection.ReceiveLoop().ConfigureAwait(false);
+
+            Assert.AreEqual(0, connection.ReceivedFrames.Count);
+            Assert.AreEqual(CloseReason.ProtocolError,
                 await DecodeSentCloseReasonAsync(output.ToArray()).ConfigureAwait(false));
         }
 
@@ -298,6 +474,58 @@ namespace MaxLib.WebServer.Test.WebSocket
             var winner = await Task.WhenAny(both, Task.Delay(TimeSpan.FromSeconds(5))).ConfigureAwait(false);
             Assert.AreSame(both, winner,
                 "SendFrame must release its lock even when a concurrent write throws");
+        }
+
+        // Records every byte written, succeeding immediately - used to inspect exactly what
+        // ended up on the wire.
+        private sealed class RecordingStream : Stream
+        {
+            public MemoryStream Written { get; } = new();
+
+            public override bool CanRead => true;
+            public override bool CanSeek => false;
+            public override bool CanWrite => true;
+            public override long Length => throw new NotSupportedException();
+            public override long Position
+            {
+                get => throw new NotSupportedException();
+                set => throw new NotSupportedException();
+            }
+            public override void Flush() { }
+            public override int Read(byte[] buffer, int offset, int count) => 0;
+            public override Task<int> ReadAsync(byte[] buffer, int offset, int count, CancellationToken cancellationToken)
+                => Task.FromResult(0);
+            public override long Seek(long offset, SeekOrigin origin) => throw new NotSupportedException();
+            public override void SetLength(long value) => throw new NotSupportedException();
+            public override void Write(byte[] buffer, int offset, int count) => throw new NotSupportedException();
+            public override ValueTask WriteAsync(ReadOnlyMemory<byte> buffer, CancellationToken cancellationToken = default)
+            {
+                Written.Write(buffer.Span);
+                return ValueTask.CompletedTask;
+            }
+        }
+
+        [TestMethod]
+        public async Task TestSendFrameDoesNotSendTwoCloseFramesWhenTwoClosesRaceForTheLock()
+        {
+            // the send lock is only released by ReceiveLoop's first action, so both Send calls suspend on it;
+            // the call granted the lock first must set SendCloseSignal before the other passes its re-check
+            var stream = new RecordingStream();
+            var connection = new TestConnection(stream);
+            var closePayload = new byte[] { 0x03, 0xE8 };
+
+            var first = connection.Send(new Frame { OpCode = OpCode.Close, Payload = closePayload });
+            var second = connection.Send(new Frame { OpCode = OpCode.Close, Payload = closePayload });
+
+            await connection.ReceiveLoop().ConfigureAwait(false); // EOF immediately; releases the lock once
+            await Task.WhenAll(first, second).ConfigureAwait(false);
+
+            stream.Written.Position = 0;
+            var frame1 = await Frame.TryRead(stream.Written).ConfigureAwait(false);
+            Assert.IsNotNull(frame1, "the first Close frame must still be sent");
+            Assert.AreEqual(OpCode.Close, frame1!.OpCode);
+            var frame2 = await Frame.TryRead(stream.Written).ConfigureAwait(false);
+            Assert.IsNull(frame2, "a second Close frame must never be sent once the first has been");
         }
 
         [TestMethod]
