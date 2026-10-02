@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 using System.Threading.Tasks;
+using Microsoft.Extensions.Logging;
 
 #nullable enable
 
@@ -17,6 +18,9 @@ namespace MaxLib.WebServer.Post
     /// </summary>
     public sealed class RawPostData : IPostData
     {
+        static readonly ILogger logger = WebServerLog.LoggerFactory.CreateLogger<RawPostData>();
+        static readonly EventId PostEventId = new(0, "POST");
+
         public string MimeType { get; }
 
         /// <summary>
@@ -49,11 +53,28 @@ namespace MaxLib.WebServer.Post
             if (MaximumCacheSize >= 0 && content.FullLength > MaximumCacheSize)
             {
                 var name = Path.GetTempFileName();
+                try
+                {
 #pragma warning disable CA2000 // already disposed via the using declaration below; the analyzer is confused by the `StorageMapper?.Invoke(task, file) ?? file` fallback
-                using var file = new FileStream(name, FileMode.OpenOrCreate, FileAccess.Write, FileShare.None);
+                    using var file = new FileStream(name, FileMode.OpenOrCreate, FileAccess.Write, FileShare.None);
 #pragma warning restore CA2000
-                using var stream = MultipartFormData.StorageMapper?.Invoke(task, file) ?? file;
-                await content.CopyToAsync(stream).ConfigureAwait(false);
+                    using var stream = MultipartFormData.StorageMapper?.Invoke(task, file) ?? file;
+                    await content.CopyToAsync(stream).ConfigureAwait(false);
+                }
+                catch
+                {
+                    // the copy above never finished, so `name` is not attached to `Entry` and FormEntry.Dispose
+                    // will never delete it
+                    try
+                    {
+                        File.Delete(name);
+                    }
+                    catch (Exception)
+                    {
+                        logger.LogInformation(PostEventId, "Cannot delete temp file");
+                    }
+                    throw;
+                }
                 Entry.Set(new FileInfo(name));
             }
             else

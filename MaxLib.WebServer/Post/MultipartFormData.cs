@@ -15,6 +15,9 @@ namespace MaxLib.WebServer.Post
 {
     public partial class MultipartFormData : IPostData
     {
+        static readonly ILogger logger = WebServerLog.LoggerFactory.CreateLogger<MultipartFormData>();
+        static readonly EventId PostEventId = new(0, "POST");
+
         public class FormEntry : IDisposable
         {
             static readonly ILogger logger = WebServerLog.LoggerFactory.CreateLogger<FormEntry>();
@@ -236,13 +239,30 @@ namespace MaxLib.WebServer.Post
                 if (storeInTemp)
                 {
                     var name = Path.GetTempFileName();
+                    try
+                    {
 #pragma warning disable CA2000 // already disposed via the using declaration below; the analyzer is confused by the `StorageMapper?.Invoke(task, file) ?? file` fallback
-                    using var file = new FileStream(name, FileMode.OpenOrCreate, FileAccess.Write,
-                        FileShare.None
-                    );
+                        using var file = new FileStream(name, FileMode.OpenOrCreate, FileAccess.Write,
+                            FileShare.None
+                        );
 #pragma warning restore CA2000
-                    using var stream = StorageMapper?.Invoke(task, file) ?? file;
-                    await reader.ReadUntilAsync(rawBoundary, stream).ConfigureAwait(false);
+                        using var stream = StorageMapper?.Invoke(task, file) ?? file;
+                        await reader.ReadUntilAsync(rawBoundary, stream).ConfigureAwait(false);
+                    }
+                    catch
+                    {
+                        // the write above never finished, so `name` is not attached to `entry` and FormEntry.Dispose
+                        // will never delete it
+                        try
+                        {
+                            File.Delete(name);
+                        }
+                        catch (Exception)
+                        {
+                            logger.LogInformation(PostEventId, "Cannot delete temp file");
+                        }
+                        throw;
+                    }
                     entry.Set(new FileInfo(name));
                 }
                 else

@@ -1,3 +1,4 @@
+using System;
 using System.IO;
 using System.Text;
 using System.Threading;
@@ -5,6 +6,8 @@ using System.Threading.Tasks;
 using MaxLib.WebServer.IO;
 using MaxLib.WebServer.Post;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
+
+#nullable enable
 
 namespace MaxLib.WebServer.Test.PostData
 {
@@ -31,6 +34,61 @@ namespace MaxLib.WebServer.Test.PostData
 
             Assert.AreEqual("firstValue", data.Parameter["firstKey"]);
             Assert.AreEqual("secondValueThatIsLonger", data.Parameter["secondKey"]);
+        }
+
+        // Forwards everything to the wrapped stream except writing, which always fails -
+        // simulating a mid-write fault while spilling one oversized overflow value to disk.
+        private sealed class ThrowsOnWriteStream(Stream inner) : Stream
+        {
+            public override bool CanRead => inner.CanRead;
+            public override bool CanSeek => inner.CanSeek;
+            public override bool CanWrite => inner.CanWrite;
+            public override long Length => inner.Length;
+            public override long Position { get => inner.Position; set => inner.Position = value; }
+            public override void Flush() => inner.Flush();
+            public override int Read(byte[] buffer, int offset, int count) => inner.Read(buffer, offset, count);
+            public override long Seek(long offset, SeekOrigin origin) => inner.Seek(offset, origin);
+            public override void SetLength(long value) => inner.SetLength(value);
+            public override void Write(byte[] buffer, int offset, int count)
+                => throw new IOException("simulated write failure");
+            public override ValueTask WriteAsync(ReadOnlyMemory<byte> buffer,
+                CancellationToken cancellationToken = default)
+                => throw new IOException("simulated write failure");
+        }
+
+        [TestMethod]
+        public async Task TestAddTokenAsyncDeletesTheOrphanedTempFileWhenTheWriteThrowsPartway()
+        {
+            var originalLimit = UrlEncodedData.MaximumCacheSize;
+            var originalMapper = MultipartFormData.StorageMapper;
+            string? tempFilePath = null;
+            try
+            {
+                // forces both the raw-body overflow spool and, since the single value alone
+                // exceeds it too, the per-value temp-file branch in AddTokenAsync
+                UrlEncodedData.MaximumCacheSize = 1;
+                MultipartFormData.StorageMapper = (task, file) =>
+                {
+                    tempFilePath = ((FileStream)file).Name;
+                    return new ThrowsOnWriteStream(file);
+                };
+                var body = Encoding.UTF8.GetBytes("key=thisvalueislongerthanonebyte");
+                var content = new ContentStream(new NetworkReader(new MemoryStream(body)), body.Length);
+                var data = new UrlEncodedData();
+
+                await Assert.ThrowsExactlyAsync<IOException>(
+                    () => data.SetAsync(new WebProgressTask(), content, "")
+                ).ConfigureAwait(false);
+
+                Assert.IsNotNull(tempFilePath);
+                Assert.IsFalse(File.Exists(tempFilePath),
+                    "the temp file must not be orphaned when the write into it fails partway through");
+            }
+            finally
+            {
+                UrlEncodedData.MaximumCacheSize = originalLimit;
+                MultipartFormData.StorageMapper = originalMapper;
+            }
         }
     }
 }

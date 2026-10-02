@@ -171,11 +171,28 @@ namespace MaxLib.WebServer.Post
             if (MaximumCacheSize >= 0 && valueBytes.LongLength > MaximumCacheSize)
             {
                 var name = Path.GetTempFileName();
+                try
+                {
 #pragma warning disable CA2000 // already disposed via the using declaration below; the analyzer is confused by the `StorageMapper?.Invoke(task, file) ?? file` fallback
-                using var file = new FileStream(name, FileMode.OpenOrCreate, FileAccess.Write, FileShare.None);
+                    using var file = new FileStream(name, FileMode.OpenOrCreate, FileAccess.Write, FileShare.None);
 #pragma warning restore CA2000
-                using var stream = MultipartFormData.StorageMapper?.Invoke(task, file) ?? file;
-                await stream.WriteAsync(valueBytes).ConfigureAwait(false);
+                    using var stream = MultipartFormData.StorageMapper?.Invoke(task, file) ?? file;
+                    await stream.WriteAsync(valueBytes).ConfigureAwait(false);
+                }
+                catch
+                {
+                    // the write above never finished, so `name` is not attached to `entry` and FormEntry.Dispose
+                    // will never delete it
+                    try
+                    {
+                        File.Delete(name);
+                    }
+                    catch (Exception)
+                    {
+                        logger.LogInformation(SetPostEventId, "Cannot delete temp file");
+                    }
+                    throw;
+                }
                 entry.Set(new FileInfo(name));
             }
             else

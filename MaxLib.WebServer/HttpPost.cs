@@ -59,7 +59,17 @@ namespace MaxLib.WebServer
                 return Task.Run(async () =>
                 {
                     var data = constructor();
-                    await data.SetAsync(task, content, args).ConfigureAwait(false);
+                    try
+                    {
+                        await data.SetAsync(task, content, args).ConfigureAwait(false);
+                    }
+                    catch
+                    {
+                        // SetAsync may already have written entries/temp files; `data` is unreachable once this task
+                        // faults, so it must be disposed here
+                        data.Dispose();
+                        throw;
+                    }
                     return data;
                 });
             }, System.Threading.LazyThreadSafetyMode.ExecutionAndPublication);
