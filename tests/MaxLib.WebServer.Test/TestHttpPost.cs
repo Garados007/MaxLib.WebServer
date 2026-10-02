@@ -47,5 +47,17 @@ namespace MaxLib.WebServer.Test
                 HttpPost.DataHandler.Remove("test/throwing");
             }
         }
+
+        [TestMethod]
+        public void TestSetPostRecognizesAContentTypeRegardlessOfCase()
+        {
+            // a non-lowercase Content-Type must still resolve to the registered IPostData type
+            var post = new HttpPost();
+            var content = new ContentStream(new NetworkReader(new MemoryStream([])), 0);
+
+            post.SetPost(new WebProgressTask(), content, "Application/X-WWW-Form-Urlencoded");
+
+            Assert.IsInstanceOfType<Post.UrlEncodedData>(post.Data);
+        }
     }
 }

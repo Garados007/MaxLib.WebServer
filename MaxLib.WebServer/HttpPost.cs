@@ -18,8 +18,9 @@ namespace MaxLib.WebServer
         public Task<IPostData>? DataAsync => LazyData?.Value;
         public IPostData? Data => DataAsync?.Result;
 
+        // RFC 9110 §8.3.1: the media-type token is case-insensitive, so this lookup must be too
         public static Dictionary<string, Func<IPostData>> DataHandler { get; }
-            = new Dictionary<string, Func<IPostData>>();
+            = new Dictionary<string, Func<IPostData>>(StringComparer.OrdinalIgnoreCase);
 
         static HttpPost()
         {
