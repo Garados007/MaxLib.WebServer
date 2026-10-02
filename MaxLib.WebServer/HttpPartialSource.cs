@@ -43,13 +43,13 @@ namespace MaxLib.WebServer
             if (dataSource is HttpPartialSource partial)
             {
                 BaseSource = partial.BaseSource;
-                Start += partial.Start;
                 if (Count != null && partial.Count != null)
-                    Count = Math.Min(Count.Value, partial.Count.Value - Start);
+                    Count = Math.Min(Count.Value, partial.Count.Value - start);
                 else
                 {
-                    Count ??= partial.Count - Start;
+                    Count ??= partial.Count - start;
                 }
+                Start += partial.Start;
             }
         }
 
