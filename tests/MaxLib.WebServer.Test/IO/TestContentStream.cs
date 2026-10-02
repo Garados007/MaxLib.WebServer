@@ -182,6 +182,36 @@ namespace MaxLib.WebServer.Test.IO
         }
 
         [TestMethod]
+        public async Task TestDiscardAsyncStopsAtEarlyEofInsteadOfBusyLooping()
+        {
+            // DiscardAsync must stop when the connection ends before the declared length instead of spinning.
+            // No timeout is configured on purpose; the bound below turns a spin into a test failure.
+            var reader = new NetworkReader(new MemoryStream(new byte[] { 1, 2, 3, 4 }), null, true);
+            using var content = new ContentStream(reader, 1000);
+
+            var discardTask = content.DiscardAsync();
+            var completed = await Task.WhenAny(discardTask, Task.Delay(TimeSpan.FromSeconds(5))).ConfigureAwait(false);
+
+            Assert.AreSame(discardTask, completed,
+                "DiscardAsync should stop at genuine EOF instead of busy-looping");
+            await discardTask.ConfigureAwait(false);
+        }
+
+        [TestMethod]
+        public async Task TestDiscardStopsAtEarlyEofInsteadOfBusyLooping()
+        {
+            var reader = new NetworkReader(new MemoryStream(new byte[] { 1, 2, 3, 4 }), null, true);
+            using var content = new ContentStream(reader, 1000);
+
+            var discardTask = Task.Run(content.Discard);
+            var completed = await Task.WhenAny(discardTask, Task.Delay(TimeSpan.FromSeconds(5))).ConfigureAwait(false);
+
+            Assert.AreSame(discardTask, completed,
+                "Discard should stop at genuine EOF instead of busy-looping");
+            await discardTask.ConfigureAwait(false);
+        }
+
+        [TestMethod]
         public async Task TestDiscardAsyncLeavesTheUnderlyingStreamOpenOnNormalCompletion()
         {
             // a keep-alive connection must survive an ordinary (non-cancelled) drain, since
