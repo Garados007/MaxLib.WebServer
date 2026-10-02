@@ -1,4 +1,6 @@
 using System;
+using System.Reflection;
+using System.Threading;
 using System.Threading.Tasks;
 using MaxLib.WebServer.Sessions;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
@@ -99,6 +101,25 @@ namespace MaxLib.WebServer.Test.Sessions
             var service = new MemorySessionService();
             service.StopAutomaticSweep();
             service.Dispose();
+        }
+
+        [TestMethod]
+        public void TestRunAutomaticSweepDoesNotCrashWhenMaxAgePushesTheRescheduleDelayPastTimersCap()
+        {
+            // Timer.Change rejects due times over ~49.71 days; a long MaxAge must not push the reschedule delay past that.
+            // Drives RunAutomaticSweep directly via a reflected timer that never fires.
+            var service = new MemorySessionService { MaxAge = TimeSpan.FromDays(60) };
+            service.Sessions["long-lived"] = new Session { LastUsed = DateTime.UtcNow };
+            using var timer = new Timer(_ => { }, null, Timeout.InfiniteTimeSpan, Timeout.InfiniteTimeSpan);
+            var sweepTimerField = typeof(MemorySessionService).GetField(
+                "sweepTimer", BindingFlags.NonPublic | BindingFlags.Instance);
+            Assert.IsNotNull(sweepTimerField, "test relies on MemorySessionService's private sweepTimer field");
+            sweepTimerField!.SetValue(service, timer);
+
+            service.RunAutomaticSweep();
+
+            Assert.IsTrue(service.Sessions.ContainsKey("long-lived"),
+                "the still-live session must survive the sweep");
         }
     }
 }
