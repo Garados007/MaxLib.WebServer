@@ -1,5 +1,6 @@
 using System;
 using System.Collections;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 
@@ -11,31 +12,40 @@ namespace MaxLib.WebServer.Sessions
     {
         public DateTime LastUsed { get; set; } = DateTime.UtcNow;
 
-        public object this[string key] 
-        { 
-            get => Data[key]; 
-            set => Data[key] = value; 
+        /// <summary>
+        /// The key this session is currently stored under. Maintained by the session service; do not set it directly.
+        /// </summary>
+        public string Key { get; internal set; } = "";
+
+        public object this[string key]
+        {
+            get => Data[key];
+            set => Data[key] = value;
         }
 
-        public Dictionary<string, object> Data { get; protected set; }
-            = new Dictionary<string, object>();
+        /// <summary>
+        /// The session's data. Thread-safe, so concurrent requests sharing a session id can use it at the same time.
+        /// Use the atomic <see cref="ConcurrentDictionary{TKey, TValue}" /> methods for read-modify-write sequences.
+        /// </summary>
+        public ConcurrentDictionary<string, object> Data { get; protected set; }
+            = new ConcurrentDictionary<string, object>();
 
-        public ICollection<string> Keys 
+        public ICollection<string> Keys
             => Data.Keys;
 
-        public ICollection<object> Values 
+        public ICollection<object> Values
             => Data.Values;
 
-        public int Count 
+        public int Count
             => Data.Count;
 
         bool ICollection<KeyValuePair<string, object>>.IsReadOnly => false;
 
         public void Add(string key, object value)
-            => Data.Add(key, value);
+            => ((IDictionary<string, object>)Data).Add(key, value);
 
         void ICollection<KeyValuePair<string, object>>.Add(KeyValuePair<string, object> item)
-            => Data.Add(item.Key, item.Value);
+            => ((IDictionary<string, object>)Data).Add(item.Key, item.Value);
 
         public void Clear()
             => Data.Clear();
@@ -57,7 +67,7 @@ namespace MaxLib.WebServer.Sessions
             => Data.GetEnumerator();
 
         public bool Remove(string key)
-            => Data.Remove(key);
+            => Data.TryRemove(key, out _);
 
         bool ICollection<KeyValuePair<string, object>>.Remove(KeyValuePair<string, object> item)
         {
@@ -74,7 +84,7 @@ namespace MaxLib.WebServer.Sessions
 
         IEnumerator IEnumerable.GetEnumerator()
             => GetEnumerator();
-        
+
         public bool TryGetValue<T>(string key, [MaybeNullWhen(false)] out T value)
         {
             if (TryGetValue(key, out object? rawValue) && rawValue is T realValue)

@@ -25,7 +25,7 @@ namespace MaxLib.WebServer.Sessions
                     // instead of paying for a full sweep on every single request
                     value = null;
                 if (value is null)
-                    Sessions[key] = value = new Session();
+                    Sessions[key] = value = new Session { Key = key };
                 value.LastUsed = DateTime.UtcNow;
             }
             return new ValueTask<Session>(value);
@@ -34,7 +34,17 @@ namespace MaxLib.WebServer.Sessions
         protected override ValueTask<bool> IsKeyAvailable(string key)
         {
             lock (sessionsLock)
-                return new ValueTask<bool>(!Sessions.ContainsKey(key));
+                // an expired entry counts as gone, consistent with Get(string); otherwise an expired but unswept key
+                // would be reused for a new session, reopening session fixation
+                return new ValueTask<bool>(
+                    !Sessions.TryGetValue(key, out var value) || value.LastUsed + MaxAge < DateTime.UtcNow);
+        }
+
+        protected override ValueTask Remove(string key)
+        {
+            lock (sessionsLock)
+                Sessions.Remove(key);
+            return default;
         }
 
         /// <summary>

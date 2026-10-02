@@ -79,6 +79,7 @@ namespace MaxLib.WebServer.Sessions
                 SetSessionCookie(task, key);
             }
             task.Session = await Get(key).ConfigureAwait(false);
+            task.Session.Key = key;
         }
 
         /// <summary>
@@ -86,20 +87,24 @@ namespace MaxLib.WebServer.Sessions
         /// updates the "Session" cookie accordingly. Call this after any change in
         /// privilege (most importantly right after a successful login), so that a session
         /// id an attacker may have set on the client beforehand becomes worthless
-        /// afterwards.
+        /// afterwards. The old id is removed from storage once the new one is in place.
         /// </summary>
         /// <param name="task">the current progress task</param>
         /// <returns>the new session, already stored as <c>task.Session</c></returns>
         public async Task<Session> RotateSessionKey(WebProgressTask task)
         {
             ArgumentNullException.ThrowIfNull(task);
+            var oldKey = task.Session?.Key;
             var newKey = await GenerateSessionKey().ConfigureAwait(false);
             var newSession = await Get(newKey).ConfigureAwait(false);
+            newSession.Key = newKey;
             if (task.Session != null)
                 foreach (var pair in task.Session)
                     newSession[pair.Key] = pair.Value;
             task.Session = newSession;
             SetSessionCookie(task, newKey);
+            if (!string.IsNullOrEmpty(oldKey))
+                await Remove(oldKey).ConfigureAwait(false);
             return newSession;
         }
 
@@ -142,6 +147,13 @@ namespace MaxLib.WebServer.Sessions
         /// <param name="key">the key to check</param>
         /// <returns>true if no session is currently stored under this key</returns>
         protected abstract ValueTask<bool> IsKeyAvailable(string key);
+
+        /// <summary>
+        /// Removes the session stored under <paramref name="key" />, if any. Used by
+        /// <see cref="RotateSessionKey(WebProgressTask)" /> to retire the old session id.
+        /// </summary>
+        /// <param name="key">the key to remove</param>
+        protected abstract ValueTask Remove(string key);
 
         protected virtual async ValueTask<string> GenerateSessionKey()
         {
