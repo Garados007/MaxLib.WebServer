@@ -82,5 +82,44 @@ namespace MaxLib.WebServer.Test.PostData
                 MultipartFormData.StorageMapper = originalMapper;
             }
         }
+
+        [TestMethod]
+        public async Task TestSetAsyncResolvesADeclaredNonUtf8Charset()
+        {
+            // "café" in ISO-8859-1: decoding as UTF-8 would mangle the 0xE9 byte
+            var body = new byte[] { (byte)'c', (byte)'a', (byte)'f', 0xE9 };
+            var content = new ContentStream(new NetworkReader(new MemoryStream(body)), body.Length);
+            var data = new RawPostData(MimeType.TextPlain);
+
+            await data.SetAsync(new WebProgressTask(), content, "charset=iso-8859-1").ConfigureAwait(false);
+
+            Assert.AreEqual("café", data.Encoding.GetString(data.Entry.Content!.Value.Span));
+        }
+
+        [TestMethod]
+        public async Task TestSetAsyncResolvesAQuotedNonUtf8Charset()
+        {
+            // a quoted charset value (RFC 9110 §5.6.6) must be unwrapped, not fall back to UTF-8
+            var body = new byte[] { (byte)'c', (byte)'a', (byte)'f', 0xE9 };
+            var content = new ContentStream(new NetworkReader(new MemoryStream(body)), body.Length);
+            var data = new RawPostData(MimeType.TextPlain);
+
+            await data.SetAsync(new WebProgressTask(), content, "charset=\"iso-8859-1\"").ConfigureAwait(false);
+
+            Assert.AreEqual("iso-8859-1", data.Encoding.WebName);
+            Assert.AreEqual("café", data.Encoding.GetString(data.Entry.Content!.Value.Span));
+        }
+
+        [TestMethod]
+        public async Task TestSetAsyncDefaultsToUtf8WhenNoCharsetIsDeclared()
+        {
+            var body = Encoding.UTF8.GetBytes("café");
+            var content = new ContentStream(new NetworkReader(new MemoryStream(body)), body.Length);
+            var data = new RawPostData(MimeType.TextPlain);
+
+            await data.SetAsync(new WebProgressTask(), content, "").ConfigureAwait(false);
+
+            Assert.AreEqual(Encoding.UTF8, data.Encoding);
+        }
     }
 }

@@ -75,7 +75,12 @@ namespace MaxLib.WebServer.Post
             if (match.Success)
                 try
                 {
-                    encoding = Encoding.GetEncoding(match.Groups["charset"].Value);
+                    var charset = match.Groups["charset"].Value;
+                    // RFC 9110 §5.6.6: a parameter value may be a quoted-string (charset="iso-8859-1"); the regex
+                    // captures the quotes, so unwrap them before the lookup.
+                    if (charset.Length >= 2 && charset[0] == '"' && charset[^1] == '"')
+                        charset = charset[1..^1];
+                    encoding = Encoding.GetEncoding(charset);
                 }
                 catch (Exception e)
                 {

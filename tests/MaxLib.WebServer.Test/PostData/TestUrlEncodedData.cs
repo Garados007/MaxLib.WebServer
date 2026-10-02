@@ -1,5 +1,6 @@
 using System;
 using System.IO;
+using System.Reflection;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -34,6 +35,21 @@ namespace MaxLib.WebServer.Test.PostData
 
             Assert.AreEqual("firstValue", data.Parameter["firstKey"]);
             Assert.AreEqual("secondValueThatIsLonger", data.Parameter["secondKey"]);
+        }
+
+        [TestMethod]
+        public void TestResolveEncodingResolvesAQuotedNonUtf8Charset()
+        {
+            // a quoted charset value must be unwrapped, not fall back to UTF-8; invoked via reflection
+            // because ResolveEncoding is private
+            var resolveEncoding = typeof(UrlEncodedData).GetMethod("ResolveEncoding", BindingFlags.NonPublic | BindingFlags.Static)
+                ?? throw new InvalidOperationException("UrlEncodedData.ResolveEncoding method not found - test needs updating to match the current method name");
+
+            var unquoted = (Encoding?)resolveEncoding.Invoke(null, ["charset=iso-8859-1"]);
+            var quoted = (Encoding?)resolveEncoding.Invoke(null, ["charset=\"iso-8859-1\""]);
+
+            Assert.AreEqual("iso-8859-1", unquoted?.WebName);
+            Assert.AreEqual("iso-8859-1", quoted?.WebName);
         }
 
         // Forwards everything to the wrapped stream except writing, which always fails -
