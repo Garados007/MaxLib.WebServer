@@ -116,6 +116,63 @@ namespace MaxLib.WebServer.Test.WebSocket
         }
 
         [TestMethod]
+        public void ParseAcceptsAPayloadWhereTypeDiscriminatorIsNotTheFirstProperty()
+        {
+            // "$type" need not be the first property; JSON is unordered (RFC 8259)
+            var factory = new EventFactory();
+            factory.Add<PingEvent>();
+            var frame = FrameFromJson("{\"Sequence\":5,\"$type\":\"PingEvent\"}");
+
+            var result = factory.Parse(frame);
+
+            var ping = Assert.IsInstanceOfType<PingEvent>(result);
+            Assert.AreEqual(5, ping.Sequence);
+        }
+
+        [TestMethod]
+        public void ParseHonorsSeedOptionsAllowTrailingCommasOnTheTypeDiscriminatorPreScan()
+        {
+            // the "$type" pre-scan must be as lenient as the caller's seedOptions
+            var seed = new JsonSerializerOptions { AllowTrailingCommas = true };
+            var factory = new EventFactory(seed);
+            factory.Add<PingEvent>();
+            var frame = FrameFromJson("{\"$type\":\"PingEvent\",\"Sequence\":5,}");
+
+            var result = factory.Parse(frame);
+
+            var ping = Assert.IsInstanceOfType<PingEvent>(result);
+            Assert.AreEqual(5, ping.Sequence);
+        }
+
+        [TestMethod]
+        public void ParseHonorsSeedOptionsReadCommentHandlingOnTheTypeDiscriminatorPreScan()
+        {
+            var seed = new JsonSerializerOptions { ReadCommentHandling = JsonCommentHandling.Skip };
+            var factory = new EventFactory(seed);
+            factory.Add<PingEvent>();
+            var frame = FrameFromJson("{\"$type\":\"PingEvent\", // comment\n\"Sequence\":5}");
+
+            var result = factory.Parse(frame);
+
+            var ping = Assert.IsInstanceOfType<PingEvent>(result);
+            Assert.AreEqual(5, ping.Sequence);
+        }
+
+#if NET10_0_OR_GREATER
+        [TestMethod]
+        public void ParseHonorsSeedOptionsAllowDuplicatePropertiesOnTheTypeDiscriminatorPreScan()
+        {
+            // AllowDuplicateProperties (net10.0+ only) is another leniency setting the pre-scan must honor
+            var seed = new JsonSerializerOptions { AllowDuplicateProperties = false };
+            var factory = new EventFactory(seed);
+            factory.Add<PingEvent>();
+            var frame = FrameFromJson("{\"$type\":\"PingEvent\",\"$type\":\"PingEvent\",\"Sequence\":5}");
+
+            Assert.ThrowsExactly<MalformedEventJsonException>(() => factory.Parse(frame));
+        }
+#endif
+
+        [TestMethod]
         public void ParseValidTypeWithBadPayloadThrowsInvalidEventPayloadException()
         {
             var factory = new EventFactory();
@@ -154,6 +211,19 @@ namespace MaxLib.WebServer.Test.WebSocket
             var factory = new EventFactory();
             factory.Add<PingEvent>();
             factory.ToFrame(new PingEvent());
+
+            Assert.ThrowsExactly<InvalidOperationException>(() => factory.Add<ChatEvent>());
+        }
+
+        [TestMethod]
+        public void AddAfterAFailedParseStillThrows()
+        {
+            // the registry must be sealed even when the first use is a Parse call that throws
+            var factory = new EventFactory();
+            factory.Add<PingEvent>();
+            var frame = FrameFromJson("{\"$type\":\"NotRegistered\"}");
+
+            Assert.ThrowsExactly<UnknownEventTypeException>(() => factory.Parse(frame));
 
             Assert.ThrowsExactly<InvalidOperationException>(() => factory.Add<ChatEvent>());
         }
