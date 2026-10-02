@@ -85,7 +85,10 @@ namespace MaxLib.WebServer.Builder
                 writer = (w, value) =>
                 {
                     if (value == null)
+                    {
                         w.WriteNullValue();
+                        return true;
+                    }
                     try { JsonSerializer.Serialize(w, value, options); }
                     catch { return false; }
                     return true;
@@ -119,6 +122,7 @@ namespace MaxLib.WebServer.Builder
                 }
 
                 w.Flush();
+                w.Dispose();
 
                 return new HttpStreamDataSource(m)
                 {
