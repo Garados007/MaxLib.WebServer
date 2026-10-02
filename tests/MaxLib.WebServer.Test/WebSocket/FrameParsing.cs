@@ -4,6 +4,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace MaxLib.WebServer.Test.WebSocket
@@ -11,6 +12,51 @@ namespace MaxLib.WebServer.Test.WebSocket
     [TestClass]
     public class FrameParsing
     {
+        // Stream.ReadAsync may return fewer bytes than requested; deliver one byte at a time to make sure
+        // Frame.TryRead doesn't mistake slow arrival for a closed connection.
+        private sealed class OneByteAtATimeStream(byte[] data) : MemoryStream(data)
+        {
+            public override ValueTask<int> ReadAsync(Memory<byte> buffer,
+                CancellationToken cancellationToken = default)
+                => base.ReadAsync(buffer.Length > 1 ? buffer[..1] : buffer, cancellationToken);
+        }
+
+        [TestMethod]
+        public async Task ReadFrameWhoseHeaderAndPayloadArriveOneByteAtATime()
+        {
+            var bytes = new byte[] { 0x82, 0x05, 1, 2, 3, 4, 5 };
+            using var stream = new OneByteAtATimeStream(bytes);
+
+            var frame = await Frame.TryRead(stream).ConfigureAwait(false);
+
+            Assert.IsNotNull(frame);
+            Assert.IsTrue(frame!.FinalFrame);
+            Assert.AreEqual(OpCode.Binary, frame.OpCode);
+            Assert.IsFalse(frame.HasMaskingKey);
+            CollectionAssert.AreEqual(new byte[] { 1, 2, 3, 4, 5 }, frame.Payload.ToArray());
+        }
+
+        [TestMethod]
+        public async Task ReadLargeMaskedFrameWhoseBytesArriveOneByteAtATime()
+        {
+            // large enough for the 16-bit extended-length header field
+            var payload = new byte[200];
+            for (var i = 0; i < payload.Length; ++i)
+                payload[i] = (byte)i;
+            var frame = new Frame { OpCode = OpCode.Binary, Payload = payload };
+            frame.ApplyMask();
+            using var written = new MemoryStream();
+            await frame.Write(written).ConfigureAwait(false);
+
+            using var stream = new OneByteAtATimeStream(written.ToArray());
+            var readBack = await Frame.TryRead(stream).ConfigureAwait(false);
+
+            Assert.IsNotNull(readBack);
+            Assert.IsTrue(readBack!.HasMaskingKey);
+            readBack.UnapplyMask();
+            CollectionAssert.AreEqual(payload, readBack.Payload.ToArray());
+        }
+
         [TestMethod]
         public async Task ReadSingleFrameUnmaskedTextMessage()
         {

@@ -59,9 +59,10 @@ namespace MaxLib.WebServer.WebSocket
             ArgumentNullException.ThrowIfNull(input);
             try
             {
+                // ReadAsync may return fewer bytes than requested; ReadExactlyAsync loops until the buffer is full
+                // (or throws EndOfStreamException)
                 Memory<byte> buffer = new byte[8];
-                if (await input.ReadAsync(buffer[0..2]).ConfigureAwait(false) != 2)
-                    return null;
+                await input.ReadExactlyAsync(buffer[0..2]).ConfigureAwait(false);
                 var frame = new Frame
                 {
                     FinalFrame = (buffer.Span[0] & 0x80) == 0x80,
@@ -72,15 +73,13 @@ namespace MaxLib.WebServer.WebSocket
                 ulong length = (ulong)lengthIndicator;
                 if (lengthIndicator == 126)
                 {
-                    if (await input.ReadAsync(buffer[0..2]).ConfigureAwait(false) != 2)
-                        return null;
+                    await input.ReadExactlyAsync(buffer[0..2]).ConfigureAwait(false);
                     ToLocalByteOrder(buffer.Span[..2]);
                     length = BitConverter.ToUInt16(buffer.Span[..2]);
                 }
                 if (lengthIndicator == 127)
                 {
-                    if (await input.ReadAsync(buffer).ConfigureAwait(false) != 8)
-                        return null;
+                    await input.ReadExactlyAsync(buffer).ConfigureAwait(false);
                     ToLocalByteOrder(buffer.Span);
                     length = BitConverter.ToUInt64(buffer.Span);
                 }
@@ -93,14 +92,12 @@ namespace MaxLib.WebServer.WebSocket
 
                 if (frame.HasMaskingKey)
                 {
-                    if (await input.ReadAsync(buffer[..4]).ConfigureAwait(false) != 4)
-                        return null;
+                    await input.ReadExactlyAsync(buffer[..4]).ConfigureAwait(false);
                     buffer[..4].CopyTo(frame.MaskingKey);
                 }
 
                 frame.Payload = new byte[(int)length];
-                if (await input.ReadAsync(frame.Payload).ConfigureAwait(false) != frame.Payload.Length)
-                    return null;
+                await input.ReadExactlyAsync(frame.Payload).ConfigureAwait(false);
 
                 return frame;
             }

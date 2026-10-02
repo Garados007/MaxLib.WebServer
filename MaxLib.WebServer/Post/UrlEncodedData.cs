@@ -93,7 +93,7 @@ namespace MaxLib.WebServer.Post
             if (MaximumCacheSize < 0 || content.FullLength <= MaximumCacheSize)
             {
                 var buffer = new byte[content.UnreadData];
-                await content.ReadAsync(buffer.AsMemory()).ConfigureAwait(false);
+                await content.ReadExactlyAsync(buffer.AsMemory()).ConfigureAwait(false);
                 Set(encoding.GetString(buffer), options);
                 return;
             }

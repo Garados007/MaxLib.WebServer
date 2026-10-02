@@ -59,7 +59,7 @@ namespace MaxLib.WebServer.Post
             else
             {
                 var buffer = new byte[content.UnreadData];
-                await content.ReadAsync(buffer.AsMemory()).ConfigureAwait(false);
+                await content.ReadExactlyAsync(buffer.AsMemory()).ConfigureAwait(false);
                 Entry.Set(buffer);
             }
         }
