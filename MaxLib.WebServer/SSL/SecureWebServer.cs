@@ -19,6 +19,7 @@ namespace MaxLib.WebServer.SSL
         static readonly ILogger logger = WebServerLog.LoggerFactory.CreateLogger<SecureWebServer>();
         static readonly EventId StartUpEventId = new(0, "StartUp");
         static readonly EventId HandshakeEventId = new(0, "Handshake");
+        static readonly EventId UnhandledExceptionEventId = new(0, "Unhandled Exception");
 
         public SecureWebServerSettings SecureSettings => (SecureWebServerSettings)Settings;
 
@@ -65,7 +66,29 @@ namespace MaxLib.WebServer.SSL
                 for (; step < 10; step++)
                 {
                     if (!SecureListener!.Pending()) break;
-                    SecureClientConnected(SecureListener.AcceptTcpClient());
+                    TcpClient client;
+                    try
+                    {
+                        client = SecureListener.AcceptTcpClient();
+                    }
+                    catch (Exception e)
+                    {
+                        // like Server.ServerMainTask: this runs on a raw Thread, where an unhandled exception would take
+                        // down the process. Nothing was accepted, so there is nothing to clean up.
+                        logger.LogCritical(UnhandledExceptionEventId, e, "Unhandled exception while accepting a connection");
+                        continue;
+                    }
+                    try
+                    {
+                        SecureClientConnected(client);
+                    }
+                    catch (Exception e)
+                    {
+                        // SecureClientConnected failed before registering the client in AllConnections;
+                        // close it, or its socket leaks
+                        client.Close();
+                        logger.LogCritical(UnhandledExceptionEventId, e, "Unhandled exception while accepting a connection");
+                    }
                 }
                 //wait
                 if (SecureListener!.Pending())

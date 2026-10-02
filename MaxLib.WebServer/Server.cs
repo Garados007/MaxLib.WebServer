@@ -198,7 +198,30 @@ namespace MaxLib.WebServer
                 {
                     if (!Listener.Pending()) break;
                     step++;
-                    ClientConnected(Listener.AcceptTcpClient());
+                    TcpClient client;
+                    try
+                    {
+                        client = Listener.AcceptTcpClient();
+                    }
+                    catch (Exception e)
+                    {
+                        // AcceptTcpClient() can throw for reasons unrelated to other connections (handle exhaustion, a client
+                        // reset in the backlog). This runs on a raw Thread, where an unhandled exception would take down the
+                        // process. Nothing was accepted, so there is nothing to clean up.
+                        logger.LogCritical(UnhandledExceptionEventId, e, "Unhandled exception while accepting a connection");
+                        continue;
+                    }
+                    try
+                    {
+                        ClientConnected(client);
+                    }
+                    catch (Exception e)
+                    {
+                        // ClientConnected failed before registering the client in AllConnections (e.g. RemoteEndPoint on a
+                        // peer that already reset); close it, or its socket leaks
+                        client.Close();
+                        logger.LogCritical(UnhandledExceptionEventId, e, "Unhandled exception while accepting a connection");
+                    }
                 }
                 //request keep alive connections
                 for (int i = 0; i < KeepAliveConnections.Count; ++i)
