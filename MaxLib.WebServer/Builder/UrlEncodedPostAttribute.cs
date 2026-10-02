@@ -1,5 +1,8 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
+using System.Linq;
+using System.Text;
 using MaxLib.WebServer.Builder.Tools;
 
 namespace MaxLib.WebServer.Builder
@@ -40,9 +43,20 @@ namespace MaxLib.WebServer.Builder
             var post = task.Request.Post.Data;
             if (!(post is Post.UrlEncodedData data))
                 return new Result<object?>();
-            if (!data.Parameter.TryGetValue(Name ?? field, out string? value))
+            var key = Name ?? field;
+            if (data.Parameter.TryGetValue(key, out string? value))
+                return new Result<object?>(value);
+            // above UrlEncodedData.MaximumCacheSize every field lives in Overflow and Parameter stays empty
+            var entry = data.Overflow?.Entries
+                .OfType<Post.MultipartFormData.FormData>()
+                .FirstOrDefault(e => e.Name == key);
+            if (entry == null)
                 return new Result<object?>();
-            return new Result<object?>(value);
+            if (entry.Content is ReadOnlyMemory<byte> content)
+                return new Result<object?>(Encoding.UTF8.GetString(content.Span));
+            if (entry.TempFile is FileInfo tempFile)
+                return new Result<object?>(File.ReadAllText(tempFile.FullName, Encoding.UTF8));
+            return new Result<object?>("");
         }
 
         public override string ToString() => Name != null ? $"UrlEncodedPost: {Name}" : "UrlEncodedPost";
