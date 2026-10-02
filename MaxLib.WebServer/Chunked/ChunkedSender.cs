@@ -15,6 +15,27 @@ namespace MaxLib.WebServer.Chunked
     {
         static readonly ILogger logger = WebServerLog.LoggerFactory.CreateLogger<ChunkedSender>();
         static readonly EventId SendEventId = new(0, "Send");
+        static readonly EventId WriteStreamEventId = new(1, "Write Stream");
+
+        /// <summary>
+        /// Thrown by <see cref="SendChunk(StreamWriter, Stream, HttpDataSource)"/>'s unbounded-length path when the
+        /// source's <c>WriteStream</c> fails after the response has started. Deliberately neither an
+        /// <see cref="IOException"/> (the send loop treats that as a client disconnect) nor an <c>HttpException</c>
+        /// (that would build a new response that can no longer reach the client), so it reaches
+        /// <c>Server.ProcessTask</c>, which closes the connection and leaves the chunked body unterminated.
+        /// </summary>
+        internal sealed class WriteStreamFailedException : Exception
+        {
+            public WriteStreamFailedException(Exception innerException)
+                : base("WriteStream failed while bridging an unbounded-length source through ChunkedSender.", innerException)
+            {
+            }
+        }
+
+        private sealed class WriteFaultBox
+        {
+            public volatile Exception? Exception;
+        }
 
         public bool OnlyWithLazy { get; private set; }
 
@@ -137,14 +158,38 @@ namespace MaxLib.WebServer.Chunked
                 if (length == null)
                     using (var sink = new BufferedSinkStream())
                     {
+                        var fault = new WriteFaultBox();
                         _ = Task.Run(async () =>
                         {
-                            await source.WriteStream(sink).ConfigureAwait(false);
-                            sink.FinishWrite();
+                            try
+                            {
+                                await source.WriteStream(sink).ConfigureAwait(false);
+                            }
+                            catch (Exception e)
+                            {
+                                // The reader must always observe completion, even if WriteStream fails before calling FinishWrite(),
+                                // or it blocks forever. The captured exception is surfaced below once the reader has drained the written data.
+                                fault.Exception = e;
+                                try
+                                {
+                                    logger.LogError(WriteStreamEventId, e,
+                                        "WriteStream failed while bridging an unbounded-length source through ChunkedSender");
+                                }
+                                catch (Exception)
+                                {
+                                    // logging itself must never crash this background task
+                                }
+                            }
+                            finally
+                            {
+                                sink.FinishWrite();
+                            }
                         });
 #pragma warning disable CA2000 // sink already has its own using-block; HttpChunkedStream.Dispose() disposing it a second time is safe, adding a using here isn't
                         await SendChunk(writer, stream, new HttpChunkedStream(sink)).ConfigureAwait(false);
 #pragma warning restore CA2000
+                        if (fault.Exception is Exception writeException)
+                            throw new WriteStreamFailedException(writeException);
                     }
                 //using (var m = new MemoryStream())
                 //{
