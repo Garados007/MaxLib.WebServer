@@ -71,6 +71,19 @@ namespace MaxLib.WebServer.Test.Services
         }
 
         [TestMethod]
+        public void TestHostSetterAssignsTheValueOnAFreshRequest()
+        {
+            test.Request.Host = "set.example";
+            Assert.AreEqual("set.example", test.Request.Host);
+        }
+
+        [TestMethod]
+        public void TestHostSetterThrowsOnNull()
+        {
+            Assert.ThrowsExactly<ArgumentNullException>(() => test.Request.Host = null!);
+        }
+
+        [TestMethod]
         public void TestHeaderNameLookupIsCaseInsensitive()
         {
             test.Request.HeaderParameter.Add("content-type", "text/plain");

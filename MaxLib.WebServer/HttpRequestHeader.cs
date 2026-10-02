@@ -43,7 +43,7 @@ namespace MaxLib.WebServer
             }
             set
             {
-                _ = host ?? throw new ArgumentNullException(nameof(value));
+                ArgumentNullException.ThrowIfNull(value);
                 SetResetLock(true);
                 HeaderParameter["Host"] = value;
                 host = new Lazy<string>(value);
