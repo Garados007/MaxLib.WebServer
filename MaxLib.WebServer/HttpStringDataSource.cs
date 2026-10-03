@@ -1,5 +1,5 @@
-﻿using MaxLib.IO;
-using System;
+﻿using System;
+using Microsoft.Extensions.Logging;
 using System.IO;
 using System.Text;
 using System.Threading.Tasks;
@@ -11,6 +11,9 @@ namespace MaxLib.WebServer
     [Serializable]
     public class HttpStringDataSource : HttpDataSource
     {
+        static readonly ILogger logger = WebServerLog.LoggerFactory.CreateLogger<HttpStringDataSource>();
+        static readonly EventId SendEventId = new(0, "Send");
+
         private string data = "";
         public string Data
         {
@@ -40,6 +43,7 @@ namespace MaxLib.WebServer
 
         public override void Dispose()
         {
+            GC.SuppressFinalize(this);
         }
 
         public override long? Length()
@@ -52,7 +56,7 @@ namespace MaxLib.WebServer
             try { await m.CopyToAsync(stream).ConfigureAwait(false); }
             catch (IOException)
             {
-                WebServerLog.Add(ServerLogType.Information, GetType(), "Send", "Connection closed by remote Host");
+                logger.LogInformation(SendEventId, "Connection closed by remote host");
                 return m.Position;
             }
             return m.Length;

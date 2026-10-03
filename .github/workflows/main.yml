@@ -10,15 +10,19 @@ jobs:
   build:
 
     runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      statuses: write
 
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v4
     - name: Setup .NET Core
-      uses: actions/setup-dotnet@v1
+      uses: actions/setup-dotnet@v4
       with:
         dotnet-version: |
+          10.0
           8.0
-          6.0.102
     - name: Install dependencies
       run: dotnet restore
     - name: Build
@@ -30,10 +34,41 @@ jobs:
         name: build-fail-artifact
         path: ${{ github.workspace }}
     - name: Test
-      run: dotnet test --no-restore
+      run: dotnet test --configuration Release --no-build --collect:"XPlat Code Coverage" --results-directory ./TestResults
     - name: Upload Test Fail Artifacts
       uses: actions/upload-artifact@v4
       if: failure()
       with:
         name: test-fail-artifact
         path: ${{ github.workspace }}
+    - name: Restore .NET tools
+      run: dotnet tool restore
+    - name: Generate coverage report
+      run: >
+        dotnet tool run reportgenerator
+        "-reports:./TestResults/**/coverage.cobertura.xml"
+        -targetdir:./coveragereport
+        -reporttypes:"Html;MarkdownSummaryGithub;Badges;JsonSummary"
+        "-classfilters:+*;-System.Text.RegularExpressions.Generated*"
+    - name: Publish coverage summary
+      run: cat ./coveragereport/SummaryGithub.md >> "$GITHUB_STEP_SUMMARY"
+    - name: Upload coverage report
+      uses: actions/upload-artifact@v4
+      with:
+        name: coverage-report
+        path: coveragereport
+    - name: Set coverage commit status
+      # GITHUB_TOKEN is read-only for pull_request events from forks, so this
+      # write would fail there regardless of the `statuses: write` permission above.
+      if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository
+      env:
+        GH_TOKEN: ${{ github.token }}
+      run: |
+        LINE_COV=$(jq -r '.summary.linecoverage' ./coveragereport/Summary.json)
+        BRANCH_COV=$(jq -r '.summary.branchcoverage' ./coveragereport/Summary.json)
+        SHA="${{ github.event.pull_request.head.sha || github.sha }}"
+        gh api "repos/${{ github.repository }}/statuses/$SHA" \
+          -f state=success \
+          -f context="coverage" \
+          -f description="Line: ${LINE_COV}% · Branch: ${BRANCH_COV}%" \
+          -f target_url="${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"

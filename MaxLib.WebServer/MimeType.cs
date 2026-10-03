@@ -1,11 +1,11 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.IO;
-using System.Net;
 using System.Net.Http;
 using System.Text.Json;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
+using Microsoft.Extensions.Logging;
 
 #nullable enable
 
@@ -15,8 +15,10 @@ namespace MaxLib.WebServer
     /// This class holds some constants for popular mime types. It also holds some
     /// functionality for working with mime types.
     /// </summary>
-    public static class MimeType
+    public static partial class MimeType
     {
+        static readonly ILogger logger = WebServerLog.LoggerFactory.CreateLogger(typeof(MimeType));
+        static readonly EventId LoadMimeEventId = new(0, "load mime");
 
         public const string ApplicationXWwwFromUrlencoded = "application/x-www-form-urlencoded";
         /// <summary>
@@ -108,7 +110,7 @@ namespace MaxLib.WebServer
         /// </summary>
         public const string MultipartEncrypted = "multipart/encrypted";
         /// <summary>
-        /// multipart data from a HTTP formular (z.B. File-Upload) 
+        /// multipart data from a HTTP formular (z.B. File-Upload)
         /// </summary>
         public const string MultipartFormData = "multipart/form-data";
         /// <summary>
@@ -160,16 +162,16 @@ namespace MaxLib.WebServer
         {
             _ = mime ?? throw new ArgumentNullException(nameof(mime));
             _ = pattern ?? throw new ArgumentNullException(nameof(pattern));
-            var ind = mime.IndexOf('/');
-            if (ind == -1) 
+            var ind = mime.IndexOf('/', StringComparison.Ordinal);
+            if (ind == -1)
                 throw new ArgumentException("no Mime", nameof(mime));
-            var ml = mime.Remove(ind).ToLower();
-            var mh = mime.Substring(ind + 1).ToLower();
-            ind = pattern.IndexOf('/');
-            if (ind == -1) 
+            var ml = mime[..ind].ToLowerInvariant();
+            var mh = mime[(ind + 1)..].ToLowerInvariant();
+            ind = pattern.IndexOf('/', StringComparison.Ordinal);
+            if (ind == -1)
                 throw new ArgumentException("no Mime", nameof(pattern));
-            var pl = pattern.Remove(ind).ToLower();
-            var ph = pattern.Substring(ind + 1).ToLower();
+            var pl = pattern[..ind].ToLowerInvariant();
+            var ph = pattern[(ind + 1)..].ToLowerInvariant();
             return (pl == "*" || pl == ml) && (ph == "*" || ph == mh);
         }
 
@@ -186,7 +188,7 @@ namespace MaxLib.WebServer
             _ = extension ?? throw new ArgumentNullException(nameof(extension));
             if (extension.StartsWith('.'))
                 return GetMimeTypeForExtension(extension[1..]);
-            if (mimeTypes.TryGetValue(extension.ToLower(), out string? mime))
+            if (mimeTypes.TryGetValue(extension.ToLowerInvariant(), out string? mime))
                 return mime;
             else return null;
         }
@@ -194,11 +196,11 @@ namespace MaxLib.WebServer
         /// <summary>
         /// load the data for <see cref="GetMimeTypeForExtension(string)"/>. If no
         /// cache file exists or <paramref name="useLocalCache"/> is false it loads
-        /// the data from <a href="http://svn.apache.org/repos/asf/httpd/httpd/trunk/docs/conf/mime.types">
-        /// http://svn.apache.org/repos/asf/httpd/httpd/trunk/docs/conf/mime.types
+        /// the data from <a href="https://svn.apache.org/repos/asf/httpd/httpd/trunk/docs/conf/mime.types">
+        /// https://svn.apache.org/repos/asf/httpd/httpd/trunk/docs/conf/mime.types
         /// </a>
         /// <br/>
-        /// If <paramref name="useLocalCache"/> is true it uses the cache file at 
+        /// If <paramref name="useLocalCache"/> is true it uses the cache file at
         /// <c>./mime-cache.json</c>.
         /// </summary>
         /// <param name="useLocalCache">true if to use the cache file</param>
@@ -215,7 +217,7 @@ namespace MaxLib.WebServer
             var mimeTypes = new Dictionary<string, string>();
             if (useLocalCache && File.Exists(localCachePath))
             {
-                WebServerLog.Add(ServerLogType.Debug, typeof(MimeType), "load mime", "load mime cache");
+                logger.LogDebug(LoadMimeEventId, "load mime cache");
                 using var file = new FileStream(localCachePath, FileMode.Open,
                     FileAccess.Read, FileShare.Read
                 );
@@ -225,21 +227,18 @@ namespace MaxLib.WebServer
                     mimeTypes[entry.Name] =  entry.Value.GetString()!;
                 }
 
-                WebServerLog.Add(ServerLogType.Debug, typeof(MimeType), "load mime", "mime cache loaded");
+                logger.LogDebug(LoadMimeEventId, "mime cache loaded");
             }
             else
             {
-                WebServerLog.Add(ServerLogType.Debug, typeof(MimeType), "load mime", "Update Mime Cachce");
+                logger.LogDebug(LoadMimeEventId, "Update Mime Cachce");
                 using var client = new HttpClient();
                 var reader = new StringReader(await client.GetStringAsync(
-                    @"http://svn.apache.org/repos/asf/httpd/httpd/trunk/docs/conf/mime.types"
-                ));
-                var regex = new Regex(
-                    @"^(?<mime>[^#][^\s]*)(\s+(?<extension>\w+))+$",
-                    RegexOptions.Compiled
-                );
+                    @"https://svn.apache.org/repos/asf/httpd/httpd/trunk/docs/conf/mime.types"
+                ).ConfigureAwait(false));
+                var regex = MimeTypesLineRegex();
                 string? line;
-                while ((line = reader.ReadLine()) != null)
+                while ((line = await reader.ReadLineAsync().ConfigureAwait(false)) != null)
                 {
                     var match = regex.Match(line);
                     if (!match.Success)
@@ -260,9 +259,12 @@ namespace MaxLib.WebServer
                     writer.WriteEndObject();
                     await writer.FlushAsync().ConfigureAwait(false);
                 }
-                WebServerLog.Add(ServerLogType.Debug, typeof(MimeType), "load mime", "Mime Cache updated");
+                logger.LogDebug(LoadMimeEventId, "Mime Cache updated");
             }
             MimeType.mimeTypes = mimeTypes;
         }
+
+        [GeneratedRegex(@"^(?<mime>[^#][^\s]*)(\s+(?<extension>\w+))+$")]
+        private static partial Regex MimeTypesLineRegex();
     }
 }

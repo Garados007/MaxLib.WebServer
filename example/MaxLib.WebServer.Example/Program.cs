@@ -1,5 +1,5 @@
-﻿using System;
-using System.Threading.Tasks;
+﻿using System.Threading.Tasks;
+using Microsoft.Extensions.Logging;
 using MaxLib.WebServer.Services;
 
 namespace MaxLib.WebServer.Example
@@ -8,7 +8,7 @@ namespace MaxLib.WebServer.Example
     {
         static async Task Main(string[] args)
         {
-            WebServerLog.LogAdded += WebServerLog_LogAdded;
+            WebServerLog.SetLoggerFactory(LoggerFactory.Create(builder => builder.AddSimpleConsole()));
             using var server = new Server(new WebServerSettings(8000, 5000));
             // add services
             server.AddWebService(new HttpRequestParser());
@@ -18,11 +18,6 @@ namespace MaxLib.WebServer.Example
             server.AddWebService(new HttpSender());
             // run server until cancel received
             await server.RunAsync();
-        }
-
-        private static void WebServerLog_LogAdded(ServerLogItem item)
-        {
-            Console.WriteLine($"[{item.Date}] [{item.Type}] ({item.InfoType}) {item.SenderType}: {item.Information}");
         }
     }
 }

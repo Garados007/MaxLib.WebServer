@@ -9,11 +9,11 @@ namespace MaxLib.WebServer
     [Serializable]
     public abstract class HttpHeader
     {
-        private bool lockReset = false;
+        private bool lockReset;
 
         public HttpHeader()
         {
-            var param = new ObservableDictionary<string, string>(StringComparer.InvariantCultureIgnoreCase);
+            var param = new ObservableDictionary<string, string>(StringComparer.OrdinalIgnoreCase);
             param.CollectionChanged += (_, __) => 
             {
                 if (!lockReset)

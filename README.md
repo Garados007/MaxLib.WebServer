@@ -25,10 +25,10 @@ Some of the current features of the web server are:
   to use.
 - Asynchronous handling of requests. Every part of the pipeline works with awaitable Tasks.
 - REST Api builder. You can directly bind your methods to the handlers.
-- Chunked transport. The server understands chunked data streams and can produce these.
+- Chunked transport. The server understands chunked data streams and can produce these on
+  responses. Chunked **request** bodies are not supported yet.
 - Lazy handling of requests. The server allows you to produce the content while you are sending the
   response. No need to wait.
-- Work with components that belongs to another AppDomain with Marshaling.
 - Deliver contents from your local drive (e.g. HDD)
 - Session keeping. You can identify the user later.
 - ...
@@ -65,7 +65,7 @@ using var server = new Server(new WebServerSettings(
 server.InitDefault();
 
 // the server can now be started. A basic set of services is defined so a new
-// request will be handled and the user gets a response. Right now its a 
+// request will be handled and the user gets a response. Right now its a
 // 404 NOT FOUND but we will add more.
 server.Start();
 
@@ -112,10 +112,298 @@ After that you can run your programm and open the page
 
 > More information about the new builder system can be found [here](https://github.com/Garados007/MaxLib.WebServer/wiki/Builder-System)
 
+## Advanced usage
+
+### Logging
+
+`MaxLib.WebServer` logs exclusively through the standard
+[`Microsoft.Extensions.Logging.ILogger`](https://learn.microsoft.com/en-us/dotnet/core/extensions/logging)
+abstraction. There is no MaxLib-specific logging API to learn: point it at whatever
+logging backend your application already uses (Serilog, NLog, log4net, the built-in
+console/debug providers, ...) via that backend's own standard `ILoggerFactory` setup,
+and every log call made inside this library flows into it.
+
+> **The one-line contract:** call `WebServerLog.SetLoggerFactory(...)` **exactly once**,
+> **before** constructing anything else from this library. Each class resolves its
+> logger once, at first use, so a factory set afterwards will not be picked up by
+> classes that already ran. A second call to `SetLoggerFactory` throws
+> `InvalidOperationException` rather than silently changing anything.
+
+```csharp
+using Microsoft.Extensions.Logging;
+
+// Wire this library's logging to whatever backend you already use - here plain
+// console output, but AddSerilog(), AddNLog(), AddDebug(), etc. work the same way.
+WebServerLog.SetLoggerFactory(LoggerFactory.Create(builder => builder.AddSimpleConsole()));
+
+using var server = new Server(new WebServerSettings(8000, 5000));
+// ...
+```
+
+### Sessions
+
+`MaxLib.WebServer.Sessions` identifies returning users via a `Session` cookie, without you
+having to manage that cookie yourself. Add a session service - `MemorySessionService` for a
+simple in-process store, or subclass `SessionServiceBase` for your own backing store - and read
+or write per-user data through `task.Session`:
+
+```csharp
+using MaxLib.WebServer.Sessions;
+
+server.AddWebService(new MemorySessionService());
+```
+
+```csharp
+// inside any WebService that runs after the session service (ServerStage.ParseRequest or later)
+var session = task.Session!;
+var visits = session.TryGetValue("visits", out var v) ? (int)v! : 0;
+session["visits"] = visits + 1;
+```
+
+The service issues a fresh session id (and its cookie) the first time a client is seen, and
+reuses it on every later request that presents that same cookie back.
+
+**Hardening:** call `RotateSessionKey(task)` right after any change in privilege - most
+importantly, right after a successful login - so that a session id an attacker may have set on
+the client beforehand (before the user authenticated) becomes worthless afterwards. The session
+cookie itself already defaults to `HttpOnly`, and to `Secure`/`SameSite=Strict` whenever this
+server observes the connection as encrypted (`SameSite=Lax` and no `Secure` otherwise) - if a
+reverse proxy (e.g. nginx) terminates TLS in front of this server instead, that auto-detection
+never sees an HTTPS connection, so set `CookieSecurity = CookieSecurityMode.Strict` on your
+session service explicitly to still get the stricter, HTTPS-only cookie attributes.
+
+**Expiry:** `MaxAge` (default 30 days) already governs the cookie's `Expires`/`Max-Age`
+attributes; `MemorySessionService` also enforces it server-side. A session that's expired by
+the time it's next looked up is discarded and replaced with a fresh, empty one instead of being
+served - so a session id leaked long ago stops giving access to whatever data it used to hold.
+This alone doesn't stop `Sessions` from otherwise growing unboundedly (e.g. from many distinct
+or absent cookie values), so call `Sweep()` periodically to evict every session that's expired
+but hasn't been looked up since, or call `StartAutomaticSweep()` once to have the service run it
+for you on its own background timer (stop it with `StopAutomaticSweep()`, also done by
+`Dispose()`):
+
+```csharp
+var sessions = new MemorySessionService();
+sessions.StartAutomaticSweep();
+server.AddWebService(sessions);
+```
+
+### Chunked responses
+
+Most `HttpDataSource` implementations know their length up front, and `HttpResponseCreator`
+computes `Content-Length` from that. A source that doesn't (e.g. `Chunked.HttpChunkedStream`,
+wrapping a stream whose size isn't known ahead of time) reports `Length() == null` instead - if
+`HttpResponseCreator` computed `Content-Length` from that the same way, it would silently
+undercount it while still writing the full body, desyncing the connection for any client or
+proxy relying on that header for framing.
+
+To actually send such a response correctly, register `Chunked.ChunkedResponseCreator` and
+`Chunked.ChunkedSender` alongside the default services - typically with `onlyWithLazy: true`, so
+they only take over responses that need it (unknown-length or lazy data sources) and leave
+ordinary responses to the default `Content-Length` path:
+
+```csharp
+using MaxLib.WebServer.Chunked;
+
+server.AddWebService(new ChunkedResponseCreator(onlyWithLazy: true));
+server.AddWebService(new ChunkedSender(onlyWithLazy: true));
+```
+
+Without a `ChunkedSender` registered, a response containing an unknown-length data source is
+rejected with `500 Internal Server Error` (logged) instead of being sent with a wrong
+`Content-Length`.
+
+### Reading POST data
+
+`task.Request.Post.Data` (or the awaitable `DataAsync`) gives you a parsed `IPostData` for the
+request body, chosen by `Content-Type`:
+
+- `application/x-www-form-urlencoded` → `Post.UrlEncodedData` (`.Parameter`, a `Dictionary<string, string>`).
+  A body larger than `UrlEncodedData.MaximumCacheSize` (default 50 MB) is parsed into `.Overflow`
+  instead - a `Post.MultipartFormData` with one entry per key, individually eligible for the same
+  in-memory-vs-temp-file decision a multipart part gets - so `Parameter` is left empty in that case.
+- `multipart/form-data` → `Post.MultipartFormData` (`.Entries`, a list of parts - each with `.Content`
+  or, once uploaded files get large enough, a `.TempFile` instead)
+- `application/json`, `application/octet-stream`, anything else unrecognized, or a missing
+  `Content-Type` entirely → `Post.RawPostData`, storing the whole body as one nameless entry
+  (`.Entry.Content` or `.Entry.TempFile`, on the same size threshold as a multipart part)
+
+Every one of these actually reads and stores the body - none of them leave it as an unread
+reference to the live connection. If you're building a Builder endpoint (see "Create own
+service" above), `[TextPost]` binds a `string` parameter to a `RawPostData` body decoded as UTF-8,
+without you having to touch `Post.Data` yourself:
+
+```csharp
+[Path("/echo"), Method("POST")]
+public string Echo([TextPost] string body) => body;
+```
+
+### Request body size and read timeout
+
+`HttpRequestParser` bounds both how large a request body it accepts and how long it waits for
+one to arrive, so that an unbounded `Content-Length` combined with a client that stalls
+mid-upload can't pin a thread-pool thread forever (draining an unconsumed body on dispose is
+fully asynchronous - see `HttpPost.DisposeAsync()` - and bounded by the same timeout). It also
+bounds how long a client is given to actually send its request in the first place:
+
+- **`MaxConnectionDelay`** (default 5 s) is how long the parser waits for the very first byte of
+  a request to arrive before giving up. Set it to zero or negative to disable this wait.
+- **`MaxHeaderReadTime`** (default 10 s) bounds the *rest* of the request-line-and-header phase
+  as a whole, once that first byte has arrived - not a per-line timeout. Without it, a client
+  that trickles its request one byte (or one header line) at a time - the classic "Slowloris"
+  attack - could hold the connection open indefinitely just by satisfying
+  `MaxConnectionDelay`'s wait first. Set it to zero or negative to disable it.
+
+- **`MaxContentLength`** (default 100 MB) is the body size every request is accepted under
+  without further checks. A request whose `Content-Length` exceeds it is rejected with
+  `413 Request Entity Too Large` - unless you set `ContentLengthLimitExceeded`.
+- **`ContentLengthLimitExceeded`** is an optional callback invoked with the current request and
+  its declared `Content-Length` whenever `MaxContentLength` is exceeded. Return a higher limit to
+  apply for just that request (e.g. based on the route or authenticated user), or `null` to allow
+  any size. If the callback isn't set, or the limit it returns is still exceeded, the request is
+  rejected the same way.
+- **`ContentReadBaseTimeout`** (default 5 s) and **`MinimumContentTransferRate`** (default
+  16 000 byte/s) together bound how long a request's body is given to arrive: the full timeout is
+  `ContentReadBaseTimeout + Content-Length / MinimumContentTransferRate`, so larger (but still
+  accepted) bodies get proportionally more time, while a stalled client is still bounded rather
+  than blocking the reader indefinitely. Unlike the size limit, this always applies uniformly -
+  there is no per-request override.
+
+Whenever a request is rejected for being too large, the connection is closed instead of kept
+alive, since the client's bytes are left completely unread. A body read that instead times out
+mid-request never closes the connection by itself - that could pre-empt a response the server was
+about to send on it, e.g. one reporting that very timeout - it only ever does once the response
+has actually been transmitted and any leftover POST data is being discarded to ready the
+connection for reuse (in `HttpSender`, right after sending); if that final drain times out, the
+connection is closed there instead of kept alive, since its position in the byte stream is by then
+unknown.
+
+### Connection limits
+
+`WebServerSettings.MaxConcurrentConnections` bounds how many connections (`Server.AllConnections`)
+the server accepts at once - a new connection beyond that limit is rejected outright (its socket
+closed immediately, without being processed at all) instead of being left to compete for
+thread-pool/memory resources indefinitely alongside every other admitted connection. Defaults to
+`-1` (no limit, the previous behavior); applies to both the plain and TLS-terminating listeners
+(`SecureWebServer`, `DualSecureWebServer`), since they share the same connection bookkeeping.
+
+```csharp
+using var server = new Server(new WebServerSettings(8000, 5000)
+{
+    MaxConcurrentConnections = 1000,
+});
+```
+
+### WebSocket Events
+
+`MaxLib.WebServer.WebSocket` includes `EventBase`/`EventFactory`, a small typed-message
+layer on top of raw WebSocket frames. Events are plain classes, and
+`System.Text.Json`'s native polymorphic serialization takes care of reading/writing
+the `"$type"` discriminator and the rest of the payload - no custom converters needed.
+
+#### Registering events
+
+Subclass `EventBase` with public properties, create an `EventFactory`, and register
+your event types before using it:
+
+```csharp
+using MaxLib.WebServer.WebSocket;
+
+public class ChatMessage : EventBase
+{
+    public string Text { get; set; } = "";
+}
+
+var factory = new EventFactory();
+factory.Add<ChatMessage>();              // wire "$type" defaults to the class name
+// factory.Add<ChatMessage>("chat.msg"); // or pick an explicit wire name
+
+// pass `factory` into your EventConnection subclass, then:
+// await SendFrame(new ChatMessage { Text = "hi" });
+```
+
+All event types must be registered before the factory's first use (its registry is
+sealed on first serialize/deserialize) - register everything once at startup.
+
+#### Automatic registration
+
+There is no attribute-scanning or assembly discovery: declaring an `EventBase`
+subclass alone does not register it. Every event type must be added explicitly via
+`Add<T>()`/`Add<T>(string)`/`Add(string, Type)`.
+
+#### Customizing the wire format
+
+Use standard `System.Text.Json` attributes directly on your event's properties:
+
+```csharp
+public class ChatMessage : EventBase
+{
+    [JsonPropertyName("text")]
+    public string Text { get; set; } = "";
+
+    [JsonIgnore]
+    public DateTime ReceivedAt { get; set; }
+}
+```
+
+For settings that should apply to every event on a factory (a naming policy, a
+converter for a shared type), pass a `JsonSerializerOptions` into the constructor:
+
+```csharp
+var factory = new EventFactory(new JsonSerializerOptions
+{
+    PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+});
+```
+
+See Microsoft's [System.Text.Json property customization documentation](https://learn.microsoft.com/en-us/dotnet/standard/serialization/system-text-json/customize-properties)
+for the full set of supported attributes and options.
+
+#### Multiple factories
+
+Each `EventFactory` instance has its own independent type registry and
+`JsonSerializerOptions` - nothing is shared statically between instances. Create one
+factory per protocol/endpoint that needs a different set of event types (or different
+wire settings), and give each `EventConnection` subclass the factory instance
+appropriate to it.
+
+#### Handling invalid incoming events
+
+A client can send a frame that isn't a valid event: malformed JSON, an
+unregistered `"$type"`, or JSON that doesn't match the shape of the type it
+names. `EventFactory.Parse(Frame)` reports these as one of three exception types
+(`MalformedEventJsonException`, `UnknownEventTypeException`,
+`InvalidEventPayloadException`, all deriving from `EventParseException`), and
+`EventConnection` routes each to its own overridable handler instead of dropping
+the frame silently:
+
+```csharp
+public class Connection : EventConnection
+{
+    // ...
+
+    protected override Task ReceivedUnknownEvent(Frame frame, UnknownEventTypeException exception)
+    {
+        // e.g. tell the client what went wrong instead of just logging it
+        return SendFrame(new ErrorEvent { Message = exception.Message });
+    }
+}
+```
+
+The default implementation of each handler (`ReceivedMalformedEvent`,
+`ReceivedUnknownEvent`, `ReceivedInvalidEventPayload`) just logs the error, so
+overriding only the ones you care about is safe - the rest keep their previous
+behavior.
+
 ## Example
 
 - [example/MaxLib.WebServer.Example](example/MaxLib.WebServer.Example)
     - create a basic webserver
+- [example/MaxLib.WebServer.Builder.Debugger.Example](example/MaxLib.WebServer.Builder.Debugger.Example)
+    - a mix of working and deliberately misconfigured `Builder.Service` types, an index
+      page linking to every endpoint, and the `Builder.Debugger.DebuggerService` wired up
+      to explain what got built (or skipped/failed) and why a given request would or
+      wouldn't reach a service
 
 ## Contributing
 

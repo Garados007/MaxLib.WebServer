@@ -3,6 +3,11 @@ using System.Collections.Generic;
 
 namespace MaxLib.WebServer.Builder.Tools
 {
+    /// <remarks>
+    /// A ParamAttributeBase's Name property must not throw; build reports read it via reflection.
+    /// Values produced by a custom ParamAttributeBase must have a non-throwing ToString(); it is used
+    /// in conversion error messages.
+    /// </remarks>
     [System.AttributeUsage(System.AttributeTargets.Parameter, Inherited = true, AllowMultiple = false)]
     public abstract class ParamAttributeBase : Attribute
     {
@@ -14,6 +19,10 @@ namespace MaxLib.WebServer.Builder.Tools
         /// </summary>
         public abstract Type Type { get; }
 
+        /// <remarks>
+        /// Reject a request by returning an empty result or throwing <see cref="HttpException" />;
+        /// any other exception propagates out of routing and <c>RoutingDryRun</c> unhandled.
+        /// </remarks>
         public abstract Tools.Result<object?> GetValue(WebProgressTask task,
             string field, Dictionary<string, object?> vars
         );

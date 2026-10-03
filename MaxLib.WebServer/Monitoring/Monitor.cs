@@ -1,17 +1,26 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.IO;
 using System.Text;
 using System.Threading.Tasks;
 using System.Diagnostics;
+using Microsoft.Extensions.Logging;
 
 namespace MaxLib.WebServer.Monitoring
 {
     /// <summary>
     /// This enables to trace and monitor the operation inside the handling of a web request
     /// </summary>
+    /// <remarks>
+    /// Exceptions reaching the monitor must have a non-throwing ToString(); Monitor.Save writes it to
+    /// the log file.
+    /// </remarks>
     public class Monitor
     {
+        static readonly ILogger logger = WebServerLog.LoggerFactory.CreateLogger<Monitor>();
+        static readonly EventId WriteLogsEventId = new(0, "write logs");
+
         /// <summary>
         /// Gets if monitoring for this single request is allowed.
         /// </summary>
@@ -62,7 +71,7 @@ namespace MaxLib.WebServer.Monitoring
             var callName = SanitizePath(task.Request.Location.DocumentPath);
             if (callName.Length == 0)
                 callName = "_";
-            var date = started.ToString("yyyy-MM-dd_HH-mm-ss-fffffff");
+            var date = started.ToString("yyyy-MM-dd_HH-mm-ss-fffffff", CultureInfo.InvariantCulture);
 
             var dir = $"{path}/{callName}";
             if (!Directory.Exists(dir))
@@ -80,15 +89,14 @@ namespace MaxLib.WebServer.Monitoring
             try { WriteTo(writer); }
             catch (Exception e)
             {
-                WebServerLog.Add(ServerLogType.FatalError, GetType(), "write logs", e.ToString());
-                writer.WriteLine(e);
+                logger.LogCritical(WriteLogsEventId, e, "Failed to write monitor logs");
+                await writer.WriteLineAsync(e.ToString()).ConfigureAwait(false);
             }
-            await writer.FlushAsync();
-            writer.Flush();
-            await stream.FlushAsync();
+            await writer.FlushAsync().ConfigureAwait(false);
+            await stream.FlushAsync().ConfigureAwait(false);
         }
 
-        private static char[] allowedChars = new[] { '-', '_', '+', '(', ')', };
+        private static char[] allowedChars = ['-', '_', '+', '(', ')',];
         private static string SanitizePath(string path)
         {
             var sb = new StringBuilder(path.Length);

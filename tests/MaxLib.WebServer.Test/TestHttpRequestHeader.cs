@@ -57,10 +57,37 @@ namespace MaxLib.WebServer.Test.Services
         }
 
         [TestMethod]
+        public void TestConnectionMixedCase()
+        {
+            test.Request.HeaderParameter.Add("Connection", "Keep-Alive");
+            Assert.AreEqual(HttpConnectionType.KeepAlive, test.Request.FieldConnection);
+        }
+
+        [TestMethod]
         public void TestHost()
         {
             test.Request.HeaderParameter.Add("Host", "test.domain");
             Assert.AreEqual("test.domain", test.Request.Host);
+        }
+
+        [TestMethod]
+        public void TestHostSetterAssignsTheValueOnAFreshRequest()
+        {
+            test.Request.Host = "set.example";
+            Assert.AreEqual("set.example", test.Request.Host);
+        }
+
+        [TestMethod]
+        public void TestHostSetterThrowsOnNull()
+        {
+            Assert.ThrowsExactly<ArgumentNullException>(() => test.Request.Host = null!);
+        }
+
+        [TestMethod]
+        public void TestHeaderNameLookupIsCaseInsensitive()
+        {
+            test.Request.HeaderParameter.Add("content-type", "text/plain");
+            Assert.AreEqual("text/plain", test.Request.GetHeader("Content-Type"));
         }
 
         [TestMethod]

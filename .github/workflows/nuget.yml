@@ -1,28 +1,122 @@
-name: NuGet Publish
+name: Release
+
+# Release process:
+#   1. Bump <Version> in MaxLib.WebServer/MaxLib.WebServer.csproj.include and push/merge to main
+#   2. This workflow builds and tests the solution
+#   3. It tags the commit as vX.Y.Z
+#   4. It packs and publishes the package to NuGet.org
+#   5. It creates a matching GitHub release
+#
+# Any other push to main (that doesn't change the version) only runs the
+# check-version job and stops there - no tag, package or release is created.
 
 on:
   push:
     branches: [ main ]
 
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
 jobs:
-  build:
+  check-version:
     runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      changed: ${{ steps.diff.outputs.changed }}
+      version: ${{ steps.diff.outputs.version }}
 
     steps:
-    - uses: actions/checkout@v2
-
-    - name: Init git submodules
-      run: git submodule init && git submodule update
-
-    - name: Setup .NET Core
-      uses: actions/setup-dotnet@v1
+    - uses: actions/checkout@v4
       with:
-        dotnet-version: '8.0'
+        fetch-depth: 0
+
+    - name: Check if package version changed
+      id: diff
+      run: |
+        FILE=MaxLib.WebServer/MaxLib.WebServer.csproj.include
+        BEFORE_SHA="${{ github.event.before }}"
+
+        NEW=$(grep -oP '(?<=<Version>)[^<]+' "$FILE" | head -1)
+
+        OLD=""
+        if [ -n "$BEFORE_SHA" ] && [ "$BEFORE_SHA" != "0000000000000000000000000000000000000000" ] && git cat-file -e "$BEFORE_SHA" 2>/dev/null; then
+          OLD=$(git show "$BEFORE_SHA:$FILE" 2>/dev/null | grep -oP '(?<=<Version>)[^<]+' | head -1 || true)
+        fi
+
+        echo "Previous version: '$OLD', new version: '$NEW'"
+        if [ -n "$NEW" ] && [ "$NEW" != "$OLD" ]; then
+          echo "changed=true" >> "$GITHUB_OUTPUT"
+        else
+          echo "changed=false" >> "$GITHUB_OUTPUT"
+        fi
+        echo "version=$NEW" >> "$GITHUB_OUTPUT"
+
+  release:
+    needs: check-version
+    if: needs.check-version.outputs.changed == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: write
+      id-token: write # enable GitHub OIDC token issuance for this job
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: |
+          10.0
+          8.0
+
     - name: Install dependencies
       run: dotnet restore
 
+    - name: Build
+      run: dotnet build --configuration Release --no-restore
+
+    - name: Test
+      run: dotnet test --configuration Release --no-restore --no-build
+
     - name: Create NuGet package
-      run: dotnet pack MaxLib.WebServer/MaxLib.WebServer.csproj
+      run: dotnet pack MaxLib.WebServer/MaxLib.WebServer.csproj --configuration Release --no-build --output ./nupkg
+
+    - name: Tag release
+      env:
+        VERSION: ${{ needs.check-version.outputs.version }}
+      run: |
+        git config user.name "github-actions[bot]"
+        git config user.email "github-actions[bot]@users.noreply.github.com"
+        if git ls-remote --exit-code --tags origin "refs/tags/v$VERSION" >/dev/null 2>&1; then
+          echo "Tag v$VERSION already exists, skipping"
+        else
+          git tag "v$VERSION"
+          git push origin "v$VERSION"
+        fi
+
+    - name: NuGet login (OIDC -> temp API key)
+      uses: NuGet/login@v1
+      id: login
+      with:
+        user: ${{ secrets.NUGET_USER }}
 
     - name: Publish to NuGet.org
-      run: dotnet nuget push "**/*.nupkg" --api-key ${{ secrets.NUGET_PUSH_KEY }} --source "https://api.nuget.org/v3/index.json"
+      run: dotnet nuget push "./nupkg/*.nupkg" --api-key ${{ steps.login.outputs.NUGET_API_KEY }} --source "https://api.nuget.org/v3/index.json" --skip-duplicate
+
+    - name: Create GitHub release
+      env:
+        GH_TOKEN: ${{ github.token }}
+        VERSION: ${{ needs.check-version.outputs.version }}
+      run: |
+        if gh release view "v$VERSION" >/dev/null 2>&1; then
+          echo "Release v$VERSION already exists, skipping"
+        else
+          gh release create "v$VERSION" ./nupkg/*.nupkg \
+            --title "v$VERSION" \
+            --generate-notes
+        fi

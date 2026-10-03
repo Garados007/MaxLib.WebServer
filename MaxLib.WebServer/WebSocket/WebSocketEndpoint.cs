@@ -37,10 +37,12 @@ namespace MaxLib.WebServer.WebSocket
                 connection.Dispose();
             connections.Clear();
             connectionLock.Dispose();
+            GC.SuppressFinalize(this);
         }
 
         public async ValueTask DisposeAsync()
         {
+            GC.SuppressFinalize(this);
             await connectionLock.WaitAsync().ConfigureAwait(false);
             foreach (var connection in connections)
                 await connection.DisposeAsync().ConfigureAwait(false);
@@ -64,14 +66,38 @@ namespace MaxLib.WebServer.WebSocket
         {
             if (sender is T connection)
             {
-                _ = RemoveConnection(connection);
+                _ = HandleConnectionClosed(connection);
             }
         }
+
+        /// <summary>
+        /// Removes <paramref name="connection"/> from this endpoint's bookkeeping and, unless
+        /// <see cref="DisposeConnectionsOnClose" /> opts out, disposes it. Runs whenever a
+        /// connection's <see cref="WebSocketConnection.Closed" /> event fires. Exposed
+        /// (<c>internal</c>) so tests can drive it directly, without needing a real handshake
+        /// and ping loop just to make that event fire.
+        /// </summary>
+        internal async Task HandleConnectionClosed(T connection)
+        {
+            await RemoveConnection(connection).ConfigureAwait(false);
+            if (DisposeConnectionsOnClose)
+                await connection.DisposeAsync().ConfigureAwait(false);
+        }
+
+        /// <summary>
+        /// If <c>true</c> (the default), a connection is automatically disposed once its
+        /// <see cref="WebSocketConnection.Closed" /> event fires and it has been removed from
+        /// this endpoint's bookkeeping. Override to return <c>false</c> if you need to keep
+        /// using the connection object afterwards (e.g. to inspect its final state) and will
+        /// dispose it yourself.
+        /// </summary>
+        protected virtual bool DisposeConnectionsOnClose => true;
 
         protected abstract T? CreateConnection(Stream stream, HttpRequestHeader header);
 
         public async Task RemoveConnection(T connection)
         {
+            ArgumentNullException.ThrowIfNull(connection);
             await connectionLock.WaitAsync().ConfigureAwait(false);
             connections.Remove(connection);
             connectionLock.Release();

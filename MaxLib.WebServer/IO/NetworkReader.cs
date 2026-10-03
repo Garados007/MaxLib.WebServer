@@ -1,4 +1,3 @@
-using System.Linq;
 using System.Threading;
 using System;
 using System.Text;
@@ -71,7 +70,7 @@ namespace MaxLib.WebServer.IO
         /// The number of unread chars in <see cref="charBuffer" />.
         /// </summary>
         int charBufferCount;
-        bool disposed = false;
+        bool disposed;
         readonly int expectedCharBytes;
 
         public NetworkReader(Stream stream)
@@ -150,7 +149,7 @@ namespace MaxLib.WebServer.IO
             if (readBufferCount >= expectLength)
                 return;
             // move the data to the left only if less then the half buffer is available
-            if ((readBufferOffset << 1) > readBuffer.Length && readBufferCount > 0)
+            if ((readBufferOffset << 1) > readBuffer.Length)
             {
                 readBuffer.Span.Slice(readBufferOffset, readBufferCount)
                     .CopyTo(readBuffer.Span[ .. readBufferCount]);
@@ -170,7 +169,7 @@ namespace MaxLib.WebServer.IO
             while (readBufferCount < expectLength);
         }
 
-        int lastBytesUsed = 0;
+        int lastBytesUsed;
 
         protected int RefillCharBuffer()
         {
@@ -227,12 +226,12 @@ namespace MaxLib.WebServer.IO
 
         protected void ThrowIfDisposed()
         {
-            if (disposed)
-                throw new ObjectDisposedException(null);
+            ObjectDisposedException.ThrowIf(disposed, this);
         }
 
         public void Dispose()
         {
+            GC.SuppressFinalize(this);
             disposed = true;
             if (!leaveOpen)
                 BaseStream.Dispose();
@@ -240,6 +239,7 @@ namespace MaxLib.WebServer.IO
 
         public async ValueTask DisposeAsync()
         {
+            GC.SuppressFinalize(this);
             disposed = true;
             if (!leaveOpen)
                 await BaseStream.DisposeAsync().ConfigureAwait(false);
@@ -324,6 +324,7 @@ namespace MaxLib.WebServer.IO
                                 if (charBuffer[charBufferOffset] == '\n')
                                 {
                                     charBufferOffset++;
+                                    charBufferCount--;
                                 }
                             }
                         }
@@ -356,7 +357,7 @@ namespace MaxLib.WebServer.IO
         )
         {
             if (limit < 0)
-                return await ReadLineAsync(cancellationToken);
+                return await ReadLineAsync(cancellationToken).ConfigureAwait(false);
 
             ThrowIfDisposed();
             StringBuilder? sb = null;
@@ -393,6 +394,7 @@ namespace MaxLib.WebServer.IO
                                 if (charBuffer[charBufferOffset] == '\n')
                                 {
                                     charBufferOffset++;
+                                    charBufferCount--;
                                 }
                             }
                         }
@@ -447,6 +449,7 @@ namespace MaxLib.WebServer.IO
                                 if (charBuffer[charBufferOffset] == '\n')
                                 {
                                     charBufferOffset++;
+                                    charBufferCount--;
                                 }
                             }
                         }
@@ -526,7 +529,7 @@ namespace MaxLib.WebServer.IO
             if (count <= length)
                 return length;
             
-            return length + await BaseStream.ReadAsync(buffer, offset + length, count - length, cancellationToken).ConfigureAwait(false);
+            return length + await BaseStream.ReadAsync(buffer.AsMemory(offset + length, count - length), cancellationToken).ConfigureAwait(false);
         }
     
         public async ValueTask<int> ReadAsync(Memory<byte> buffer, 
@@ -559,8 +562,7 @@ namespace MaxLib.WebServer.IO
             CancellationToken cancellationToken = default)
         {
             ThrowIfDisposed();
-            if (count < 0)
-                throw new ArgumentOutOfRangeException(nameof(count));
+            ArgumentOutOfRangeException.ThrowIfNegative(count);
             
             var buffer = new byte[count];
             var read = 0;
@@ -598,10 +600,8 @@ namespace MaxLib.WebServer.IO
             _ = buffer ?? throw new ArgumentNullException(nameof(buffer));
             if (!buffer.CanWrite)
                 throw new ArgumentException("stream is not writable", nameof(buffer));
-            if (count < 0)
-                throw new ArgumentOutOfRangeException(nameof(count));
-            if (blockSize <= 0)
-                throw new ArgumentOutOfRangeException(nameof(blockSize));
+            ArgumentOutOfRangeException.ThrowIfNegative(count);
+            ArgumentOutOfRangeException.ThrowIfNegativeOrZero(blockSize);
             
             var originalCount = count;
             var bytes = new byte[blockSize];
@@ -610,7 +610,7 @@ namespace MaxLib.WebServer.IO
                 int read = await ReadAsync(bytes, 0, Math.Min(count, blockSize), cancellationToken).ConfigureAwait(false);
                 if (read == 0)
                     break;
-                await buffer.WriteAsync(bytes, 0, read, cancellationToken).ConfigureAwait(false);
+                await buffer.WriteAsync(bytes.AsMemory(0, read), cancellationToken).ConfigureAwait(false);
                 count -= read;
             }
             
@@ -629,6 +629,7 @@ namespace MaxLib.WebServer.IO
             Stream target
         )
         {
+            ArgumentNullException.ThrowIfNull(target);
             if (marking.Length == 0)
                 return 0;
             long fullRead = 0;
@@ -642,8 +643,8 @@ namespace MaxLib.WebServer.IO
             charBufferCount = charBufferOffset = lastBytesUsed = 0;
 
             // loop until we found the signature
-            int length;
-            do
+            bool found = false;
+            while (!found)
             {
                 // ensure we have enough bytes in buffer
                 RefillBuffer(marking.Length);
@@ -658,30 +659,33 @@ namespace MaxLib.WebServer.IO
                     break;
                 }
 
+                // only scan positions with at least marking.Length bytes buffered: a marker straddling a refill
+                // must not be flushed before a later refill gives it the chance to match
+                // add the data until the pattern (or the safe boundary, if not found yet) to the stream
+                int safeEnd = readBufferOffset + readBufferCount - (marking.Length - 1);
                 int i = readBufferOffset;
-                // move the check window until we found the pattern
-                do
+                while (i < safeEnd)
                 {
                     if (readBuffer.Span[i ..].StartsWith(marking))
+                    {
+                        found = true;
                         break;
+                    }
                     i++;
                 }
-                while (i < readBufferOffset + readBufferCount);
-                // add the data until the pattern to the stream
+                // add the data until the pattern (or the safe boundary, if not found yet) to the stream
                 target.Write(readBuffer.Span[readBufferOffset .. i]);
                 // move the index to the end
-                length = i - readBufferOffset;
+                var length = i - readBufferOffset;
                 readBufferOffset = i;
                 readBufferCount -= length;
                 fullRead += length;
-                // break if the length is 0
             }
-            while (length > 0);
 
             return fullRead;
         }
 
-        
+
         public async ValueTask<ReadOnlyMemory<byte>> ReadUntilAsync(
             ReadOnlyMemory<byte> marking,
             CancellationToken cancellationToken = default
@@ -699,9 +703,10 @@ namespace MaxLib.WebServer.IO
             CancellationToken cancellationToken = default
         )
         {
+            ArgumentNullException.ThrowIfNull(target);
             if (marking.Length == 0)
                 return 0;
-            
+
             long fullRead = 0;
 
             if (marking.Length * 2 > readBuffer.Length)
@@ -713,8 +718,8 @@ namespace MaxLib.WebServer.IO
             charBufferCount = charBufferOffset = lastBytesUsed = 0;
 
             // loop until we found the signature
-            int length;
-            do
+            bool found = false;
+            while (!found)
             {
                 // ensure we have enough bytes in buffer
                 await RefillBufferAsync(cancellationToken, marking.Length).ConfigureAwait(false);
@@ -729,25 +734,28 @@ namespace MaxLib.WebServer.IO
                     break;
                 }
 
+                // only scan positions with at least marking.Length bytes buffered: a marker straddling a refill
+                // must not be flushed before a later refill gives it the chance to match
+                // add the data until the pattern (or the safe boundary, if not found yet) to the stream
+                int safeEnd = readBufferOffset + readBufferCount - (marking.Length - 1);
                 int i = readBufferOffset;
-                // move the check window until we found the pattern
-                do
+                while (i < safeEnd)
                 {
                     if (readBuffer.Span[i ..].StartsWith(marking.Span))
+                    {
+                        found = true;
                         break;
+                    }
                     i++;
                 }
-                while (i < readBufferOffset + readBufferCount);
-                // add the data until the pattern to the stream
+                // add the data until the pattern (or the safe boundary, if not found yet) to the stream
                 target.Write(readBuffer.Span[readBufferOffset .. i]);
                 // move the index to the end
-                length = i - readBufferOffset;
+                var length = i - readBufferOffset;
                 readBufferOffset = i;
                 readBufferCount -= length;
                 fullRead += length;
-                // break if the length is 0
             }
-            while (length > 0);
 
             return fullRead;
         }

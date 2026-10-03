@@ -8,6 +8,8 @@ namespace MaxLib.WebServer
     [Serializable]
     public class HttpRequestHeader : HttpHeader
     {
+        private static readonly char[] AcceptListSeparators = [',', ' '];
+
         protected override void ResetCache()
         {
             base.ResetCache();
@@ -27,7 +29,7 @@ namespace MaxLib.WebServer
 
         public HttpLocation Location { get; } = new HttpLocation("/");
 
-        private Lazy<string>? host = null;
+        private Lazy<string>? host;
         public string Host
         {
             get
@@ -41,7 +43,7 @@ namespace MaxLib.WebServer
             }
             set
             {
-                _ = host ?? throw new ArgumentNullException(nameof(value));
+                ArgumentNullException.ThrowIfNull(value);
                 SetResetLock(true);
                 HeaderParameter["Host"] = value;
                 host = new Lazy<string>(value);
@@ -51,7 +53,7 @@ namespace MaxLib.WebServer
 
         public HttpPost Post { get; } = new HttpPost();
 
-        private Lazy<ReadOnlyCollection<string>>? fieldAccept = null;
+        private Lazy<ReadOnlyCollection<string>>? fieldAccept;
         public ReadOnlyCollection<string> FieldAccept
         {
             get
@@ -62,9 +64,9 @@ namespace MaxLib.WebServer
                     () => new ReadOnlyCollection<string>(
                         HeaderParameter.TryGetValue("Accept", out string value) ?
                             value.Split(
-                                new[] { ',', ' ' },
+                                AcceptListSeparators,
                                 StringSplitOptions.RemoveEmptyEntries
-                            ) : new string[0]
+                            ) : []
                     )
                 )).Value;
             }
@@ -79,7 +81,7 @@ namespace MaxLib.WebServer
             }
         }
         
-        private Lazy<ReadOnlyCollection<string>>? fieldAcceptCharset = null;
+        private Lazy<ReadOnlyCollection<string>>? fieldAcceptCharset;
         public ReadOnlyCollection<string> FieldAcceptCharset
         {
             get
@@ -90,9 +92,9 @@ namespace MaxLib.WebServer
                     () => new ReadOnlyCollection<string>(
                         HeaderParameter.TryGetValue("Accept-Charset", out string value) ?
                             value.Split(
-                                new[] { ',', ' ' },
+                                AcceptListSeparators,
                                 StringSplitOptions.RemoveEmptyEntries
-                            ) : new string[0]
+                            ) : []
                     )
                 )).Value;
             }
@@ -107,7 +109,7 @@ namespace MaxLib.WebServer
             }
         }
 
-        private Lazy<ReadOnlyCollection<string>>? fieldAcceptEncoding = null;
+        private Lazy<ReadOnlyCollection<string>>? fieldAcceptEncoding;
         public ReadOnlyCollection<string> FieldAcceptEncoding
         {
             get
@@ -118,9 +120,9 @@ namespace MaxLib.WebServer
                     () => new ReadOnlyCollection<string>(
                         HeaderParameter.TryGetValue("Accept-Encoding", out string value) ?
                             value.Split(
-                                new[] { ',', ' ' },
+                                AcceptListSeparators,
                                 StringSplitOptions.RemoveEmptyEntries
-                            ) : new string[0]
+                            ) : []
                     )
                 )).Value;
             }
@@ -135,7 +137,7 @@ namespace MaxLib.WebServer
             }
         }
         
-        private Lazy<HttpConnectionType>? fieldConnection = null;
+        private Lazy<HttpConnectionType>? fieldConnection;
         public HttpConnectionType FieldConnection
         {
             get
@@ -144,7 +146,7 @@ namespace MaxLib.WebServer
                     return fieldConnection.Value;
                 return (fieldConnection = new Lazy<HttpConnectionType>(
                     () => HeaderParameter.TryGetValue("Connection", out string value)
-                        && value.ToLower() == "keep-alive" ?
+                        && string.Equals(value, "keep-alive", StringComparison.OrdinalIgnoreCase) ?
                             HttpConnectionType.KeepAlive :
                             HttpConnectionType.Close
                 )).Value;
@@ -169,7 +171,7 @@ namespace MaxLib.WebServer
             }
         }
         
-        private Lazy<HttpCookie>? cookie = null;
+        private Lazy<HttpCookie>? cookie;
         public HttpCookie Cookie
         {
             get

@@ -1,6 +1,5 @@
 using System;
 using System.IO;
-using System.Diagnostics;
 using System.Collections.Generic;
 
 namespace MaxLib.WebServer.Monitoring
@@ -55,7 +54,7 @@ namespace MaxLib.WebServer.Monitoring
                 if (!typeDict.TryGetValue(Caller, out int id))
                     typeDict.Add(Caller, id = typeDict.Count + 1);
                 var name = type.FullName ?? "";
-                if (name.StartsWith("MaxLib.WebServer"))
+                if (name.StartsWith("MaxLib.WebServer", StringComparison.Ordinal))
                     name = $"<{type.Name}>";
 
                 writer.WriteLine($"[{started:G}] [{Elapsed:G}] {name} #{id} {Info}");

@@ -42,5 +42,7 @@ namespace MaxLib.WebServer.Builder
                 return new Result<object?>();
             return new Result<object?>(value);
         }
+
+        public override string ToString() => Name != null ? $"Var: {Name}" : "Var";
     }
 }

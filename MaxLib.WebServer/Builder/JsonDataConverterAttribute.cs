@@ -2,6 +2,7 @@ using System;
 using System.IO;
 using System.Text.Json;
 using MaxLib.WebServer.Builder.Converter;
+using Microsoft.Extensions.Logging;
 
 namespace MaxLib.WebServer.Builder
 {
@@ -10,6 +11,8 @@ namespace MaxLib.WebServer.Builder
     /// </summary>
     public partial class JsonDataConverterAttribute : DataConverterAttribute, Tools.IDataConverter
     {
+        static readonly ILogger logger = WebServerLog.LoggerFactory.CreateLogger<JsonDataConverterAttribute>();
+        static readonly EventId JsonConvertEventId = new(0, "JSON Convert");
 
         /// <summary>
         /// The options that should be used for the default JSON conversion. This will
@@ -49,6 +52,9 @@ namespace MaxLib.WebServer.Builder
             CustomConverter = customConverter;
         }
 
+        public override string ToString() =>
+            CustomConverter != null ? $"JsonDataConverter: {CustomConverter.Name}" : "JsonDataConverter";
+
         public Func<object, HttpDataSource?>? GetConverter(Type data)
         {
             Func<Utf8JsonWriter, object, bool>? writer = null;
@@ -59,10 +65,8 @@ namespace MaxLib.WebServer.Builder
                 try { conv = (ICustomJsonDataConverter)Activator.CreateInstance(CustomConverter)!; }
                 catch (Exception e)
                 {
-                    WebServerLog.Add(ServerLogType.Error, GetType(), "JSON Convert", 
-                        $"Error: {e}"
-                    );
-                    return null; 
+                    logger.LogError(JsonConvertEventId, e, "Error creating custom JSON converter instance");
+                    return null;
                 }
                 writer = conv.Convert;
             }
@@ -76,12 +80,15 @@ namespace MaxLib.WebServer.Builder
                 {
                     var constructor = Options.GetConstructor(Type.EmptyTypes);
                     if (constructor != null)
-                        options = ((IJsonSerializerOptions)constructor.Invoke(Array.Empty<object>())).Options;
+                        options = ((IJsonSerializerOptions)constructor.Invoke([])).Options;
                 }
                 writer = (w, value) =>
                 {
                     if (value == null)
+                    {
                         w.WriteNullValue();
+                        return true;
+                    }
                     try { JsonSerializer.Serialize(w, value, options); }
                     catch { return false; }
                     return true;
@@ -99,9 +106,9 @@ namespace MaxLib.WebServer.Builder
             {
                 var constructor = JsonWriterOptions.GetConstructor(Type.EmptyTypes);
                 if (constructor != null)
-                    writerOptions = ((IJsonWriterOptions)constructor.Invoke(Array.Empty<object>())).Options;
+                    writerOptions = ((IJsonWriterOptions)constructor.Invoke([])).Options;
             }
-            
+
             return value =>
             {
                 var m = new MemoryStream();
@@ -115,6 +122,7 @@ namespace MaxLib.WebServer.Builder
                 }
 
                 w.Flush();
+                w.Dispose();
 
                 return new HttpStreamDataSource(m)
                 {

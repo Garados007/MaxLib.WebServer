@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Text;
 using System.Threading.Tasks;
+using Microsoft.Extensions.Logging;
 
 #nullable enable
 
@@ -13,6 +14,10 @@ namespace MaxLib.WebServer.Services
     /// </summary>
     public class LocalIOMapper : WebService
     {
+        static readonly ILogger logger = WebServerLog.LoggerFactory.CreateLogger<LocalIOMapper>();
+        static readonly EventId MapFileEventId = new(0, "map file");
+
+
         /// <summary>
         /// A mapping rule that can produce a document for the requested path
         /// </summary>
@@ -69,6 +74,7 @@ namespace MaxLib.WebServer.Services
 
             public override bool MapRequest(ReadOnlySpan<string> path, WebProgressTask task)
             {
+                ArgumentNullException.ThrowIfNull(task);
                 var loc = task.Request.Location;
                 if (loc.DocumentPath.EndsWith('/') || path.Length < UrlPath.Length)
                     return false;
@@ -83,7 +89,7 @@ namespace MaxLib.WebServer.Services
                 try { fileInfo = new FileInfo(localPath); }
                 catch (Exception e)
                 {
-                    WebServerLog.Add(ServerLogType.Error, GetType(), "map file", $"invalid path: {e}");
+                    logger.LogError(MapFileEventId, e, "Invalid path");
                     return false;
                 }
                 if (!fileInfo.Exists)
@@ -139,7 +145,7 @@ namespace MaxLib.WebServer.Services
 
             public override int Rank => UrlPath.Length;
 
-            private ReadOnlySpan<string> EncodeUrl(ReadOnlySpan<string> value)
+            private static ReadOnlySpan<string> EncodeUrl(ReadOnlySpan<string> value)
             {
                 Span<string> result = new string[value.Length];
                 for (int i = 0; i < value.Length; ++i)
@@ -149,6 +155,7 @@ namespace MaxLib.WebServer.Services
 
             public override bool MapRequest(ReadOnlySpan<string> path, WebProgressTask task)
             {
+                ArgumentNullException.ThrowIfNull(task);
                 var loc = task.Request.Location;
                 if (path.Length < UrlPath.Length)
                     return false;
@@ -165,7 +172,7 @@ namespace MaxLib.WebServer.Services
                 try { directoryInfo = new DirectoryInfo(localPath); }
                 catch (Exception e)
                 {
-                    WebServerLog.Add(ServerLogType.Error, GetType(), "map file", $"invalid path: {e}");
+                    logger.LogError(MapFileEventId, e, "Invalid path");
                     return false;
                 }
                 if (!directoryInfo.Exists)
@@ -228,7 +235,7 @@ namespace MaxLib.WebServer.Services
         /// <summary>
         /// Create a new local IO mapper that can map resources from the local io.
         /// </summary>
-        public LocalIOMapper() 
+        public LocalIOMapper()
             : base(ServerStage.CreateDocument)
         {
         }
@@ -257,7 +264,7 @@ namespace MaxLib.WebServer.Services
         {
             _ = urlPath ?? throw new ArgumentNullException(nameof(urlPath));
             Add(new FileMappingRule(
-                urlPath.Split('/', StringSplitOptions.RemoveEmptyEntries), 
+                urlPath.Split('/', StringSplitOptions.RemoveEmptyEntries),
                 localBasePath
             ));
         }
@@ -286,6 +293,7 @@ namespace MaxLib.WebServer.Services
 
         public override bool CanWorkWith(WebProgressTask task)
         {
+            ArgumentNullException.ThrowIfNull(task);
             var path = ShortenPath(task.Request.Location.DocumentPathTiles);
             if (path == null)
                 return false;
@@ -307,7 +315,11 @@ namespace MaxLib.WebServer.Services
         /// <param name="path">the input path to shorten</param>
         /// <returns>the shortened path or null if invalid input</returns>
         /// <remarks>
-        /// Invalid paths are paths that starts with ".." like "../foo/bar".
+        /// Invalid paths are paths that starts with ".." like "../foo/bar", as well as any
+        /// tile that contains a path separator (<c>/</c> or <c>\</c>) or that is itself rooted
+        /// (e.g. an absolute path or a drive reference smuggled into a single, decoded tile).
+        /// Such tiles could otherwise be used to escape the configured base directory when
+        /// combined with <see cref="Path.Combine(string[])"/>, so they are rejected outright.
         /// </remarks>
         /// <example>
         /// // always true
@@ -330,6 +342,10 @@ namespace MaxLib.WebServer.Services
                     offset--;
                     continue;
                 }
+                if (path[i].Contains('/', StringComparison.Ordinal)
+                    || path[i].Contains('\\', StringComparison.Ordinal)
+                    || Path.IsPathRooted(path[i]))
+                    return null;
                 output.Span[offset] = path[i];
                 offset++;
             }

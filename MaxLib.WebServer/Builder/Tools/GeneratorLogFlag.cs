@@ -68,14 +68,31 @@ namespace MaxLib.WebServer.Builder.Tools
         /// </summary>
         ResultNoConverter = 0x1000,
         /// <summary>
+        /// The type has the <see cref="Builder.IgnoreAttribute" /> set. This is usually
+        /// intentional and therefore not part of <see cref="Default" />.
+        /// </summary>
+        TypeIgnoredByAttribute = 0x2000,
+        /// <summary>
+        /// The method has the <see cref="Builder.IgnoreAttribute" /> set. This is usually
+        /// intentional and therefore not part of <see cref="Default" />.
+        /// </summary>
+        MethodIgnoredByAttribute = 0x4000,
+        /// <summary>
+        /// The constructor of the declaring type threw an exception when the generator tried to
+        /// create an instance to bind the method to. This is always unintentional, so it is part
+        /// of <see cref="Default" />.
+        /// </summary>
+        MethodConstructorThrew = 0x8000,
+        /// <summary>
         /// The default configuration generator logs. This will report anything that is more
         /// difficult to find and has a high probability to be miss configured.
         /// </summary>
         Default = ParamMissingConverterInstance | ParamNoConverterFound | ParamNoCoreConverterFound
-            | ResultInvalidConverterType | ResultCannotCreateConverterInstance | ResultNoConverter,
+            | ResultInvalidConverterType | ResultCannotCreateConverterInstance | ResultNoConverter
+            | MethodConstructorThrew,
         /// <summary>
         /// Reports everything
         /// </summary>
-        All = 0x1fff,
+        All = 0xffff,
     }
 }

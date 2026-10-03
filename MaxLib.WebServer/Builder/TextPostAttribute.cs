@@ -11,17 +11,17 @@ namespace MaxLib.WebServer.Builder
 
         public override Result<object?> GetValue(WebProgressTask task, string field, Dictionary<string, object?> vars)
         {
+            ArgumentNullException.ThrowIfNull(task);
             var post = task.Request.Post.Data;
-            if (!(post is MaxLib.WebServer.Post.UnknownPostData data))
+            if (post is not MaxLib.WebServer.Post.RawPostData data)
                 return new Result<object?>();
-            using var reader = new StreamReader(
-                data.Data,
-                System.Text.Encoding.UTF8,
-                bufferSize: -1,
-                detectEncodingFromByteOrderMarks: false,
-                leaveOpen: true
-            );
-            return new Result<object?>(reader.ReadToEnd());
+            if (data.Entry.Content is ReadOnlyMemory<byte> content)
+                return new Result<object?>(data.Encoding.GetString(content.Span));
+            if (data.Entry.TempFile is FileInfo tempFile)
+                return new Result<object?>(File.ReadAllText(tempFile.FullName, data.Encoding));
+            return new Result<object?>("");
         }
+
+        public override string ToString() => "TextPost";
     }
 }

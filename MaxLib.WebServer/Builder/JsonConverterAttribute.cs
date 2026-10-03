@@ -27,50 +27,44 @@ namespace MaxLib.WebServer.Builder
         /// <summary>
         /// Create a new converter that can convert JSON data into the property value
         /// </summary>
-        public JsonConverterAttribute() 
+        public JsonConverterAttribute()
             : base(typeof(JsonConverterAttribute), false)
         {
             Instance = this;
         }
 
+        public override string ToString() =>
+            CustomConverter != null ? $"JsonConverter: {CustomConverter.Name}" : "JsonConverter";
+
+        // The JsonDocument backing the parsed element, if this method created it (string/Stream input).
+        // A JsonDocument/JsonElement passed in stays owned by the caller and is not disposed here.
+        private static (JsonElement Element, JsonDocument? Owned)? PreParse(object? x, Type source)
+        {
+            if (x is null)
+                return null;
+            if (typeof(string).IsAssignableFrom(source))
+            {
+                var doc = JsonDocument.Parse((string)x);
+                return (doc.RootElement, doc);
+            }
+            if (typeof(Stream).IsAssignableFrom(source))
+            {
+                var doc = JsonDocument.Parse((Stream)x);
+                return (doc.RootElement, doc);
+            }
+            if (typeof(JsonDocument).IsAssignableFrom(source))
+                return (((JsonDocument)x).RootElement, null);
+            if (typeof(JsonElement).IsAssignableFrom(source))
+                return ((JsonElement)x, null);
+            return null;
+        }
+
         public Func<object?, object?>? GetConverter(Type source, Type target)
         {
-            Func<object?, JsonElement?>? preParse = null;
-
-            if (typeof(string).IsAssignableFrom(source))
-                preParse = x =>
-                {
-                    if (x is null)
-                        return null;
-                    try { return JsonDocument.Parse((string)x).RootElement; }
-                    catch { return null; }
-                };
-            if (typeof(Stream).IsAssignableFrom(source))
-                preParse = x =>
-                {
-                    if (x is null)
-                        return null;
-                    try { return JsonDocument.Parse((Stream)x).RootElement; }
-                    catch { return null; }
-                };
-            if (typeof(JsonDocument).IsAssignableFrom(source))
-                preParse = x =>
-                {
-                    if (x is null)
-                        return null;
-                    return ((JsonDocument)x).RootElement;
-                };
-            if (typeof(JsonElement).IsAssignableFrom(source))
-                preParse = x =>
-                {
-                    if (x is null)
-                        return null;
-                    return (JsonElement)x;
-                };
-
-            if (preParse is null)
+            if (!typeof(string).IsAssignableFrom(source) && !typeof(Stream).IsAssignableFrom(source)
+                && !typeof(JsonDocument).IsAssignableFrom(source) && !typeof(JsonElement).IsAssignableFrom(source))
                 return null;
-            
+
             if (CustomConverter != null)
             {
                 ICustomJsonConverter conv;
@@ -79,13 +73,17 @@ namespace MaxLib.WebServer.Builder
 
                 return x =>
                 {
-                    var res = preParse(x);
+                    var res = PreParse(x, source);
                     if (res is null)
                         return null;
-                    else return conv.Convert(res.Value, target);
+                    using var owned = res.Value.Owned;
+                    // Clone the result: a converter may return the JsonElement itself, which becomes invalid
+                    // once `owned` is disposed below.
+                    var element = owned != null ? res.Value.Element.Clone() : res.Value.Element;
+                    return conv.Convert(element, target);
                 };
             }
-            else 
+            else
             {
                 var options = new JsonSerializerOptions
                 {
@@ -95,9 +93,16 @@ namespace MaxLib.WebServer.Builder
                 {
                     var constructor = Options.GetConstructor(Type.EmptyTypes);
                     if (constructor != null)
-                        options = ((IJsonSerializerOptions)constructor.Invoke(Array.Empty<object>())).Options;
+                        options = ((IJsonSerializerOptions)constructor.Invoke([])).Options;
                 }
-                return x => preParse(x)?.Deserialize(target, options);
+                return x =>
+                {
+                    var res = PreParse(x, source);
+                    if (res is null)
+                        return null;
+                    using var owned = res.Value.Owned;
+                    return res.Value.Element.Deserialize(target, options);
+                };
             }
         }
     }

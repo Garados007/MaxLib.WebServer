@@ -23,6 +23,7 @@ namespace MaxLib.WebServer.Builder.Runtime
         )
             : base(ServerStage.CreateDocument)
         {
+            ArgumentNullException.ThrowIfNull(method);
             Rules = rules;
             Parameters = parameters;
             Method = method;
@@ -33,10 +34,15 @@ namespace MaxLib.WebServer.Builder.Runtime
 
         public override Task ProgressTask(WebProgressTask task, object?[]? data)
         {
+            ArgumentNullException.ThrowIfNull(task);
             if (data is null)
                 return Task.CompletedTask;
             using var watch = task.Monitor.Watch(MethodClass, $"Execute {Method.Name}()");
-            var result = Method.Invoke(MethodClass, data);
+            // BindingFlags.DoNotWrapExceptions makes a synchronous handler's thrown exception
+            // (e.g. HttpException, the documented way to cancel a request with a specific
+            // status code) surface here as-is, instead of wrapped in a TargetInvocationException
+            // that WebServiceGroup.Execute's `catch (HttpException e)` would never match.
+            var result = Method.Invoke(MethodClass, BindingFlags.DoNotWrapExceptions, null, data, null);
             GC.KeepAlive(watch);
             return Result(task, result);
         }
@@ -45,6 +51,7 @@ namespace MaxLib.WebServer.Builder.Runtime
 
         public override bool CanWorkWith(WebProgressTask task, out object?[]? data)
         {
+            ArgumentNullException.ThrowIfNull(task);
             using var watch = task.Monitor.Watch(MethodClass, $"Check {Method.Name}()");
             data = new object[Parameters.Count];
             Dictionary<string, object?> vars;
@@ -77,6 +84,7 @@ namespace MaxLib.WebServer.Builder.Runtime
         public override void Dispose()
         {
             base.Dispose();
+            GC.SuppressFinalize(this);
             if (MethodClass is IDisposable disposable)
                 disposable.Dispose();
         }

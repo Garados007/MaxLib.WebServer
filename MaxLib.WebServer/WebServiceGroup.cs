@@ -40,6 +40,12 @@ namespace MaxLib.WebServer
 
         protected PriorityList<WebServicePriority, WebService> Services { get; private set; }
 
+        /// <remarks>
+        /// The service runs in this group's stage whatever its own <c>Stage</c> says; use
+        /// <c>Server.AddWebService</c> to register it in the stage it declares.
+        /// Adding the same service instance more than once registers it once per call, so it runs
+        /// once per registration, and each <see cref="Remove" /> call removes only one registration.
+        /// </remarks>
         public void Add(WebService service)
         {
             _ = service ?? throw new ArgumentNullException(nameof(service));
@@ -55,6 +61,7 @@ namespace MaxLib.WebServer
 
         public bool Remove(WebService service)
         {
+            ArgumentNullException.ThrowIfNull(service);
             if (Services.Remove(service))
             {
                 service.PriorityChanged -= Service_PriorityChanged;
@@ -83,8 +90,20 @@ namespace MaxLib.WebServer
             return Services.Where(x => x is T).Cast<T>();
         }
 
+        /// <summary>
+        /// Applies an <see cref="HttpException" /> caught from a service (either from its
+        /// <c>CanWorkWith</c> or its <c>ProgressTask</c>) to <paramref name="task" />'s response.
+        /// </summary>
+        private static void ApplyHttpException(WebProgressTask task, HttpException e)
+        {
+            task.Response.StatusCode = e.StateCode;
+            if (e.DataSource != null)
+                task.Document.DataSources.Add(e.DataSource);
+        }
+
         public virtual async Task Execute(WebProgressTask task)
         {
+            ArgumentNullException.ThrowIfNull(task);
             var se = SingleExecution;
             var set = false;
             var services = Services.ToArray();
@@ -94,63 +113,96 @@ namespace MaxLib.WebServer
                 if (service is WebService2 service2)
                 {
                     var watch = task.Monitor.Watch(service, "CanWorkWith()");
-                    if (service2.CanWorkWith(task, out object? data))
+                    bool matched;
+                    object? data = null;
+                    HttpException? bindingFailure = null;
+                    try
+                    {
+                        matched = service2.CanWorkWith(task, out data);
+                    }
+                    catch (HttpException e)
+                    {
+                        matched = true;
+                        bindingFailure = e;
+                    }
+                    finally
                     {
                         watch.Dispose();
+                    }
+                    if (matched)
+                    {
                         if (task.Connection?.NetworkClient != null && !task.Connection.NetworkClient.Connected) return;
-                        try
+                        if (bindingFailure == null)
                         {
-                            watch = task.Monitor.Watch(service, "ProgressTask()");
-                            await service2.ProgressTask(task, data).ConfigureAwait(false);
+                            try
+                            {
+                                watch = task.Monitor.Watch(service, "ProgressTask()");
+                                await service2.ProgressTask(task, data).ConfigureAwait(false);
+                            }
+                            catch (HttpException e)
+                            {
+                                bindingFailure = e;
+                            }
+                            finally
+                            {
+                                watch.Dispose();
+                            }
                         }
-                        catch (HttpException e)
-                        {
-                            task.Response.StatusCode = e.StateCode;
-                            if (e.DataSource != null)
-                                task.Document.DataSources.Add(e.DataSource);
-                        }
-                        finally
-                        {
-                            watch.Dispose();
-                        }
+                        if (bindingFailure != null)
+                            ApplyHttpException(task, bindingFailure);
                         task.Document[Stage] = true;
-                        if (se) 
+                        if (se)
                             return;
                         set = true;
                     }
-                    else watch.Dispose();
                 }
-                else 
+                else
                 {
                     var watch = task.Monitor.Watch(service, "CanWorkWith()");
-                    if (service.CanWorkWith(task))
+                    bool matched;
+                    HttpException? bindingFailure = null;
+                    try
+                    {
+                        matched = service.CanWorkWith(task);
+                    }
+                    catch (HttpException e)
+                    {
+                        matched = true;
+                        bindingFailure = e;
+                    }
+                    finally
                     {
                         watch.Dispose();
+                    }
+                    if (matched)
+                    {
                         if (task.Connection?.NetworkClient != null && !task.Connection.NetworkClient.Connected) return;
-                        try
+                        if (bindingFailure == null)
                         {
-                            watch = task.Monitor.Watch(service, "ProgressTask()");
-                            await service.ProgressTask(task).ConfigureAwait(false);
+                            try
+                            {
+                                watch = task.Monitor.Watch(service, "ProgressTask()");
+                                await service.ProgressTask(task).ConfigureAwait(false);
+                            }
+                            catch (HttpException e)
+                            {
+                                bindingFailure = e;
+                            }
+                            finally
+                            {
+                                watch.Dispose();
+                            }
                         }
-                        catch (HttpException e)
-                        {
-                            task.Response.StatusCode = e.StateCode;
-                            if (e.DataSource != null)
-                                task.Document.DataSources.Add(e.DataSource);
-                        }
-                        finally
-                        {
-                            watch.Dispose();
-                        }
+                        if (bindingFailure != null)
+                            ApplyHttpException(task, bindingFailure);
                         task.Document[Stage] = true;
-                        if (se) 
+                        if (se)
                             return;
                         set = true;
                     }
-                    else watch.Dispose();
                 }
             }
-            if (!set) 
+            if (!set)
                 task.Document[Stage] = false;
         }
 
@@ -158,6 +210,7 @@ namespace MaxLib.WebServer
         {
             foreach (var service in Services)
                 service.Dispose();
+            GC.SuppressFinalize(this);
         }
     }
 }

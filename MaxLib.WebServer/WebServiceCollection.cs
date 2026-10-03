@@ -12,6 +12,11 @@ namespace MaxLib.WebServer
     /// them. Therefore this service collection is not suitable if you want to use multiple services
     /// in the same stage.
     /// </summary>
+    /// <remarks>
+    /// Do not add or remove services while the collection is dispatching a request, including from
+    /// a contained service's <c>CanWorkWith</c>; the collection is not safe for concurrent
+    /// modification.
+    /// </remarks>
     public class WebServiceCollection : WebService2<WebServiceCollection.CallInfo>,
         ICollection<WebService>
     {
@@ -71,6 +76,7 @@ namespace MaxLib.WebServer
         public override void Dispose()
         {
             base.Dispose();
+            GC.SuppressFinalize(this);
             foreach (var service in Services)
                 service.Dispose();
         }
@@ -81,6 +87,7 @@ namespace MaxLib.WebServer
 
         public override Task ProgressTask(WebProgressTask task, CallInfo? data)
         {
+            ArgumentNullException.ThrowIfNull(task);
             if (data is null)
                 return Task.CompletedTask;
             using (task.Monitor.Watch(data.Service, "ProgressTask()"))
@@ -100,6 +107,7 @@ namespace MaxLib.WebServer
 
         public override bool CanWorkWith(WebProgressTask task, out CallInfo? data)
         {
+            ArgumentNullException.ThrowIfNull(task);
             if (!CheckPrecondition(task))
             {
                 data = null;
@@ -130,8 +138,15 @@ namespace MaxLib.WebServer
             return false;
         }
 
+        /// <remarks>
+        /// Do not add a collection to itself or to one of its descendants; the resulting cycle recurses
+        /// without bound on dispatch.
+        /// Adding the same service instance more than once registers it once per call, so it runs
+        /// once per registration, and each <see cref="Remove" /> call removes only one registration.
+        /// </remarks>
         public void Add(WebService item)
         {
+            ArgumentNullException.ThrowIfNull(item);
             if (item.Stage != Stage)
                 throw new ArgumentException("invalid stage", nameof(item));
             item.PriorityChanged += Service_PriorityChanged;
@@ -163,6 +178,7 @@ namespace MaxLib.WebServer
 
         public bool Remove(WebService item)
         {
+            ArgumentNullException.ThrowIfNull(item);
             if (Services.Remove(item))
             {
                 item.PriorityChanged -= Service_PriorityChanged;

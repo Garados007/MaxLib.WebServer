@@ -8,7 +8,7 @@ using MaxLib.WebServer.Post;
 namespace MaxLib.WebServer
 {
     [Serializable]
-    public class HttpPost : IDisposable
+    public class HttpPost : IDisposable, IAsyncDisposable
     {
         public string? MimeType { get; private set; }
 
@@ -18,8 +18,9 @@ namespace MaxLib.WebServer
         public Task<IPostData>? DataAsync => LazyData?.Value;
         public IPostData? Data => DataAsync?.Result;
 
+        // RFC 9110 §8.3.1: the media-type token is case-insensitive, so this lookup must be too
         public static Dictionary<string, Func<IPostData>> DataHandler { get; }
-            = new Dictionary<string, Func<IPostData>>();
+            = new Dictionary<string, Func<IPostData>>(StringComparer.OrdinalIgnoreCase);
 
         static HttpPost()
         {
@@ -27,55 +28,76 @@ namespace MaxLib.WebServer
                 () => new UrlEncodedData();
             DataHandler[WebServer.MimeType.MultipartFormData] =
                 () => new MultipartFormData();
+            DataHandler[WebServer.MimeType.ApplicationJson] =
+                () => new RawPostData(WebServer.MimeType.ApplicationJson);
+            DataHandler[WebServer.MimeType.ApplicationOctetStream] =
+                () => new RawPostData(WebServer.MimeType.ApplicationOctetStream);
         }
 
+        /// <remarks>
+        /// SetPost must be called at most once per instance; a second call does not dispose the
+        /// previously set content or parsed data.
+        /// </remarks>
         public virtual void SetPost(WebProgressTask task, IO.ContentStream content, string? mime)
         {
             Content = content;
             string args = "";
             if (mime != null)
             {
-                var ind = mime.IndexOf(';');
+                var ind = mime.IndexOf(';', StringComparison.Ordinal);
                 if (ind >= 0)
                 {
-                    args = mime.Substring(ind + 1);
-                    mime = mime.Remove(ind);
+                    args = mime[(ind + 1)..];
+                    mime = mime[..ind];
                 }
             }
+            MimeType = mime;
 
-            if ((MimeType = mime) != null &&
-                DataHandler.TryGetValue(mime!, out Func<IPostData>? constructor)
-            )
-                LazyData = new Lazy<Task<IPostData>>(() =>
+            // an unrecognized (or missing) Content-Type still gets its body read and stored via
+            // RawPostData, exactly like a registered mime type would - it is never left as an
+            // unread reference to the live connection stream
+            var constructor = mime != null && DataHandler.TryGetValue(mime, out Func<IPostData>? found)
+                ? found
+                : () => new RawPostData(mime);
+            LazyData = new Lazy<Task<IPostData>>(() =>
+            {
+                return Task.Run(async () =>
                 {
-                    return Task.Run(async () =>
+                    var data = constructor();
+                    try
                     {
-                        var data = constructor();
                         await data.SetAsync(task, content, args).ConfigureAwait(false);
-                        return data;
-                    });
-                }, System.Threading.LazyThreadSafetyMode.ExecutionAndPublication);
-            else LazyData = new Lazy<Task<IPostData>>(
-                Task.FromResult<IPostData>(new UnknownPostData(content, mime))
-            );
+                    }
+                    catch
+                    {
+                        // SetAsync may already have written entries/temp files; `data` is unreachable once this task
+                        // faults, so it must be disposed here
+                        data.Dispose();
+                        throw;
+                    }
+                    return data;
+                });
+            }, System.Threading.LazyThreadSafetyMode.ExecutionAndPublication);
         }
 
         public HttpPost()
         {
         }
 
+#pragma warning disable CA2000 // ownership transfers through the chained ctor into Content, disposed by HttpPost.Dispose()
         public HttpPost(WebProgressTask task, ReadOnlyMemory<byte> content, string? mime)
             : this(
                 task,
                 new IO.ContentStream(
                     new IO.NetworkReader(new IO.SpanStream(content)),
                     content.Length
-                ), 
+                ),
                 mime
             )
         {
 
         }
+#pragma warning restore CA2000
 
         public HttpPost(WebProgressTask task, IO.ContentStream content, string? mime)
             : this()
@@ -87,8 +109,13 @@ namespace MaxLib.WebServer
             return $"{MimeType}: {Data}";
         }
 
+        /// <remarks>
+        /// Do not call Dispose while a DataAsync parse may still be running; use DisposeAsync, which
+        /// waits for it.
+        /// </remarks>
         public void Dispose()
         {
+            GC.SuppressFinalize(this);
             if (LazyData != null && LazyData.IsValueCreated)
             {
                 Task.Run(async () =>
@@ -98,6 +125,36 @@ namespace MaxLib.WebServer
                 });
             }
             Content?.Dispose();
+        }
+
+        /// <summary>
+        /// Disposes the resolved <see cref="IPostData" /> (if one was ever requested via <see
+        /// cref="Data" />/<see cref="DataAsync" />) and the underlying request content, without
+        /// blocking a thread on a synchronous socket read while doing so. Prefer this over <see
+        /// cref="Dispose" />, which cannot wait for the (possibly still in-flight) <see
+        /// cref="IPostData" /> to finish parsing before disposing it.
+        /// </summary>
+        /// <remarks>
+        /// Only call this once nothing further needs the request's connection — in
+        /// particular, only after any response on it has already been sent (see <see
+        /// cref="Services.HttpSender" />, which does exactly this). If the underlying drain
+        /// is cancelled (e.g. a read timeout), <see cref="IO.ContentStream.DisposeAsync" />
+        /// closes that connection; doing so any earlier could prevent a response from ever
+        /// reaching the client.
+        /// </remarks>
+        public async ValueTask DisposeAsync()
+        {
+            GC.SuppressFinalize(this);
+            if (LazyData != null && LazyData.IsValueCreated)
+            {
+                var data = await LazyData.Value.ConfigureAwait(false);
+                if (data is IAsyncDisposable asyncDisposable)
+                    await asyncDisposable.DisposeAsync().ConfigureAwait(false);
+                else
+                    data.Dispose();
+            }
+            if (Content != null)
+                await Content.DisposeAsync().ConfigureAwait(false);
         }
     }
 }

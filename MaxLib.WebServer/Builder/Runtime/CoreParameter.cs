@@ -20,7 +20,7 @@ namespace MaxLib.WebServer.Builder.Runtime
         }
 
         private static readonly (Type type, Func<WebProgressTask, Tools.Result<object?>> getter)[] coreTypes =
-        {
+        [
             (typeof(WebProgressTask), x => new Result<object?>(x)),
             (typeof(HttpDocument), x => new Result<object?>(x.Document)),
             (typeof(Server), x => new Result<object?>(x.Server)),
@@ -36,15 +36,17 @@ namespace MaxLib.WebServer.Builder.Runtime
             (typeof(Task<Post.IPostData>), x => x.Request.Post.DataAsync == null ? new Result<object?>() : new Result<object?>(x.Request.Post.DataAsync)),
             (typeof(Post.MultipartFormData), x => x.Request.Post.Data is Post.MultipartFormData data ? new Result<object?>(data) : new Result<object?>()),
             (typeof(Post.UnknownPostData), x => x.Request.Post.Data is Post.UnknownPostData data ? new Result<object?>(data) : new Result<object?>()),
+            (typeof(Post.RawPostData), x => x.Request.Post.Data is Post.RawPostData data ? new Result<object?>(data) : new Result<object?>()),
             (typeof(Post.UrlEncodedData), x => x.Request.Post.Data is Post.UrlEncodedData data ? new Result<object?>(data) : new Result<object?>()),
             (typeof(Monitoring.Monitor), x => new Result<object?>(x.Monitor)),
             (typeof(Monitoring.IWatch), x => new Result<object?>(x.Monitor.Current)),
             (typeof(System.Net.IPEndPoint), x => x.Connection?.NetworkClient?.Client.RemoteEndPoint is System.Net.IPEndPoint data ? new Result<object?>(data) : new Result<object?>()),
             (typeof(System.Net.IPAddress), x => x.Connection?.NetworkClient?.Client.RemoteEndPoint is System.Net.IPEndPoint data ? new Result<object?>(data.Address) : new Result<object?>()),
-        };
+        ];
 
         public static CoreParameter? GetCoreParameter(Type target)
         {
+            ArgumentNullException.ThrowIfNull(target);
             foreach (var (type, getter) in coreTypes)
                 if (target.IsAssignableFrom(type))
                     return new CoreParameter(getter);

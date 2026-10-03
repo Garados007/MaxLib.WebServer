@@ -13,6 +13,7 @@ namespace MaxLib.WebServer.Builder
 
         public override Result<object?> GetValue(WebProgressTask task, string field, Dictionary<string, object?> vars)
         {
+            ArgumentNullException.ThrowIfNull(task);
             return new Result<object?>(task.Request.Host);
         }
     }

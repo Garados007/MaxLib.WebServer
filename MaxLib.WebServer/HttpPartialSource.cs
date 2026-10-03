@@ -32,8 +32,7 @@ namespace MaxLib.WebServer
 
         public HttpPartialSource(HttpDataSource dataSource, long start, long? count)
         {
-            if (start < 0)
-                throw new ArgumentOutOfRangeException(nameof(start));
+            ArgumentOutOfRangeException.ThrowIfNegative(start);
             if (count != null && count < 0)
                 throw new ArgumentOutOfRangeException(nameof(count));
             BaseSource = dataSource ?? throw new ArgumentNullException(nameof(dataSource));
@@ -44,19 +43,20 @@ namespace MaxLib.WebServer
             if (dataSource is HttpPartialSource partial)
             {
                 BaseSource = partial.BaseSource;
-                Start += partial.Start;
                 if (Count != null && partial.Count != null)
-                    Count = Math.Min(Count.Value, partial.Count.Value - Start);
+                    Count = Math.Min(Count.Value, partial.Count.Value - start);
                 else
                 {
-                    Count ??= partial.Count - Start;
+                    Count ??= partial.Count - start;
                 }
+                Start += partial.Start;
             }
         }
 
         public override void Dispose()
         {
             BaseSource.Dispose();
+            GC.SuppressFinalize(this);
         }
 
         public override long? Length()
@@ -72,13 +72,13 @@ namespace MaxLib.WebServer
             // optimize if stream based
             if (BaseSource is HttpStreamDataSource streamDataSource)
             {
-                var window = new StreamWindow(stream, 0, Count);
-                return await streamDataSource.WriteStream(window, Start, Count);
+                using var window = new StreamWindow(stream, 0, Count);
+                return await streamDataSource.WriteStream(window, Start, Count).ConfigureAwait(false);
             }
             else
             {
-                var window = new StreamWindow(stream, Start, Count);
-                return await BaseSource.WriteStream(window);
+                using var window = new StreamWindow(stream, Start, Count);
+                return await BaseSource.WriteStream(window).ConfigureAwait(false);
             }
         }
 

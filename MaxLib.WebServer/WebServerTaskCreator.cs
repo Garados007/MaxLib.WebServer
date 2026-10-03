@@ -29,6 +29,7 @@ namespace MaxLib.WebServer
 
         public async Task Start(Server server)
         {
+            ArgumentNullException.ThrowIfNull(server);
             Task.Server = server;
             await server.ExecuteTaskChain(Task, TerminationStage).ConfigureAwait(false);
             Task.Server = null;
@@ -48,14 +49,16 @@ namespace MaxLib.WebServer
             else Task.Request.HeaderParameter.Add(key, value);
         }
 
+#pragma warning disable CA2000 // ownership transfers via SetPost into HttpPost.Content, disposed by HttpPost.Dispose()
         public void SetPost(WebProgressTask task, ReadOnlyMemory<byte> post, string mime)
         {
             Task.Request.Post.SetPost(
                 task,
-                new IO.ContentStream(new IO.NetworkReader(new IO.SpanStream(post)), post.Length), 
+                new IO.ContentStream(new IO.NetworkReader(new IO.SpanStream(post)), post.Length),
                 mime
             );
         }
+#pragma warning restore CA2000
 
         public void SetAccept(string[]? acceptTypes = null, string[]? encoding = null)
         {
@@ -93,6 +96,8 @@ namespace MaxLib.WebServer
 
             public BidirectionalStream(Stream input, Stream output)
             {
+                ArgumentNullException.ThrowIfNull(input);
+                ArgumentNullException.ThrowIfNull(output);
                 if (!input.CanRead) throw new ArgumentException("input is not readable");
                 if (!output.CanWrite) throw new ArgumentException("output is not writeable");
                 Input = input;

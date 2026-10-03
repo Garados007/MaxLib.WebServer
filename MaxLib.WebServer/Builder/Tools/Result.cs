@@ -28,6 +28,7 @@ namespace MaxLib.WebServer.Builder.Tools
 
         public Result<U> Map<U>(Func<T, U> mapper)
         {
+            ArgumentNullException.ThrowIfNull(mapper);
             if (hasValue)
                 return new Result<U>(mapper(value));
             else return new Result<U>();
@@ -35,6 +36,7 @@ namespace MaxLib.WebServer.Builder.Tools
 
         public Result<U> AndThen<U>(Func<T, Result<U>> func)
         {
+            ArgumentNullException.ThrowIfNull(func);
             if (hasValue)
                 return func(value);
             else return new Result<U>();

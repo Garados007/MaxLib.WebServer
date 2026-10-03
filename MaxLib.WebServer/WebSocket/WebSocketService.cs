@@ -1,4 +1,5 @@
 ﻿using System;
+using Microsoft.Extensions.Logging;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -10,12 +11,17 @@ namespace MaxLib.WebServer.WebSocket
 {
     public class WebSocketService : WebService, IDisposable, IAsyncDisposable
     {
-        public WebSocketService() 
+        static readonly ILogger logger = WebServerLog.LoggerFactory.CreateLogger<WebSocketService>();
+        static readonly EventId HandshakeEventId = new(0, "handshake");
+
+        private static readonly char[] ProtocolSeparators = [' ', ','];
+
+        public WebSocketService()
             : base(ServerStage.ParseRequest)
         {
         }
 
-        public ICollection<IWebSocketEndpoint> Endpoints { get; } 
+        public ICollection<IWebSocketEndpoint> Endpoints { get; }
             = new List<IWebSocketEndpoint>();
 
         public WebSocketCloserEndpoint? CloseEndpoint { get; set; }
@@ -28,19 +34,22 @@ namespace MaxLib.WebServer.WebSocket
 
         public override bool CanWorkWith(WebProgressTask task)
         {
-            return task.Request.GetHeader("Upgrade") == "websocket" && 
-                (task.Request.GetHeader("Connection")?.ToLower().Contains("upgrade") ?? false);
+            ArgumentNullException.ThrowIfNull(task);
+            return task.Request.GetHeader("Upgrade") == "websocket" &&
+                (task.Request.GetHeader("Connection")?.Contains("upgrade", StringComparison.OrdinalIgnoreCase) ?? false);
         }
 
         public override void Dispose()
         {
             base.Dispose();
+            GC.SuppressFinalize(this);
             foreach (var endpoint in Endpoints)
                 endpoint.Dispose();
         }
 
         public async ValueTask DisposeAsync()
         {
+            GC.SuppressFinalize(this);
             await Task.WhenAll(
                 Endpoints.Select(async x => await x.DisposeAsync().ConfigureAwait(false))
             ).ConfigureAwait(false);
@@ -48,11 +57,13 @@ namespace MaxLib.WebServer.WebSocket
 
         public override async Task ProgressTask(WebProgressTask task)
         {
+            ArgumentNullException.ThrowIfNull(task);
             if (task.NetworkStream == null)
                 return;
 
-            var protocols = (task.Request.GetHeader("Sec-WebSocket-Protocol")?.ToLower() ?? "")
-                .Split(new char[] { ' ', ',' }, StringSplitOptions.RemoveEmptyEntries);
+            var rawProtocols = (task.Request.GetHeader("Sec-WebSocket-Protocol") ?? "")
+                .Split(ProtocolSeparators, StringSplitOptions.RemoveEmptyEntries);
+            var protocols = Array.ConvertAll(rawProtocols, p => p.ToLowerInvariant());
 
             var key = task.Request.GetHeader("Sec-WebSocket-Key");
             var version = task.Request.GetHeader("Sec-WebSocket-Version"); // MUST be 13 according RFC 6455
@@ -66,7 +77,7 @@ namespace MaxLib.WebServer.WebSocket
             }
 
             var responseKey = Convert.ToBase64String(
-                System.Security.Cryptography.SHA1.Create().ComputeHash(
+                System.Security.Cryptography.SHA1.HashData(
                     Encoding.UTF8.GetBytes(
                         $"{key.Trim()}258EAFA5-E914-47DA-95CA-C5AB0DC85B11"
                     )
@@ -76,16 +87,30 @@ namespace MaxLib.WebServer.WebSocket
 
             foreach (var endpoint in Endpoints)
             {
-                if (protocols.Length > 0 && (endpoint.Protocol == null || !protocols.Contains(endpoint.Protocol)))
+                // symmetric with IWebSocketEndpoint.Protocol: a non-null Protocol requires the client to ask for it,
+                // a null Protocol requires the client to ask for none
+                string? matchedProtocol;
+                if (endpoint.Protocol == null)
                 {
-                    continue;
+                    if (protocols.Length > 0)
+                        continue;
+                    matchedProtocol = null;
+                }
+                else
+                {
+                    var idx = Array.IndexOf(protocols, endpoint.Protocol.ToLowerInvariant());
+                    if (idx < 0)
+                        continue;
+                    // RFC 6455 §4.2.2: the response must be one of the client's offered tokens verbatim,
+                    // not the endpoint's casing
+                    matchedProtocol = rawProtocols[idx];
                 }
 
                 var connection = await endpoint.Create(task.NetworkStream, task.Request).ConfigureAwait(false);
                 if (connection == null)
                     continue;
 
-                HandleCreateConnection(task, responseKey, endpoint, connection);
+                HandleCreateConnection(task, responseKey, matchedProtocol, connection);
                 return;
             }
 
@@ -94,12 +119,12 @@ namespace MaxLib.WebServer.WebSocket
                 var connection = await ep.Create(task.NetworkStream, task.Request).ConfigureAwait(false);
                 if (connection == null)
                     return;
-                HandleCreateConnection(task, responseKey, ep, connection);
+                HandleCreateConnection(task, responseKey, ep.Protocol, connection);
             }
         }
 
-        private void HandleCreateConnection(WebProgressTask task, string responseKey, 
-            IWebSocketEndpoint endpoint, WebSocketConnection connection)
+        private static void HandleCreateConnection(WebProgressTask task, string responseKey,
+            string? protocol, WebSocketConnection connection)
         {
             task.Response.StatusCode = HttpStateCode.SwitchingProtocols;
             task.Response.SetHeader(
@@ -107,7 +132,7 @@ namespace MaxLib.WebServer.WebSocket
                 ("Upgrade", "websocket"),
                 ("Connection", "Upgrade"),
                 ("Sec-WebSocket-Accept", responseKey),
-                ("Sec-WebSocket-Protocol", endpoint.Protocol)
+                ("Sec-WebSocket-Protocol", protocol)
             );
 
             task.SwitchProtocols(async () =>
@@ -121,7 +146,7 @@ namespace MaxLib.WebServer.WebSocket
                     }
                     catch (Exception e)
                     {
-                        WebServerLog.Add(ServerLogType.Error, GetType(), "handshake", $"handshake error: {e}");
+                        logger.LogError(HandshakeEventId, e, "Handshake error");
                     }
             });
             task.NextStage = ServerStage.SendResponse;

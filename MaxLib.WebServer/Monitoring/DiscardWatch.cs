@@ -15,6 +15,7 @@ namespace MaxLib.WebServer.Monitoring
 
         public void Dispose()
         {
+            GC.SuppressFinalize(this);
         }
 
         public void Log(string format, params object[] args)

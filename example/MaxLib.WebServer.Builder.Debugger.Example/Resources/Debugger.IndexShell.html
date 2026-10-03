@@ -1,0 +1,70 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>MaxLib.WebServer.Builder.Debugger Example</title>
+<style>
+  body { font-family: system-ui, sans-serif; max-width: 50rem; margin: 2rem auto; padding: 0 1rem; }
+  h1 { margin-bottom: 0.25rem; }
+  p.sub { color: #666; }
+  h2 { margin-top: 2rem; border-bottom: 1px solid #ddd; padding-bottom: 0.25rem; }
+  ul { padding-left: 1.2rem; }
+  li { margin: 0.6rem 0; }
+  code { background: #f0f0f0; padding: 0.1rem 0.3rem; border-radius: 3px; }
+  .explain { font-size: 0.85rem; }
+  .debugger-link { display: inline-block; margin-top: 1rem; padding: 0.6rem 1rem; background: #1a7f37; color: white;
+    text-decoration: none; border-radius: 6px; font-weight: 600; }
+  form.inline { display: inline-flex; gap: 0.4rem; align-items: center; }
+  form.inline input { padding: 0.2rem 0.4rem; }
+</style>
+</head>
+<body>
+  <h1>MaxLib.WebServer &mdash; Builder Debugger example</h1>
+  <p class="sub">
+    This example registers a mix of working and deliberately misconfigured
+    <code>MaxLib.WebServer.Builder.Service</code> types. Click around, then open the debugger to
+    see why each one behaves the way it does.
+  </p>
+
+  <a class="debugger-link" href="/_debugger/">Open the Builder Debugger &rarr;</a>
+
+  <h2>Working endpoints</h2>
+  <ul>
+    <li><a href="/greet/world">/greet/world</a> &mdash; path variable ([Var]) <a class="explain" href="/_debugger/?path=/greet/world&amp;method=GET">explain in debugger</a></li>
+    <li><a href="/math/add?a=2&amp;b=3">/math/add?a=2&amp;b=3</a> &mdash; GET query parameters ([Get]) with automatic string-to-int conversion <a class="explain" href="/_debugger/?path=/math/add&amp;method=GET">explain in debugger</a></li>
+    <li><a href="/math/add-json?a=2&amp;b=3">/math/add-json?a=2&amp;b=3</a> &mdash; same, but returned as JSON ([return: JsonDataConverter]) <a class="explain" href="/_debugger/?path=/math/add-json&amp;method=GET">explain in debugger</a></li>
+    <li><a href="/request-info">/request-info</a> &mdash; a framework type (HttpRequestHeader) injected as a parameter with no attribute at all <a class="explain" href="/_debugger/?path=/request-info&amp;method=GET">explain in debugger</a></li>
+    <li>
+      <form class="inline" method="post" action="/echo-post">
+        <label>POST /echo-post ([UrlEncodedPost]): <input type="text" name="message" value="hello from the form" size="30"></label>
+        <button type="submit">Send</button>
+      </form>
+      <a class="explain" href="/_debugger/?path=/echo-post&amp;method=POST">explain in debugger</a>
+    </li>
+    <li>
+      <a href="/priority-demo">/priority-demo</a> &mdash; two unrelated services register the exact
+      same path at different priorities; only the higher-priority one ever runs.
+      <a class="explain" href="/_debugger/?path=/priority-demo&amp;method=GET">explain in debugger</a>
+    </li>
+  </ul>
+
+  <h2>Intentionally broken endpoints</h2>
+  <p class="sub">These 404 (or were never even built) on purpose - use the debugger to find out why.</p>
+  <ul>
+    <li><code>/broken/ignored</code> &mdash; type has <code>[Ignore]</code>, never built at all <a class="explain" href="/_debugger/?path=/broken/ignored&amp;method=GET">explain in debugger</a></li>
+    <li><code>/broken/abstract</code> &mdash; abstract type, never built <a class="explain" href="/_debugger/?path=/broken/abstract&amp;method=GET">explain in debugger</a></li>
+    <li><code>/broken/no-constructor</code> &mdash; no parameterless constructor, never built <a class="explain" href="/_debugger/?path=/broken/no-constructor&amp;method=GET">explain in debugger</a></li>
+    <li><code>/broken/throwing-constructor</code> &mdash; constructor throws when the generator tries to instantiate it <a class="explain" href="/_debugger/?path=/broken/throwing-constructor&amp;method=GET">explain in debugger</a></li>
+    <li>
+      <a href="/broken/forgot-prefix/detail">/broken/forgot-prefix/detail</a> &mdash; real 404: the
+      class-level <code>[Path]</code> is missing <code>Prefix = true</code>
+      <a class="explain" href="/_debugger/?path=/broken/forgot-prefix/detail&amp;method=GET">explain in debugger</a>
+    </li>
+    <li><code>/broken/mixed/ignored-method</code> &mdash; method has <code>[Ignore]</code> <a class="explain" href="/_debugger/?path=/broken/mixed/ignored-method&amp;method=GET">explain in debugger</a></li>
+    <li><code>/broken/mixed/not-public</code> &mdash; method isn't public <a class="explain" href="/_debugger/?path=/broken/mixed/not-public&amp;method=GET">explain in debugger</a></li>
+    <li><a href="/broken/mixed/bad-param-converter">/broken/mixed/bad-param-converter</a> &mdash; <code>[Var] StringBuilder</code> has no matching converter <a class="explain" href="/_debugger/?path=/broken/mixed/bad-param-converter&amp;method=GET">explain in debugger</a></li>
+    <li><a href="/broken/mixed/unsupported-param-type">/broken/mixed/unsupported-param-type</a> &mdash; unattributed <code>StringBuilder</code> parameter isn't a core type <a class="explain" href="/_debugger/?path=/broken/mixed/unsupported-param-type&amp;method=GET">explain in debugger</a></li>
+    <li><a href="/broken/mixed/unsupported-return-type">/broken/mixed/unsupported-return-type</a> &mdash; plain <code>int</code> return type has no converter <a class="explain" href="/_debugger/?path=/broken/mixed/unsupported-return-type&amp;method=GET">explain in debugger</a></li>
+  </ul>
+</body>
+</html>

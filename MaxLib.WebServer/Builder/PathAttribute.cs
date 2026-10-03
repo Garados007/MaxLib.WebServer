@@ -1,13 +1,24 @@
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Text;
 
 namespace MaxLib.WebServer.Builder
 {
     /// <summary>
-    /// Limits the call to a specific URL path. You can also assign variables here.
+    /// Limits the call to a specific URL path. You can also assign variables here.<br/>
+    /// When two methods on the same type have overlapping paths, <see cref="Tools.Generator"
+    /// /> orders them by specificity before falling back to <see cref="PriorityAttribute" />:
+    /// an exact match outranks a <see cref="Prefix" /> match, and among two exact (or two
+    /// prefix) matches, more literal segments and fewer <c>{var}</c> segments outrank fewer
+    /// literal segments/more variables. If two overlapping routes tie on both specificity and
+    /// priority, which one wins is not guaranteed - add an explicit
+    /// <see cref="PriorityAttribute" /> to make the outcome deterministic.
+    /// Specificity ordering only applies to methods declared on the same type; nested
+    /// <see cref="Service" /> types and separately built types are not ordered by specificity, so
+    /// use <see cref="PriorityAttribute" /> when their routes overlap.
     /// </summary>
-    public sealed class PathAttribute : Tools.RuleAttributeBase
+    public sealed class PathAttribute : Tools.RuleAttributeBase, Debugger.IExplainableRule
     {
 
         private readonly List<(string, bool)> parts = new List<(string, bool)>();
@@ -35,12 +46,36 @@ namespace MaxLib.WebServer.Builder
         /// <param name="path">the path string</param>
         public PathAttribute(string path)
         {
+            ArgumentNullException.ThrowIfNull(path);
             var parts = path.Split('/', StringSplitOptions.RemoveEmptyEntries);
             foreach (var part in parts)
             {
                 if (part.StartsWith('{') && part.EndsWith('}'))
-                    this.parts.Add((part.Substring(1, part.Length - 2), true));
+                    this.parts.Add((part[1..^1], true));
                 else this.parts.Add((part, false));
+            }
+        }
+
+        /// <summary>
+        /// Used by <see cref="Tools.Generator" /> to order overlapping routes that share the
+        /// same <see cref="WebServicePriority" />: higher wins. See the class doc comment for
+        /// the exact ordering rules.
+        /// </summary>
+        internal int Specificity
+        {
+            get
+            {
+                var literalCount = 0;
+                var varCount = 0;
+                foreach (var (_, isVar) in parts)
+                {
+                    if (isVar)
+                        ++varCount;
+                    else
+                        ++literalCount;
+                }
+                var score = literalCount * 1000 - varCount;
+                return Prefix ? score : score + 1_000_000;
             }
         }
 
@@ -51,8 +86,8 @@ namespace MaxLib.WebServer.Builder
             foreach (var (part, mode) in parts)
             {
                 if (mode)
-                    sb.AppendFormat("/{{{0}}}", part);
-                else sb.AppendFormat("/{0}", part);
+                    sb.AppendFormat(CultureInfo.InvariantCulture, "/{{{0}}}", part);
+                else sb.AppendFormat(CultureInfo.InvariantCulture, "/{0}", part);
             }
             if (Prefix)
                 sb.Append("/*");
@@ -75,7 +110,41 @@ namespace MaxLib.WebServer.Builder
                         return false;
                 }
             }
-            return Prefix || url.Length == parts.Count;
+            if (url.Length < parts.Count)
+                return false;
+            if (!Prefix && url.Length != parts.Count)
+                return false;
+            return true;
+        }
+
+        bool Debugger.IExplainableRule.CanWorkWith(WebProgressTask task, Dictionary<string, object?> vars, out string? reason)
+        {
+            var url = task.Request.Location.DocumentPathTiles;
+            for (int i = 0; i < parts.Count && i < url.Length; ++i)
+            {
+                var (match, isVar) = parts[i];
+                if (isVar)
+                {
+                    vars[match] = url[i];
+                }
+                else if (!string.Equals(match, url[i], StringComparison))
+                {
+                    reason = $"URL segment {i} was '{url[i]}', expected '{match}'";
+                    return false;
+                }
+            }
+            if (url.Length < parts.Count)
+            {
+                reason = $"the URL has {url.Length} segment(s), expected at least {parts.Count}";
+                return false;
+            }
+            if (!Prefix && url.Length != parts.Count)
+            {
+                reason = $"the URL has {url.Length} segment(s), expected exactly {parts.Count}";
+                return false;
+            }
+            reason = null;
+            return true;
         }
     }
 }

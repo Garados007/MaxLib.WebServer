@@ -1,4 +1,5 @@
 using System;
+using System.IO;
 using System.Text;
 using System.Threading.Tasks;
 using MaxLib.WebServer.Services;
@@ -43,6 +44,24 @@ namespace MaxLib.WebServer.Test.Services
         }
 
         [TestMethod]
+        public async Task TestRequestParser_DuplicatedHeaderNameDoesNotCrashAndLastValueWins()
+        {
+            // a repeated header name must not crash parsing
+            var sb = new StringBuilder();
+            sb.AppendLine("GET /test.html HTTP/1.1");
+            sb.AppendLine("Host: testdomain.local");
+            sb.AppendLine("X-Custom: first");
+            sb.AppendLine("X-Custom: second");
+            sb.AppendLine();
+            using (var output = test.SetStream(sb.ToString()))
+            {
+                await new HttpRequestParser().ProgressTask(test.Task).ConfigureAwait(false);
+                Assert.AreEqual(HttpProtocolMethod.Get, test.Request.ProtocolMethod);
+                Assert.AreEqual("second", test.GetRequestHeader("X-Custom"));
+            }
+        }
+
+        [TestMethod]
         public async Task TestRequestParser_SimplePost()
         {
             var content = "foo=bar&baz=foobar";
@@ -71,16 +90,258 @@ namespace MaxLib.WebServer.Test.Services
         }
 
         [TestMethod]
+        public async Task TestRequestParser_LargeUrlEncodedBodyUsesOverflowInsteadOfParameter()
+        {
+            var originalLimit = Post.UrlEncodedData.MaximumCacheSize;
+            try
+            {
+                Post.UrlEncodedData.MaximumCacheSize = 10;
+                var content = "foo=bar&baz=foobar";
+                var sb = new StringBuilder();
+                sb.AppendLine("POST /test.html HTTP/1.1");
+                sb.AppendLine("Host: testdomain.local");
+                sb.AppendLine($"Content-Length: {content.Length}");
+                sb.AppendLine("Content-Type: application/x-www-form-urlencoded");
+                sb.AppendLine();
+                sb.Append(content);
+                using (var output = test.SetStream(sb.ToString()))
+                {
+                    await new HttpRequestParser().ProgressTask(test.Task).ConfigureAwait(false);
+                    Assert.IsTrue(test.Request.Post.Data is Post.UrlEncodedData);
+                    var data = (Post.UrlEncodedData)test.Request.Post.Data;
+                    Assert.AreEqual(0, data.Parameter.Count);
+                    Assert.IsNotNull(data.Overflow);
+                    Assert.AreEqual(2, data.Overflow!.Entries.Count);
+                    var foo = (Post.MultipartFormData.FormData)data.Overflow.Entries[0];
+                    var baz = (Post.MultipartFormData.FormData)data.Overflow.Entries[1];
+                    Assert.AreEqual("foo", foo.Name);
+                    Assert.AreEqual("bar", Encoding.UTF8.GetString(foo.Content!.Value.Span));
+                    Assert.AreEqual("baz", baz.Name);
+                    Assert.AreEqual("foobar", Encoding.UTF8.GetString(baz.Content!.Value.Span));
+                }
+            }
+            finally
+            {
+                Post.UrlEncodedData.MaximumCacheSize = originalLimit;
+            }
+        }
+
+        [TestMethod]
+        public async Task TestRequestParser_LargeUrlEncodedBodyOverflowFirstValueWinsForDuplicateKeys()
+        {
+            var originalLimit = Post.UrlEncodedData.MaximumCacheSize;
+            try
+            {
+                Post.UrlEncodedData.MaximumCacheSize = 10;
+                var content = "foo=first&foo=second";
+                var sb = new StringBuilder();
+                sb.AppendLine("POST /test.html HTTP/1.1");
+                sb.AppendLine("Host: testdomain.local");
+                sb.AppendLine($"Content-Length: {content.Length}");
+                sb.AppendLine("Content-Type: application/x-www-form-urlencoded");
+                sb.AppendLine();
+                sb.Append(content);
+                using (var output = test.SetStream(sb.ToString()))
+                {
+                    await new HttpRequestParser().ProgressTask(test.Task).ConfigureAwait(false);
+                    var data = (Post.UrlEncodedData)test.Request.Post.Data;
+                    Assert.AreEqual(1, data.Overflow!.Entries.Count);
+                    var entry = (Post.MultipartFormData.FormData)data.Overflow.Entries[0];
+                    Assert.AreEqual("first", Encoding.UTF8.GetString(entry.Content!.Value.Span));
+                }
+            }
+            finally
+            {
+                Post.UrlEncodedData.MaximumCacheSize = originalLimit;
+            }
+        }
+
+        [TestMethod]
+        public async Task TestRequestParser_LargeUrlEncodedBodyOverflowHandlesAKeyWithNoValue()
+        {
+            var originalLimit = Post.UrlEncodedData.MaximumCacheSize;
+            try
+            {
+                Post.UrlEncodedData.MaximumCacheSize = 10;
+                var content = "loneKey&foo=bar";
+                var sb = new StringBuilder();
+                sb.AppendLine("POST /test.html HTTP/1.1");
+                sb.AppendLine("Host: testdomain.local");
+                sb.AppendLine($"Content-Length: {content.Length}");
+                sb.AppendLine("Content-Type: application/x-www-form-urlencoded");
+                sb.AppendLine();
+                sb.Append(content);
+                using (var output = test.SetStream(sb.ToString()))
+                {
+                    await new HttpRequestParser().ProgressTask(test.Task).ConfigureAwait(false);
+                    var data = (Post.UrlEncodedData)test.Request.Post.Data;
+                    Assert.AreEqual(2, data.Overflow!.Entries.Count);
+                    var loneKey = (Post.MultipartFormData.FormData)data.Overflow.Entries[0];
+                    Assert.AreEqual("loneKey", loneKey.Name);
+                    Assert.AreEqual("", Encoding.UTF8.GetString(loneKey.Content!.Value.Span));
+                }
+            }
+            finally
+            {
+                Post.UrlEncodedData.MaximumCacheSize = originalLimit;
+            }
+        }
+
+        [TestMethod]
+        public async Task TestRequestParser_UrlEncodedOverflowEntrySpillsToATempFileWhenIndividuallyLarge()
+        {
+            var originalLimit = Post.UrlEncodedData.MaximumCacheSize;
+            try
+            {
+                Post.UrlEncodedData.MaximumCacheSize = 10;
+                var content = "small=ok&big=this-value-is-longer-than-ten-bytes";
+                var sb = new StringBuilder();
+                sb.AppendLine("POST /test.html HTTP/1.1");
+                sb.AppendLine("Host: testdomain.local");
+                sb.AppendLine($"Content-Length: {content.Length}");
+                sb.AppendLine("Content-Type: application/x-www-form-urlencoded");
+                sb.AppendLine();
+                sb.Append(content);
+                using (var output = test.SetStream(sb.ToString()))
+                {
+                    await new HttpRequestParser().ProgressTask(test.Task).ConfigureAwait(false);
+                    var data = (Post.UrlEncodedData)test.Request.Post.Data;
+                    var small = (Post.MultipartFormData.FormData)data.Overflow!.Entries[0];
+                    var big = (Post.MultipartFormData.FormData)data.Overflow.Entries[1];
+                    Assert.IsTrue(small.Content.HasValue);
+                    Assert.IsNull(small.TempFile);
+                    Assert.IsFalse(big.Content.HasValue);
+                    Assert.IsNotNull(big.TempFile);
+                    Assert.IsTrue(big.TempFile!.Exists);
+                    Assert.AreEqual("this-value-is-longer-than-ten-bytes", File.ReadAllText(big.TempFile.FullName));
+
+                    var path = big.TempFile.FullName;
+                    data.Dispose();
+                    Assert.IsFalse(File.Exists(path));
+                }
+            }
+            finally
+            {
+                Post.UrlEncodedData.MaximumCacheSize = originalLimit;
+            }
+        }
+
+        [TestMethod]
+        public async Task TestRequestParser_OctetStreamPostIsReadIntoARawPostData()
+        {
+            var content = "arbitrary binary-ish content";
+            var sb = new StringBuilder();
+            sb.AppendLine("POST /test.html HTTP/1.1");
+            sb.AppendLine("Host: testdomain.local");
+            sb.AppendLine($"Content-Length: {content.Length}");
+            sb.AppendLine("Content-Type: application/octet-stream");
+            sb.AppendLine();
+            sb.Append(content);
+            using (var output = test.SetStream(sb.ToString()))
+            {
+                await new HttpRequestParser().ProgressTask(test.Task).ConfigureAwait(false);
+                Assert.AreEqual(MimeType.ApplicationOctetStream, test.Request.Post.MimeType);
+                Assert.IsTrue(test.Request.Post.Data is Post.RawPostData);
+                var data = (Post.RawPostData)test.Request.Post.Data;
+                Assert.IsTrue(data.Entry.Content.HasValue);
+                Assert.AreEqual(content, Encoding.UTF8.GetString(data.Entry.Content.Value.Span));
+                Assert.IsNull(data.Entry.TempFile);
+            }
+        }
+
+        [TestMethod]
+        public async Task TestRequestParser_JsonPostIsReadIntoARawPostData()
+        {
+            var content = "{\"hello\":\"world\"}";
+            var sb = new StringBuilder();
+            sb.AppendLine("POST /test.html HTTP/1.1");
+            sb.AppendLine("Host: testdomain.local");
+            sb.AppendLine($"Content-Length: {content.Length}");
+            sb.AppendLine("Content-Type: application/json");
+            sb.AppendLine();
+            sb.Append(content);
+            using (var output = test.SetStream(sb.ToString()))
+            {
+                await new HttpRequestParser().ProgressTask(test.Task).ConfigureAwait(false);
+                Assert.AreEqual(MimeType.ApplicationJson, test.Request.Post.MimeType);
+                Assert.IsTrue(test.Request.Post.Data is Post.RawPostData);
+                var data = (Post.RawPostData)test.Request.Post.Data;
+                Assert.AreEqual(content, Encoding.UTF8.GetString(data.Entry.Content!.Value.Span));
+            }
+        }
+
+        [TestMethod]
+        public async Task TestRequestParser_UnrecognizedContentTypeIsReadIntoARawPostData()
+        {
+            // the framework used to leave a body with no dedicated IPostData entirely unread
+            // (see post-unknownpostdata-dispose-race.md) - it must now actually be consumed
+            var content = "whatever-this-is";
+            var sb = new StringBuilder();
+            sb.AppendLine("POST /test.html HTTP/1.1");
+            sb.AppendLine("Host: testdomain.local");
+            sb.AppendLine($"Content-Length: {content.Length}");
+            sb.AppendLine("Content-Type: application/x-something-unknown");
+            sb.AppendLine();
+            sb.Append(content);
+            using (var output = test.SetStream(sb.ToString()))
+            {
+                await new HttpRequestParser().ProgressTask(test.Task).ConfigureAwait(false);
+                Assert.IsTrue(test.Request.Post.Data is Post.RawPostData);
+                var data = (Post.RawPostData)test.Request.Post.Data;
+                Assert.AreEqual(content, Encoding.UTF8.GetString(data.Entry.Content!.Value.Span));
+            }
+        }
+
+        [TestMethod]
+        public async Task TestRequestParser_LargeRawBodySpillsToATempFileAndIsDeletedOnDispose()
+        {
+            var originalLimit = Post.RawPostData.MaximumCacheSize;
+            try
+            {
+                Post.RawPostData.MaximumCacheSize = 10;
+                var content = "this content is longer than the configured 10-byte limit";
+                var sb = new StringBuilder();
+                sb.AppendLine("POST /test.html HTTP/1.1");
+                sb.AppendLine("Host: testdomain.local");
+                sb.AppendLine($"Content-Length: {content.Length}");
+                sb.AppendLine("Content-Type: application/octet-stream");
+                sb.AppendLine();
+                sb.Append(content);
+                using (var output = test.SetStream(sb.ToString()))
+                {
+                    await new HttpRequestParser().ProgressTask(test.Task).ConfigureAwait(false);
+                    Assert.IsTrue(test.Request.Post.Data is Post.RawPostData);
+                    var data = (Post.RawPostData)test.Request.Post.Data;
+                    Assert.IsFalse(data.Entry.Content.HasValue);
+                    Assert.IsNotNull(data.Entry.TempFile);
+                    Assert.IsTrue(data.Entry.TempFile!.Exists);
+                    Assert.AreEqual(content, File.ReadAllText(data.Entry.TempFile.FullName));
+
+                    var path = data.Entry.TempFile.FullName;
+                    data.Dispose();
+                    Assert.IsFalse(File.Exists(path));
+                }
+            }
+            finally
+            {
+                Post.RawPostData.MaximumCacheSize = originalLimit;
+            }
+        }
+
+        [TestMethod]
         public async Task TestRequestParser_MultipartPost()
         {
+            // a real HTTP client always terminates every line - including the last one
+            // before a boundary - with a literal CRLF; that CRLF belongs to the boundary
+            // delimiter per RFC 2046 §5.1.1, not to the part's content, and must not show
+            // up in the parsed content
+            var content =
+                "-----1234\r\n" +
+                "Content-Type: text/plain\r\n" +
+                "\r\n" +
+                "Hello World\r\n" +
+                "-----1234--\r\n";
             var sb = new StringBuilder();
-            sb.AppendLine("-----1234");
-            sb.AppendLine("Content-Type: text/plain");
-            sb.AppendLine();
-            sb.Append("Hello World");
-            sb.AppendLine("-----1234--");
-            var content = sb.ToString();
-            sb.Clear();
             sb.AppendLine("POST /test.html HTTP/1.1");
             sb.AppendLine("Host: testdomain.local");
             sb.AppendLine($"Content-Length: {content.Length}");
@@ -107,6 +368,606 @@ namespace MaxLib.WebServer.Test.Services
                 Assert.AreEqual("Hello World",
                     Encoding.UTF8.GetString(data.Entries[0].Content.Value.ToArray())
                 );
+            }
+        }
+
+        [TestMethod]
+        public async Task TestRequestParser_MultipartBoundaryFollowedByAnotherParameterIsParsedCorrectly()
+        {
+            // boundary= may be unquoted and need not be the last Content-Type parameter
+            var content =
+                "-----1234\r\n" +
+                "Content-Type: text/plain\r\n" +
+                "\r\n" +
+                "Hello World\r\n" +
+                "-----1234--\r\n";
+            var sb = new StringBuilder();
+            sb.AppendLine("POST /test.html HTTP/1.1");
+            sb.AppendLine("Host: testdomain.local");
+            sb.AppendLine($"Content-Length: {content.Length}");
+            sb.AppendLine("Content-Type: multipart/form-data; boundary=---1234; charset=utf-8");
+            sb.AppendLine();
+            sb.Append(content);
+            using (var output = test.SetStream(sb.ToString()))
+            {
+                await new HttpRequestParser().ProgressTask(test.Task).ConfigureAwait(false);
+                Assert.IsTrue(test.Request.Post.Data is Post.MultipartFormData);
+                var data = (Post.MultipartFormData)test.Request.Post.Data;
+                Assert.AreEqual(1, data.Entries.Count);
+                Assert.AreEqual("Hello World",
+                    Encoding.UTF8.GetString(data.Entries[0].Content!.Value.ToArray())
+                );
+            }
+        }
+
+        [TestMethod]
+        public async Task TestRequestParser_MultipartDuplicateHeaderWithinAPartDoesNotCrash()
+        {
+            // a repeated header name within one part must not crash SetAsync
+            var content =
+                "-----1234\r\n" +
+                "Content-Type: text/plain\r\n" +
+                "Content-Type: text/html\r\n" +
+                "\r\n" +
+                "Hello World\r\n" +
+                "-----1234--\r\n";
+            var sb = new StringBuilder();
+            sb.AppendLine("POST /test.html HTTP/1.1");
+            sb.AppendLine("Host: testdomain.local");
+            sb.AppendLine($"Content-Length: {content.Length}");
+            sb.AppendLine("Content-Type: multipart/form-data; boundary=---1234");
+            sb.AppendLine();
+            sb.Append(content);
+            using (var output = test.SetStream(sb.ToString()))
+            {
+                await new HttpRequestParser().ProgressTask(test.Task).ConfigureAwait(false);
+                Assert.IsTrue(test.Request.Post.Data is Post.MultipartFormData);
+                var data = (Post.MultipartFormData)test.Request.Post.Data;
+                Assert.AreEqual(1, data.Entries.Count);
+                Assert.AreEqual("text/html", data.Entries[0].Header["Content-Type"]);
+            }
+        }
+
+        [TestMethod]
+        public async Task TestRequestParser_MultipartWithNoBoundaryIsRejected()
+        {
+            var content = "irrelevant -- content -- here";
+            var sb = new StringBuilder();
+            sb.AppendLine("POST /test.html HTTP/1.1");
+            sb.AppendLine("Host: testdomain.local");
+            sb.AppendLine($"Content-Length: {content.Length}");
+            sb.AppendLine("Content-Type: multipart/form-data");
+            sb.AppendLine();
+            sb.Append(content);
+            using (var output = test.SetStream(sb.ToString()))
+            {
+                await new HttpRequestParser().ProgressTask(test.Task).ConfigureAwait(false);
+                Assert.IsTrue(test.Request.Post.Data is Post.MultipartFormData);
+                var data = (Post.MultipartFormData)test.Request.Post.Data;
+                Assert.AreEqual(0, data.Entries.Count);
+                Assert.AreEqual(HttpStateCode.BadRequest, test.GetStatusCode());
+                // skip CreateDocument/ProcessDocument - there is no content to generate for a
+                // request that was already rejected
+                Assert.AreEqual(ServerStage.CreateResponse, test.Task.NextStage);
+            }
+        }
+
+        [TestMethod]
+        public async Task TestRequestParser_MultipartWithEmptyBoundaryIsRejected()
+        {
+            var content = "irrelevant -- content -- here";
+            var sb = new StringBuilder();
+            sb.AppendLine("POST /test.html HTTP/1.1");
+            sb.AppendLine("Host: testdomain.local");
+            sb.AppendLine($"Content-Length: {content.Length}");
+            sb.AppendLine("Content-Type: multipart/form-data; boundary=");
+            sb.AppendLine();
+            sb.Append(content);
+            using (var output = test.SetStream(sb.ToString()))
+            {
+                await new HttpRequestParser().ProgressTask(test.Task).ConfigureAwait(false);
+                Assert.IsTrue(test.Request.Post.Data is Post.MultipartFormData);
+                var data = (Post.MultipartFormData)test.Request.Post.Data;
+                Assert.AreEqual(0, data.Entries.Count);
+                Assert.AreEqual(HttpStateCode.BadRequest, test.GetStatusCode());
+                Assert.AreEqual(ServerStage.CreateResponse, test.Task.NextStage);
+            }
+        }
+
+        [TestMethod]
+        public async Task TestRequestParser_MultipartWithTooManyPartsIsRejected()
+        {
+            var originalLimit = Post.MultipartFormData.MaximumPartCount;
+            try
+            {
+                Post.MultipartFormData.MaximumPartCount = 2;
+
+                var content = new StringBuilder();
+                for (var i = 0; i < 4; ++i)
+                    content.Append("--B\r\n\r\nx\r\n");
+                content.Append("--B--\r\n");
+
+                var sb = new StringBuilder();
+                sb.AppendLine("POST /test.html HTTP/1.1");
+                sb.AppendLine("Host: testdomain.local");
+                sb.AppendLine($"Content-Length: {content.Length}");
+                sb.AppendLine("Content-Type: multipart/form-data; boundary=B");
+                sb.AppendLine();
+                sb.Append(content);
+                using (var output = test.SetStream(sb.ToString()))
+                {
+                    await new HttpRequestParser().ProgressTask(test.Task).ConfigureAwait(false);
+                    Assert.IsTrue(test.Request.Post.Data is Post.MultipartFormData);
+                    var data = (Post.MultipartFormData)test.Request.Post.Data;
+                    // rejected as soon as the 3rd part's boundary is seen, before its
+                    // headers/content are parsed at all
+                    Assert.AreEqual(2, data.Entries.Count);
+                    Assert.AreEqual(HttpStateCode.RequestEntityTooLarge, test.GetStatusCode());
+                    Assert.AreEqual(ServerStage.CreateResponse, test.Task.NextStage);
+                }
+            }
+            finally
+            {
+                Post.MultipartFormData.MaximumPartCount = originalLimit;
+            }
+        }
+
+        [TestMethod]
+        public async Task TestRequestParser_MultipartPost_BinaryContentIsNotCorrupted()
+        {
+            // every byte value 0x00-0x7F, including embedded CR/LF bytes that are not part
+            // of a boundary delimiter - the parser must not stop early on those, and must
+            // return the content byte-for-byte with no trailing CRLF appended or stripped
+            var contentBytes = new byte[128];
+            for (var i = 0; i < contentBytes.Length; ++i)
+                contentBytes[i] = (byte)i;
+            var binaryPart = new string(Array.ConvertAll(contentBytes, b => (char)b));
+
+            var content =
+                "-----1234\r\n" +
+                "Content-Type: application/octet-stream\r\n" +
+                "\r\n" +
+                binaryPart + "\r\n" +
+                "-----1234--\r\n";
+            var sb = new StringBuilder();
+            sb.AppendLine("POST /test.html HTTP/1.1");
+            sb.AppendLine("Host: testdomain.local");
+            sb.AppendLine($"Content-Length: {content.Length}");
+            sb.AppendLine("Content-Type: multipart/form-data; boundary=---1234");
+            sb.AppendLine();
+            sb.Append(content);
+            using (var output = test.SetStream(sb.ToString()))
+            {
+                await new HttpRequestParser().ProgressTask(test.Task).ConfigureAwait(false);
+                Assert.IsTrue(test.Request.Post.Data is Post.MultipartFormData);
+                var data = (Post.MultipartFormData)test.Request.Post.Data;
+                Assert.AreEqual(1, data.Entries.Count);
+                Assert.IsTrue(data.Entries[0].Content.HasValue);
+                CollectionAssert.AreEqual(contentBytes, data.Entries[0].Content.Value.ToArray());
+            }
+        }
+
+        [TestMethod]
+        public async Task TestRequestParser_MultipartPost_TempFileIsDeletedOnDispose()
+        {
+            var content =
+                "-----1234\r\n" +
+                "Content-Disposition: form-data; name=\"file\"; filename=\"test.txt\"\r\n" +
+                "Content-Type: text/plain\r\n" +
+                "\r\n" +
+                "Hello World\r\n" +
+                "-----1234--\r\n";
+            var sb = new StringBuilder();
+            sb.AppendLine("POST /test.html HTTP/1.1");
+            sb.AppendLine("Host: testdomain.local");
+            sb.AppendLine($"Content-Length: {content.Length}");
+            sb.AppendLine("Content-Type: multipart/form-data; boundary=---1234");
+            sb.AppendLine();
+            sb.Append(content);
+            using (var output = test.SetStream(sb.ToString()))
+            {
+                await new HttpRequestParser().ProgressTask(test.Task).ConfigureAwait(false);
+                Assert.IsTrue(test.Request.Post.Data is Post.MultipartFormData);
+                var data = (Post.MultipartFormData)test.Request.Post.Data;
+                Assert.AreEqual(1, data.Entries.Count);
+                var entry = data.Entries[0];
+                Assert.IsTrue(entry is Post.MultipartFormData.FormDataFile);
+                Assert.IsNotNull(entry.TempFile);
+                Assert.IsTrue(entry.TempFile!.Exists);
+                var path = entry.TempFile.FullName;
+
+                // this is what HttpResponseCreator triggers (via HttpPost.Dispose()) once
+                // the response has been fully sent - the temp file must not be left behind
+                data.Dispose();
+
+                Assert.IsFalse(File.Exists(path));
+            }
+        }
+
+        [TestMethod]
+        public async Task TestRequestParser_TransferEncodingIsRejected()
+        {
+            var sb = new StringBuilder();
+            sb.AppendLine("POST /test.html HTTP/1.1");
+            sb.AppendLine("Host: testdomain.local");
+            sb.AppendLine("Transfer-Encoding: chunked");
+            sb.AppendLine();
+            sb.Append("0\r\n\r\n");
+            using (var output = test.SetStream(sb.ToString()))
+            {
+                await new HttpRequestParser().ProgressTask(test.Task).ConfigureAwait(false);
+                Assert.AreEqual(HttpStateCode.NotImplemented, test.GetStatusCode());
+                // the chunked body was never read off the socket; the connection must not
+                // be kept alive, or those bytes would be parsed as the next request's header
+                Assert.AreEqual(HttpConnectionType.Close, test.Request.FieldConnection);
+            }
+        }
+
+        [TestMethod]
+        public async Task TestRequestParser_TransferEncodingWithContentLengthIsRejected()
+        {
+            var content = "foo=bar";
+            var sb = new StringBuilder();
+            sb.AppendLine("POST /test.html HTTP/1.1");
+            sb.AppendLine("Host: testdomain.local");
+            sb.AppendLine($"Content-Length: {content.Length}");
+            sb.AppendLine("Transfer-Encoding: chunked");
+            sb.AppendLine("Content-Type: application/x-www-form-urlencoded");
+            sb.AppendLine();
+            sb.Append(content);
+            using (var output = test.SetStream(sb.ToString()))
+            {
+                await new HttpRequestParser().ProgressTask(test.Task).ConfigureAwait(false);
+                Assert.AreEqual(HttpStateCode.NotImplemented, test.GetStatusCode());
+                Assert.AreEqual(HttpConnectionType.Close, test.Request.FieldConnection);
+            }
+        }
+
+        [TestMethod]
+        public async Task TestRequestParser_ConflictingContentLengthHeadersAreRejected()
+        {
+            // RFC 7230 §3.3.3: Content-Length headers with differing values must be rejected
+            var sb = new StringBuilder();
+            sb.AppendLine("POST /test.html HTTP/1.1");
+            sb.AppendLine("Host: testdomain.local");
+            sb.AppendLine("Content-Length: 3");
+            sb.AppendLine("Content-Length: 7");
+            sb.AppendLine("Content-Type: application/x-www-form-urlencoded");
+            sb.AppendLine();
+            sb.Append("foo=bar");
+            using (var output = test.SetStream(sb.ToString()))
+            {
+                await new HttpRequestParser().ProgressTask(test.Task).ConfigureAwait(false);
+                Assert.AreEqual(HttpStateCode.BadRequest, test.GetStatusCode());
+                // the client's framing is now ambiguous - the connection must not be kept alive
+                Assert.AreEqual(HttpConnectionType.Close, test.Request.FieldConnection);
+            }
+        }
+
+        [TestMethod]
+        public async Task TestRequestParser_IdenticalRepeatedContentLengthHeadersAreAccepted()
+        {
+            // a naive header-duplicating proxy repeating the same value verbatim is still
+            // fine - only a genuine conflict must be rejected
+            var content = "foo=bar";
+            var sb = new StringBuilder();
+            sb.AppendLine("POST /test.html HTTP/1.1");
+            sb.AppendLine("Host: testdomain.local");
+            sb.AppendLine($"Content-Length: {content.Length}");
+            sb.AppendLine($"Content-Length: {content.Length}");
+            sb.AppendLine("Content-Type: application/x-www-form-urlencoded");
+            sb.AppendLine();
+            sb.Append(content);
+            using (var output = test.SetStream(sb.ToString()))
+            {
+                await new HttpRequestParser().ProgressTask(test.Task).ConfigureAwait(false);
+                Assert.AreNotEqual(HttpStateCode.BadRequest, test.GetStatusCode());
+                Assert.IsTrue(test.Request.Post.Data is Post.UrlEncodedData);
+            }
+        }
+
+        [TestMethod]
+        public async Task TestRequestParser_DuplicateHostHeaderIsRejected()
+        {
+            // RFC 7230 §5.4: more than one Host header is rejected unconditionally
+            var sb = new StringBuilder();
+            sb.AppendLine("GET /test.html HTTP/1.1");
+            sb.AppendLine("Host: victim.example");
+            sb.AppendLine("Host: attacker.example");
+            sb.AppendLine();
+            using (var output = test.SetStream(sb.ToString()))
+            {
+                await new HttpRequestParser().ProgressTask(test.Task).ConfigureAwait(false);
+                Assert.AreEqual(HttpStateCode.BadRequest, test.GetStatusCode());
+                Assert.AreEqual(HttpConnectionType.Close, test.Request.FieldConnection);
+            }
+        }
+
+        [TestMethod]
+        public async Task TestRequestParser_DuplicateIdenticalHostHeaderIsAlsoRejected()
+        {
+            // unlike Content-Length, identical repeated Host values are still rejected - the
+            // RFC gives no carve-out for this header
+            var sb = new StringBuilder();
+            sb.AppendLine("GET /test.html HTTP/1.1");
+            sb.AppendLine("Host: testdomain.local");
+            sb.AppendLine("Host: testdomain.local");
+            sb.AppendLine();
+            using (var output = test.SetStream(sb.ToString()))
+            {
+                await new HttpRequestParser().ProgressTask(test.Task).ConfigureAwait(false);
+                Assert.AreEqual(HttpStateCode.BadRequest, test.GetStatusCode());
+            }
+        }
+
+        [TestMethod]
+        public async Task TestRequestParser_ContentLengthExceedingMaxIsRejectedWithoutCallback()
+        {
+            var parser = new HttpRequestParser { MaxContentLength = 10 };
+            var sb = new StringBuilder();
+            sb.AppendLine("POST /test.html HTTP/1.1");
+            sb.AppendLine("Host: testdomain.local");
+            sb.AppendLine("Content-Length: 1000");
+            sb.AppendLine("Content-Type: application/x-www-form-urlencoded");
+            sb.AppendLine();
+            using (var output = test.SetStream(sb.ToString()))
+            {
+                await parser.ProgressTask(test.Task).ConfigureAwait(false);
+                Assert.AreEqual(HttpStateCode.RequestEntityTooLarge, test.GetStatusCode());
+                // the body was never read, so the connection can't be reused
+                Assert.AreEqual(HttpConnectionType.Close, test.Request.FieldConnection);
+            }
+        }
+
+        [TestMethod]
+        public async Task TestRequestParser_ContentLengthCallbackCanRaiseTheLimit()
+        {
+            long? observedLength = null;
+            var parser = new HttpRequestParser
+            {
+                MaxContentLength = 3,
+                ContentLengthLimitExceeded = (_, declaredLength) =>
+                {
+                    observedLength = declaredLength;
+                    return new ValueTask<long?>(100L);
+                },
+            };
+            var content = "foo=bar";
+            var sb = new StringBuilder();
+            sb.AppendLine("POST /test.html HTTP/1.1");
+            sb.AppendLine("Host: testdomain.local");
+            sb.AppendLine($"Content-Length: {content.Length}");
+            sb.AppendLine("Content-Type: application/x-www-form-urlencoded");
+            sb.AppendLine();
+            sb.Append(content);
+            using (var output = test.SetStream(sb.ToString()))
+            {
+                await parser.ProgressTask(test.Task).ConfigureAwait(false);
+                Assert.AreEqual(content.Length, observedLength);
+                Assert.AreNotEqual(HttpStateCode.RequestEntityTooLarge, test.GetStatusCode());
+                Assert.IsTrue(test.Request.Post.Data is Post.UrlEncodedData);
+                var data = (Post.UrlEncodedData)test.Request.Post.Data;
+                Assert.AreEqual("bar", data.Parameter["foo"]);
+            }
+        }
+
+        [TestMethod]
+        public async Task TestRequestParser_ContentLengthCallbackCanStillRejectAfterRaisingTheLimit()
+        {
+            var parser = new HttpRequestParser
+            {
+                MaxContentLength = 3,
+                // still below the declared Content-Length of 7
+                ContentLengthLimitExceeded = (_, _) => new ValueTask<long?>(5L),
+            };
+            var content = "foo=bar";
+            var sb = new StringBuilder();
+            sb.AppendLine("POST /test.html HTTP/1.1");
+            sb.AppendLine("Host: testdomain.local");
+            sb.AppendLine($"Content-Length: {content.Length}");
+            sb.AppendLine("Content-Type: application/x-www-form-urlencoded");
+            sb.AppendLine();
+            sb.Append(content);
+            using (var output = test.SetStream(sb.ToString()))
+            {
+                await parser.ProgressTask(test.Task).ConfigureAwait(false);
+                Assert.AreEqual(HttpStateCode.RequestEntityTooLarge, test.GetStatusCode());
+                Assert.AreEqual(HttpConnectionType.Close, test.Request.FieldConnection);
+            }
+        }
+
+        [TestMethod]
+        public async Task TestRequestParser_ContentLengthCallbackReturningNullMeansUnlimited()
+        {
+            var parser = new HttpRequestParser
+            {
+                MaxContentLength = 3,
+                ContentLengthLimitExceeded = (_, _) => new ValueTask<long?>((long?)null),
+            };
+            var content = "foo=bar";
+            var sb = new StringBuilder();
+            sb.AppendLine("POST /test.html HTTP/1.1");
+            sb.AppendLine("Host: testdomain.local");
+            sb.AppendLine($"Content-Length: {content.Length}");
+            sb.AppendLine("Content-Type: application/x-www-form-urlencoded");
+            sb.AppendLine();
+            sb.Append(content);
+            using (var output = test.SetStream(sb.ToString()))
+            {
+                await parser.ProgressTask(test.Task).ConfigureAwait(false);
+                Assert.AreNotEqual(HttpStateCode.RequestEntityTooLarge, test.GetStatusCode());
+                Assert.IsTrue(test.Request.Post.Data is Post.UrlEncodedData);
+            }
+        }
+
+        [TestMethod]
+        public async Task TestRequestParser_NegativeMaxContentLengthDisablesTheLimit()
+        {
+            var parser = new HttpRequestParser { MaxContentLength = -1 };
+            var content = "foo=bar";
+            var sb = new StringBuilder();
+            sb.AppendLine("POST /test.html HTTP/1.1");
+            sb.AppendLine("Host: testdomain.local");
+            sb.AppendLine($"Content-Length: {content.Length}");
+            sb.AppendLine("Content-Type: application/x-www-form-urlencoded");
+            sb.AppendLine();
+            sb.Append(content);
+            using (var output = test.SetStream(sb.ToString()))
+            {
+                await parser.ProgressTask(test.Task).ConfigureAwait(false);
+                Assert.AreNotEqual(HttpStateCode.RequestEntityTooLarge, test.GetStatusCode());
+                Assert.IsTrue(test.Request.Post.Data is Post.UrlEncodedData);
+            }
+        }
+
+        // Simulates a client that fully sends its headers, then stalls forever partway
+        // through its declared body - every read past the header bytes blocks until
+        // cancelled.
+        private sealed class HeaderThenStallStream : Stream
+        {
+            private readonly MemoryStream header;
+
+            public HeaderThenStallStream(byte[] headerBytes)
+                => header = new MemoryStream(headerBytes);
+
+            public override bool CanRead => true;
+            public override bool CanSeek => false;
+            public override bool CanWrite => false;
+            public override long Length => throw new NotSupportedException();
+            public override long Position
+            {
+                get => 0;
+                set => throw new NotSupportedException();
+            }
+            public override void Flush() { }
+            public override int Read(byte[] buffer, int offset, int count)
+                => throw new NotSupportedException("only the async read paths are exercised here");
+            public override Task<int> ReadAsync(byte[] buffer, int offset, int count, System.Threading.CancellationToken cancellationToken)
+                => ReadAsync(buffer.AsMemory(offset, count), cancellationToken).AsTask();
+            public override async ValueTask<int> ReadAsync(Memory<byte> buffer, System.Threading.CancellationToken cancellationToken = default)
+            {
+                if (header.Position < header.Length)
+                    return await header.ReadAsync(buffer, cancellationToken).ConfigureAwait(false);
+                await Task.Delay(System.Threading.Timeout.Infinite, cancellationToken).ConfigureAwait(false);
+                throw new InvalidOperationException("unreachable: Task.Delay(Infinite) only ever completes by cancellation");
+            }
+            public override long Seek(long offset, SeekOrigin origin) => throw new NotSupportedException();
+            public override void SetLength(long value) => throw new NotSupportedException();
+            public override void Write(byte[] buffer, int offset, int count) => throw new NotSupportedException();
+        }
+
+        [TestMethod]
+        public async Task TestRequestParser_StalledBodyIsCancelledWithinTheConfiguredTimeout()
+        {
+            var content = "foo=bar";
+            var sb = new StringBuilder();
+            sb.AppendLine("POST /test.html HTTP/1.1");
+            sb.AppendLine("Host: testdomain.local");
+            sb.AppendLine($"Content-Length: {content.Length}");
+            sb.AppendLine("Content-Type: application/x-www-form-urlencoded");
+            sb.AppendLine();
+            // the header ends here; the declared body never actually arrives
+            var headerBytes = Encoding.UTF8.GetBytes(sb.ToString());
+
+            var parser = new HttpRequestParser
+            {
+                ContentReadBaseTimeout = TimeSpan.FromMilliseconds(50),
+                MinimumContentTransferRate = 1_000_000, // keeps the size-dependent part negligible
+            };
+            test.SetStream(new HeaderThenStallStream(headerBytes));
+
+            await parser.ProgressTask(test.Task).ConfigureAwait(false);
+            // header parsing itself succeeds; the stall only happens once the body is
+            // actually read (i.e. once a handler consumes Post.Data)
+            Assert.AreNotEqual(HttpStateCode.RequestEntityTooLarge, test.GetStatusCode());
+
+            var stopwatch = System.Diagnostics.Stopwatch.StartNew();
+            try
+            {
+                await test.Request.Post.DataAsync!.ConfigureAwait(false);
+                Assert.Fail("expected an OperationCanceledException");
+            }
+            catch (OperationCanceledException)
+            {
+                // expected - the stalled body never satisfies UrlEncodedData.SetAsync
+            }
+            stopwatch.Stop();
+
+            Assert.IsTrue(stopwatch.Elapsed < TimeSpan.FromSeconds(5),
+                $"expected cancellation well within the configured timeout, took {stopwatch.Elapsed}");
+        }
+
+        // Simulates a client that sends its request line, then trickles the rest of the
+        // request (the classic "Slowloris" attack) - every read past the request line
+        // blocks until cancelled.
+        private sealed class RequestLineThenStallStream : Stream
+        {
+            private readonly MemoryStream requestLine;
+
+            public RequestLineThenStallStream(byte[] requestLineBytes)
+                => requestLine = new MemoryStream(requestLineBytes);
+
+            public override bool CanRead => true;
+            public override bool CanSeek => false;
+            public override bool CanWrite => false;
+            public override long Length => throw new NotSupportedException();
+            public override long Position
+            {
+                get => 0;
+                set => throw new NotSupportedException();
+            }
+            public override void Flush() { }
+            public override int Read(byte[] buffer, int offset, int count)
+                => throw new NotSupportedException("only the async read paths are exercised here");
+            public override Task<int> ReadAsync(byte[] buffer, int offset, int count, System.Threading.CancellationToken cancellationToken)
+                => ReadAsync(buffer.AsMemory(offset, count), cancellationToken).AsTask();
+            public override async ValueTask<int> ReadAsync(Memory<byte> buffer, System.Threading.CancellationToken cancellationToken = default)
+            {
+                if (requestLine.Position < requestLine.Length)
+                    return await requestLine.ReadAsync(buffer, cancellationToken).ConfigureAwait(false);
+                await Task.Delay(System.Threading.Timeout.Infinite, cancellationToken).ConfigureAwait(false);
+                throw new InvalidOperationException("unreachable: Task.Delay(Infinite) only ever completes by cancellation");
+            }
+            public override long Seek(long offset, SeekOrigin origin) => throw new NotSupportedException();
+            public override void SetLength(long value) => throw new NotSupportedException();
+            public override void Write(byte[] buffer, int offset, int count) => throw new NotSupportedException();
+        }
+
+        [TestMethod]
+        public async Task TestRequestParser_StalledHeaderReadIsCancelledWithinTheConfiguredTimeout()
+        {
+            // the request line arrives, but the client then trickles nothing further - the
+            // classic Slowloris attack, which used to hold the connection open indefinitely
+            // once WaitForData's wait for the very first byte was already satisfied
+            var requestLineBytes = Encoding.UTF8.GetBytes("GET /test.html HTTP/1.1\r\n");
+            var parser = new HttpRequestParser { MaxHeaderReadTime = TimeSpan.FromMilliseconds(50) };
+            test.SetStream(new RequestLineThenStallStream(requestLineBytes));
+
+            var stopwatch = System.Diagnostics.Stopwatch.StartNew();
+            await parser.ProgressTask(test.Task).ConfigureAwait(false);
+            stopwatch.Stop();
+
+            Assert.IsTrue(stopwatch.Elapsed < TimeSpan.FromSeconds(5),
+                $"expected the header read to be cancelled well within the configured timeout, took {stopwatch.Elapsed}");
+            Assert.AreEqual(HttpStateCode.RequestTimeOut, test.GetStatusCode());
+            // the connection's position in the byte stream is unknown once a mid-header
+            // read is abandoned, so it can't safely be reused for a further request
+            Assert.AreEqual(HttpConnectionType.Close, test.Request.FieldConnection);
+        }
+
+        [TestMethod]
+        public async Task TestRequestParser_ZeroMaxHeaderReadTimeDisablesTheTimeout()
+        {
+            var parser = new HttpRequestParser { MaxHeaderReadTime = TimeSpan.Zero };
+            var sb = new StringBuilder();
+            sb.AppendLine("GET /test.html HTTP/1.1");
+            sb.AppendLine("Host: testdomain.local");
+            sb.AppendLine();
+            using (var output = test.SetStream(sb.ToString()))
+            {
+                await parser.ProgressTask(test.Task).ConfigureAwait(false);
+                Assert.AreEqual(HttpProtocolMethod.Get, test.Request.ProtocolMethod);
+                Assert.AreEqual("/test.html", test.Request.Location.DocumentPath);
             }
         }
     }

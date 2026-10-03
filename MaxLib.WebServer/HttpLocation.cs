@@ -8,7 +8,7 @@ using System.Text.RegularExpressions;
 namespace MaxLib.WebServer
 {
     [Serializable]
-    public class HttpLocation
+    public partial class HttpLocation
     {
         public string Url { get; private set; }
 
@@ -20,20 +20,17 @@ namespace MaxLib.WebServer
 
         public Dictionary<string, string> GetParameter { get; }
 
-        static readonly Regex UrlRegex = new Regex(@"^((?:\/+([^\/?]+))*\/?)(?:\?((?:([^&$]*)&?)*))?$", RegexOptions.Compiled);
-
-        static readonly Regex ArgsRegex = new Regex(@"^([^=]*)=(.*)$", RegexOptions.Compiled);
-
         public virtual void SetLocation(string url)
         {
             Url = url ?? throw new ArgumentNullException(url);
                 GetParameter.Clear();
-            var match = UrlRegex.Match(url);
+            var match = UrlRegex().Match(url);
             if (!match.Success)
             {
                 DocumentPath = url;
-                DocumentPathTiles = new[] { url };
+                DocumentPathTiles = [url];
                 CompleteGet = "";
+                return;
             }
             DocumentPath = match.Groups[1].Value;
             DocumentPathTiles = match.Groups[2].Captures
@@ -41,19 +38,20 @@ namespace MaxLib.WebServer
                 .Select(c => WebServerUtils.DecodeUri(c.Value))
                 .ToArray();
             CompleteGet = match.Groups[3].Success ? match.Groups[3].Value ?? "" : "";
-            foreach (Capture capture in match.Groups[4].Captures)
-            {
-                var submatch = ArgsRegex.Match(capture.Value);
-                if (submatch.Success)
+            if (CompleteGet.Length != 0)
+                foreach (var token in CompleteGet.Split('&'))
                 {
-                    GetParameter[WebServerUtils.DecodeUri(submatch.Groups[1].Value)]
-                        = WebServerUtils.DecodeUri(submatch.Groups[2].Value);
+                    var submatch = ArgsRegex().Match(token);
+                    if (submatch.Success)
+                    {
+                        GetParameter[WebServerUtils.DecodeUri(submatch.Groups[1].Value)]
+                            = WebServerUtils.DecodeUri(submatch.Groups[2].Value);
+                    }
+                    else
+                    {
+                        GetParameter[token] = "";
+                    }
                 }
-                else
-                {
-                    GetParameter[capture.Value] = "";
-                }
-            }
         }
 
         public HttpLocation(string url)
@@ -61,7 +59,7 @@ namespace MaxLib.WebServer
             Url = url ?? throw new ArgumentNullException(nameof(url));
             GetParameter = new Dictionary<string, string>();
             DocumentPath = "";
-            DocumentPathTiles = new string[0];
+            DocumentPathTiles = [];
             CompleteGet = "";
             SetLocation(url);
         }
@@ -73,11 +71,12 @@ namespace MaxLib.WebServer
 
         public bool IsUrl(string[] urlTiles, bool ignoreCase = false)
         {
+            ArgumentNullException.ThrowIfNull(urlTiles);
             if (urlTiles.Length != DocumentPathTiles.Length) return false;
             for (int i = 0; i < urlTiles.Length; ++i)
                 if (ignoreCase)
                 {
-                    if (urlTiles[i].ToLower() != DocumentPathTiles[i].ToLower()) return false;
+                    if (!string.Equals(urlTiles[i], DocumentPathTiles[i], StringComparison.OrdinalIgnoreCase)) return false;
                 }
                 else
                 {
@@ -88,11 +87,12 @@ namespace MaxLib.WebServer
 
         public bool StartsUrlWith(string[] urlTiles, bool ignoreCase = false)
         {
+            ArgumentNullException.ThrowIfNull(urlTiles);
             if (urlTiles.Length > DocumentPathTiles.Length) return false;
             for (int i = 0; i < urlTiles.Length; ++i)
                 if (ignoreCase)
                 {
-                    if (urlTiles[i].ToLower() != DocumentPathTiles[i].ToLower()) return false;
+                    if (!string.Equals(urlTiles[i], DocumentPathTiles[i], StringComparison.OrdinalIgnoreCase)) return false;
                 }
                 else
                 {
@@ -100,5 +100,12 @@ namespace MaxLib.WebServer
                 }
             return true;
         }
+
+        // The query is captured as one flat `[^$]*` and split on '&' in SetLocation; a nested repeated group
+        // here backtracks catastrophically on a query ending in an unmatched '$'.
+        [GeneratedRegex(@"^((?:\/+([^\/?]+))*\/?)(?:\?([^$]*))?$")]
+        private static partial Regex UrlRegex();
+        [GeneratedRegex(@"^([^=]*)=(.*)$")]
+        private static partial Regex ArgsRegex();
     }
 }

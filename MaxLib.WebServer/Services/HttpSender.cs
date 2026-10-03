@@ -1,4 +1,6 @@
 ﻿using System;
+using Microsoft.Extensions.Logging;
+using System.Globalization;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
@@ -10,8 +12,18 @@ namespace MaxLib.WebServer.Services
     /// <summary>
     /// WebServiceType.SendResponse: Sendet Response und Dokument, wenn vorhanden, an den Clienten.
     /// </summary>
+    /// <remarks>
+    /// Also discards any unread POST data once the response has been fully sent, readying the
+    /// connection for the next request. See <see cref="HttpResponseCreator" /> for why this
+    /// happens here and not earlier.
+    /// </remarks>
     public class HttpSender : WebService
     {
+        static readonly ILogger logger = WebServerLog.LoggerFactory.CreateLogger<HttpSender>();
+        static readonly EventId StatusCodeEventId = new(0, "StatusCode");
+        static readonly EventId SendEventId = new(0, "Send");
+        static readonly EventId DisposeEventId = new(0, "Dispose");
+
         /// <summary>
         /// WebServiceType.SendResponse: Sendet Response und Dokument, wenn vorhanden, an den Clienten.
         /// </summary>
@@ -82,8 +94,8 @@ namespace MaxLib.WebServer.Services
                 case 509: return "Bandwidth Limit Exceeded";
                 case 510: return "Not Extended";
                 default:
-                    WebServerLog.Add(ServerLogType.Information, GetType(), "StatusCode",
-                        "Cant get status string from {0} ({1}).", code, (int)code);
+                    logger.LogInformation(StatusCodeEventId,
+                        "Cant get status string from {StatusCode} ({StatusCodeNumber}).", code, (int)code);
                     return "";
             }
         }
@@ -96,47 +108,98 @@ namespace MaxLib.WebServer.Services
             var stream = task.NetworkStream;
             if (stream == null)
                 return;
-            var writer = new StreamWriter(stream);
-            await writer.WriteAsync(header.HttpProtocol).ConfigureAwait(false);
-            await writer.WriteAsync(" ").ConfigureAwait(false);
-            await writer.WriteAsync(((int)header.StatusCode).ToString()).ConfigureAwait(false);
-            await writer.WriteAsync(" ").ConfigureAwait(false);
-            await writer.WriteLineAsync(StatusCodeText(header.StatusCode)).ConfigureAwait(false);
-            for (int i = 0; i < header.HeaderParameter.Count; ++i) //Parameter
+            try
             {
-                var e = header.HeaderParameter.ElementAt(i);
-                await writer.WriteAsync(e.Key).ConfigureAwait(false);
-                await writer.WriteAsync(": ").ConfigureAwait(false);
-                await writer.WriteLineAsync(e.Value).ConfigureAwait(false);
-            }
-            foreach (var cookie in task.Request.Cookie.AddedCookies) //Cookies
-            {
-                await writer.WriteAsync("Set-Cookie: ").ConfigureAwait(false);
-                await writer.WriteLineAsync(cookie.Value.ToString()).ConfigureAwait(false);
-            }
-            await writer.WriteLineAsync().ConfigureAwait(false);
-            try { await writer.FlushAsync().ConfigureAwait(false); }
-            catch (ObjectDisposedException)
-            {
-                WebServerLog.Add(ServerLogType.Error, GetType(), "Send", "Connection closed by remote host.");
-                return;
-            }
-            catch (IOException)
-            {
-                WebServerLog.Add(ServerLogType.Error, GetType(), "Send", "Connection closed by remote host.");
-                return;
-            }
-            //Daten senden
-            if (!(task.Document.Information.ContainsKey("Only Header") && (bool)task.Document.Information["Only Header"]!))
-                for (int i = 0; i < task.Document.DataSources.Count; ++i)
+#pragma warning disable CA2000 // must not dispose: would close the still-needed connection stream, and StreamWriter's default no-BOM encoding must not be swapped just to add leaveOpen
+                var writer = new StreamWriter(stream);
+#pragma warning restore CA2000
+                await writer.WriteAsync(header.HttpProtocol).ConfigureAwait(false);
+                await writer.WriteAsync(" ").ConfigureAwait(false);
+                await writer.WriteAsync(((int)header.StatusCode).ToString(CultureInfo.InvariantCulture)).ConfigureAwait(false);
+                await writer.WriteAsync(" ").ConfigureAwait(false);
+                await writer.WriteLineAsync(StatusCodeText(header.StatusCode)).ConfigureAwait(false);
+                for (int i = 0; i < header.HeaderParameter.Count; ++i) //Parameter
                 {
-                    await task.Document.DataSources[i].WriteStream(stream).ConfigureAwait(false);
+                    var e = header.HeaderParameter.ElementAt(i);
+                    await writer.WriteAsync(WebServerUtils.RemoveCrLf(e.Key)).ConfigureAwait(false);
+                    await writer.WriteAsync(": ").ConfigureAwait(false);
+                    await writer.WriteLineAsync(WebServerUtils.RemoveCrLf(e.Value)).ConfigureAwait(false);
                 }
-            try { await stream.FlushAsync().ConfigureAwait(false); }
+                foreach (var cookie in task.Request.Cookie.AddedCookies) //Cookies
+                {
+                    await writer.WriteAsync("Set-Cookie: ").ConfigureAwait(false);
+                    await writer.WriteLineAsync(cookie.Value.ToString()).ConfigureAwait(false);
+                }
+                await writer.WriteLineAsync().ConfigureAwait(false);
+                try { await writer.FlushAsync().ConfigureAwait(false); }
+                catch (ObjectDisposedException)
+                {
+                    logger.LogInformation(SendEventId, "Connection closed by remote host.");
+                    return;
+                }
+                catch (IOException)
+                {
+                    logger.LogInformation(SendEventId, "Connection closed by remote host.");
+                    return;
+                }
+                //Daten senden
+                try
+                {
+                    if (!(task.Document.Information.ContainsKey("Only Header") && (bool)task.Document.Information["Only Header"]!))
+                        for (int i = 0; i < task.Document.DataSources.Count; ++i)
+                        {
+                            await task.Document.DataSources[i].WriteStream(stream).ConfigureAwait(false);
+                        }
+                }
+                catch (ObjectDisposedException)
+                {
+                    logger.LogInformation(SendEventId, "Connection closed by remote host.");
+                    return;
+                }
+                catch (IOException)
+                {
+                    logger.LogInformation(SendEventId, "Connection closed by remote host.");
+                    return;
+                }
+                try { await stream.FlushAsync().ConfigureAwait(false); }
+                catch (IOException)
+                {
+                    logger.LogInformation(SendEventId, "Connection closed by remote host.");
+                    return;
+                }
+            }
+            finally
+            {
+                // must run however the try block above exits: this is the only place the request's POST data
+                // (and its temp files) is disposed
+                await DisposeRequestPostAsync(task).ConfigureAwait(false);
+            }
+        }
+
+        /// <summary>
+        /// Disposes <paramref name="task" />'s request POST data (temp files included), logging and marking the
+        /// connection for closure on failure. Every <c>SendResponse</c>-stage sender must call this exactly once,
+        /// from a <c>finally</c> block around its response transmission.
+        /// </summary>
+        protected static async Task DisposeRequestPostAsync(WebProgressTask task)
+        {
+            ArgumentNullException.ThrowIfNull(task);
+            try
+            {
+                await task.Request.Post.DisposeAsync().ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+                logger.LogWarning(DisposeEventId,
+                    "Timed out while disposing request content; closing the connection");
+                task.Request.FieldConnection = HttpConnectionType.Close;
+            }
             catch (IOException)
             {
-                WebServerLog.Add(ServerLogType.Error, GetType(), "Send", "Connection closed by remote host.");
-                return;
+                // an ordinary connection reset while draining unread POST data: log it like the other
+                // broken-connection paths instead of letting it reach Server.ProcessTask's catch-all
+                logger.LogInformation(DisposeEventId, "Connection closed by remote host.");
+                task.Request.FieldConnection = HttpConnectionType.Close;
             }
         }
 
