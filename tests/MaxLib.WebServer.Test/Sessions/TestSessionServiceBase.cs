@@ -297,5 +297,46 @@ namespace MaxLib.WebServer.Test.Sessions
             Assert.IsFalse(cookie.Secure);
             Assert.AreEqual(HttpCookie.SameSiteMode.Lax, cookie.SameSite);
         }
+
+        [TestMethod]
+        public async Task TestSessionCookieMaxAgeIsClampedForAMaxAgeBeyondInt32Seconds()
+        {
+            // ~100 years exceeds int.MaxValue seconds; an unchecked cast would wrap to a negative
+            // Max-Age and make the browser drop the session cookie immediately
+            var server = new TestWebServer();
+            var service = new MemorySessionService { MaxAge = TimeSpan.FromDays(365 * 100) };
+            server.AddWebService(service);
+            var test = new TestTask(server)
+            {
+                CurrentStage = ServerStage.ParseRequest,
+                TerminationStage = ServerStage.ParseRequest,
+            };
+
+            await service.ProgressTask(test.Task).ConfigureAwait(false);
+
+            var cookie = test.GetAddedCookies().Single().Item2;
+            Assert.AreEqual(int.MaxValue, cookie.MaxAge);
+            Assert.IsTrue(cookie.Expires > DateTime.UtcNow.AddDays(365 * 99));
+        }
+
+        [TestMethod]
+        public async Task TestSessionCookieExpiresIsClampedForAMaxAgeBeyondDateTimeMaxValue()
+        {
+            var server = new TestWebServer();
+            var service = new MemorySessionService { MaxAge = TimeSpan.MaxValue };
+            server.AddWebService(service);
+            var test = new TestTask(server)
+            {
+                CurrentStage = ServerStage.ParseRequest,
+                TerminationStage = ServerStage.ParseRequest,
+            };
+
+            await service.ProgressTask(test.Task).ConfigureAwait(false);
+
+            var cookie = test.GetAddedCookies().Single().Item2;
+            Assert.AreEqual(int.MaxValue, cookie.MaxAge);
+            Assert.AreEqual(DateTime.MaxValue, cookie.Expires);
+            StringAssert.Contains(cookie.ToString(), "Max-Age=2147483647");
+        }
     }
 }
