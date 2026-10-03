@@ -120,5 +120,29 @@ namespace MaxLib.WebServer.Test.WebSocket
             Assert.AreEqual("Chat", task.Response.GetHeader("Sec-WebSocket-Protocol"),
                 "the response must echo the client's own casing, not the endpoint's");
         }
+
+        [TestMethod]
+        [DataRow("websocket")]
+        [DataRow("WebSocket")]
+        [DataRow("WEBSOCKET")]
+        public void TestCanWorkWithAcceptsTheUpgradeValueRegardlessOfCase(string upgrade)
+        {
+            // RFC 6455 section 4.2.1: the Upgrade header value is case-insensitive
+            var service = new WebSocketService();
+            var task = CreateUpgradeTask();
+            task.Request.SetHeader("Upgrade", upgrade);
+
+            Assert.IsTrue(service.CanWorkWith(task));
+        }
+
+        [TestMethod]
+        public void TestCanWorkWithRejectsANonWebSocketUpgrade()
+        {
+            var service = new WebSocketService();
+            var task = CreateUpgradeTask();
+            task.Request.SetHeader("Upgrade", "h2c");
+
+            Assert.IsFalse(service.CanWorkWith(task));
+        }
     }
 }

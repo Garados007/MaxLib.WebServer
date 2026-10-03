@@ -35,7 +35,8 @@ namespace MaxLib.WebServer.WebSocket
         public override bool CanWorkWith(WebProgressTask task)
         {
             ArgumentNullException.ThrowIfNull(task);
-            return task.Request.GetHeader("Upgrade") == "websocket" &&
+            // RFC 6455 section 4.2.1: the Upgrade value is case-insensitive
+            return string.Equals(task.Request.GetHeader("Upgrade"), "websocket", StringComparison.OrdinalIgnoreCase) &&
                 (task.Request.GetHeader("Connection")?.Contains("upgrade", StringComparison.OrdinalIgnoreCase) ?? false);
         }
 
