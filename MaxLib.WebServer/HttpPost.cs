@@ -47,9 +47,12 @@ namespace MaxLib.WebServer
                 var ind = mime.IndexOf(';', StringComparison.Ordinal);
                 if (ind >= 0)
                 {
-                    args = mime[(ind + 1)..];
+                    args = mime[(ind + 1)..].Trim();
                     mime = mime[..ind];
                 }
+                // RFC 9110 allows optional whitespace around the `;`, which would otherwise make
+                // the DataHandler lookup miss
+                mime = mime.Trim();
             }
             MimeType = mime;
 
