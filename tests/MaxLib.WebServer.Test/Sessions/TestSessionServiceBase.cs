@@ -155,6 +155,37 @@ namespace MaxLib.WebServer.Test.Sessions
         }
 
         [TestMethod]
+        public async Task TestProgressTaskReusesAnExistingSessionIdWithAMaxAgeOfTimeSpanMaxValue()
+        {
+            // the expiry check on a returning client's session must not compute LastUsed + MaxAge,
+            // which overflows DateTime for a huge MaxAge
+            var server = new TestWebServer();
+            var service = new MemorySessionService { MaxAge = TimeSpan.MaxValue };
+            server.AddWebService(service);
+
+            var first = new TestTask(server)
+            {
+                CurrentStage = ServerStage.ParseRequest,
+                TerminationStage = ServerStage.ParseRequest,
+            };
+            await service.ProgressTask(first.Task).ConfigureAwait(false);
+            var issuedKey = first.GetAddedCookies().Single().Item2.ValueString;
+            first.Task.Session!["marker"] = "hello";
+
+            var second = new TestTask(server)
+            {
+                CurrentStage = ServerStage.ParseRequest,
+                TerminationStage = ServerStage.ParseRequest,
+            };
+            second.Request.HeaderParameter.Add("Cookie", $"Session={WebServerUtils.EncodeUri(issuedKey)}");
+
+            await service.ProgressTask(second.Task).ConfigureAwait(false);
+
+            Assert.AreEqual(0, second.GetAddedCookies().Count());
+            Assert.AreEqual("hello", second.Task.Session!["marker"]);
+        }
+
+        [TestMethod]
         public async Task TestRotateSessionKeyMigratesDataAndChangesTheCookie()
         {
             var server = new TestWebServer();
