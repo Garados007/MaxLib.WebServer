@@ -18,13 +18,20 @@ namespace MaxLib.WebServer.Sessions
 
         private readonly object sessionsLock = new();
 
+        /// <summary>
+        /// Same as <c>lastUsed + MaxAge &lt; now</c>, but subtracts instead: the addition
+        /// overflows <see cref="DateTime" /> for a huge <see cref="SessionServiceBase.MaxAge" />.
+        /// </summary>
+        private bool IsExpired(DateTime lastUsed, DateTime now)
+            => now - lastUsed > MaxAge;
+
         protected override ValueTask<Session> Get(string key)
         {
             _ = key ?? throw new ArgumentNullException(nameof(key));
             Session? value;
             lock (sessionsLock)
             {
-                if (Sessions.TryGetValue(key, out value) && value.LastUsed + MaxAge < DateTime.UtcNow)
+                if (Sessions.TryGetValue(key, out value) && IsExpired(value.LastUsed, DateTime.UtcNow))
                     // expired: never resurrect stale data under an old id, and drop it here
                     // instead of paying for a full sweep on every single request
                     value = null;
@@ -41,7 +48,7 @@ namespace MaxLib.WebServer.Sessions
                 // an expired entry counts as gone, consistent with Get(string); otherwise an expired but unswept key
                 // would be reused for a new session, reopening session fixation
                 return new ValueTask<bool>(
-                    !Sessions.TryGetValue(key, out var value) || value.LastUsed + MaxAge < DateTime.UtcNow);
+                    !Sessions.TryGetValue(key, out var value) || IsExpired(value.LastUsed, DateTime.UtcNow));
         }
 
         protected override ValueTask Remove(string key)
@@ -84,7 +91,7 @@ namespace MaxLib.WebServer.Sessions
                 List<string>? expired = null;
                 foreach (var (key, session) in Sessions)
                 {
-                    if (session.LastUsed + MaxAge < now)
+                    if (IsExpired(session.LastUsed, now))
                         (expired ??= new List<string>()).Add(key);
                     else if (oldestSurviving is null || session.LastUsed < oldestSurviving)
                         oldestSurviving = session.LastUsed;
@@ -146,9 +153,18 @@ namespace MaxLib.WebServer.Sessions
         public void RunAutomaticSweep(object? state = null)
         {
             var oldestSurviving = Sweep();
-            var delay = oldestSurviving is DateTime oldest
-                ? oldest + MaxAge + AutomaticSweepMargin - DateTime.UtcNow
-                : AutomaticSweepMargin;
+            var delay = AutomaticSweepMargin;
+            if (oldestSurviving is DateTime oldest)
+            {
+                // `oldest + MaxAge` overflows DateTime for a huge MaxAge, so work with the remaining
+                // lifetime instead and cap it before adding the margin. A LastUsed in the future
+                // (clock moved back) counts as just used, so the subtraction can't overflow either.
+                var elapsed = DateTime.UtcNow - oldest;
+                var remaining = MaxAge - (elapsed < TimeSpan.Zero ? TimeSpan.Zero : elapsed);
+                delay = remaining > MaxAutomaticSweepDelay
+                    ? MaxAutomaticSweepDelay
+                    : remaining + AutomaticSweepMargin;
+            }
             if (delay < TimeSpan.Zero)
                 delay = TimeSpan.Zero;
             else if (delay > MaxAutomaticSweepDelay)

@@ -121,5 +121,42 @@ namespace MaxLib.WebServer.Test.Sessions
             Assert.IsTrue(service.Sessions.ContainsKey("long-lived"),
                 "the still-live session must survive the sweep");
         }
+
+        [TestMethod]
+        public void TestSweepKeepsEverySessionWithAMaxAgeOfTimeSpanMaxValue()
+        {
+            // LastUsed + MaxAge overflows DateTime here; the expiry check must not compute it
+            var service = new MemorySessionService { MaxAge = TimeSpan.MaxValue };
+            var lastUsed = DateTime.UtcNow - TimeSpan.FromDays(365 * 100);
+            service.Sessions["ancient"] = new Session { LastUsed = lastUsed };
+
+            var oldestSurviving = service.Sweep();
+
+            Assert.IsTrue(service.Sessions.ContainsKey("ancient"));
+            Assert.AreEqual(lastUsed, oldestSurviving);
+        }
+
+        [TestMethod]
+        [DataRow(0)]
+        [DataRow(60)] // LastUsed in the future, e.g. after the clock was moved back
+        public void TestRunAutomaticSweepDoesNotCrashWithAMaxAgeOfTimeSpanMaxValue(int lastUsedOffsetMinutes)
+        {
+            // the reschedule delay must not compute oldest + MaxAge either; this runs on a timer
+            // thread, where an exception would take down the process
+            var service = new MemorySessionService { MaxAge = TimeSpan.MaxValue };
+            service.Sessions["long-lived"] = new Session
+            {
+                LastUsed = DateTime.UtcNow + TimeSpan.FromMinutes(lastUsedOffsetMinutes),
+            };
+            using var timer = new Timer(_ => { }, null, Timeout.InfiniteTimeSpan, Timeout.InfiniteTimeSpan);
+            var sweepTimerField = typeof(MemorySessionService).GetField(
+                "sweepTimer", BindingFlags.NonPublic | BindingFlags.Instance);
+            Assert.IsNotNull(sweepTimerField, "test relies on MemorySessionService's private sweepTimer field");
+            sweepTimerField!.SetValue(service, timer);
+
+            service.RunAutomaticSweep();
+
+            Assert.IsTrue(service.Sessions.ContainsKey("long-lived"));
+        }
     }
 }

@@ -124,12 +124,19 @@ namespace MaxLib.WebServer.Sessions
                 CookieSecurityMode.Lax => false,
                 _ => task.NetworkStream is SslStream,
             };
+            // clamp both values: an unchecked cast of a MaxAge above ~68 years wraps to a negative
+            // Max-Age (the browser drops the cookie at once) and a huge MaxAge overflows DateTime
+            var now = DateTime.UtcNow;
+            var expires = MaxAge >= DateTime.MaxValue - now
+                ? DateTime.SpecifyKind(DateTime.MaxValue, DateTimeKind.Utc)
+                : now + MaxAge;
+            var maxAge = (int)Math.Min(MaxAge.TotalSeconds, int.MaxValue);
             task.Request.Cookie.AddedCookies["Session"] =
                 new HttpCookie.Cookie(
                     "Session",
                     key,
-                    DateTime.UtcNow + MaxAge,
-                    (int)MaxAge.TotalSeconds,
+                    expires,
+                    maxAge,
                     CookiePath,
                     httpOnly: true,
                     secure: strict,
