@@ -34,7 +34,7 @@ namespace MaxLib.WebServer.Services
             switch ((int)code)
             {
                 case 100: return "Continue";
-                case 101: return "Switching Protcols";
+                case 101: return "Switching Protocols";
                 case 102: return "Processing";
                 case 200: return "OK";
                 case 201: return "Created";
@@ -45,7 +45,7 @@ namespace MaxLib.WebServer.Services
                 case 206: return "Partial Content";
                 case 207: return "Multi-Status";
                 case 208: return "IM Used";
-                case 300: return "Multiple Choises";
+                case 300: return "Multiple Choices";
                 case 301: return "Moved Permanently";
                 case 302: return "Found";
                 case 303: return "See Other";
@@ -54,7 +54,7 @@ namespace MaxLib.WebServer.Services
                 case 307: return "Temporary Redirect";
                 case 308: return "Permanent Redirect";
                 case 400: return "Bad Request";
-                case 401: return "Unathorized";
+                case 401: return "Unauthorized";
                 case 402: return "Payment Required";
                 case 403: return "Forbidden";
                 case 404: return "Not Found";
