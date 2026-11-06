@@ -72,6 +72,8 @@ namespace MaxLib.WebServer
 
         public void Clear()
         {
+            foreach (var service in Services)
+                service.PriorityChanged -= Service_PriorityChanged;
             Services.Clear();
         }
 
